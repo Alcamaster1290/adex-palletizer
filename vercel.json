@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd adex-palletizer-web && npm install",
+  "buildCommand": "cd adex-palletizer-web && npm run build",
+  "outputDirectory": "adex-palletizer-web/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

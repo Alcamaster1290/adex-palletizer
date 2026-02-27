@@ -27,12 +27,13 @@ npm run preview
 Este proyecto esta preparado para desplegarse como app Vite estatica en Vercel.
 
 1. Importa el repositorio en Vercel.
-2. En Project Settings -> Root Directory, selecciona `adex-palletizer-web`.
-3. Verifica (o deja por defecto) estos valores:
+2. Si el repo contiene esta app dentro de una subcarpeta (ejemplo: `adex-palletizer-web/`), usa el `vercel.json` de la raiz para build automatico sin cambiar Root Directory.
+3. Si prefieres configurar por dashboard, en Project Settings -> Root Directory selecciona `adex-palletizer-web`.
+4. Verifica (o deja por defecto) estos valores:
    - Install Command: `npm install`
    - Build Command: `npm run build`
    - Output Directory: `dist`
-4. Deploy.
+5. Deploy.
 
 Notas:
 
