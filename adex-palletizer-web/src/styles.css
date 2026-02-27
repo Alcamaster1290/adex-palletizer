@@ -368,6 +368,69 @@ button:disabled {
   line-height: 1;
 }
 
+.top-view-panel {
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: #fffcf6;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.top-view-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.top-view-title-row h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.top-view-title-row span {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.top-view-svg {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: #fffef9;
+}
+
+.top-view-pallet {
+  fill: #efe1cd;
+  stroke: #b48f66;
+  stroke-width: 2;
+}
+
+.top-view-box {
+  fill: rgba(15, 111, 117, 0.28);
+  stroke: #0f6f75;
+  stroke-width: 1;
+}
+
+.top-view-metrics {
+  display: grid;
+  gap: 4px;
+}
+
+.top-view-metrics p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.top-view-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .error-box {
   border: 1px solid var(--danger-line);
   background: var(--danger-bg);

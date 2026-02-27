@@ -6,6 +6,7 @@ import { buildMultiPreview } from './multiPreview'
 import { Scene } from './scene/Scene'
 import { SceneMulti } from './scene/SceneMulti'
 import { solvePalletization } from './solver'
+import { TopViewLayer } from './top-view/TopViewLayer'
 import type { DimensionsMM, MultiBoxTypeInput, SolverInput } from './types'
 
 const DEFAULT_INPUT: SolverInput = {
@@ -874,6 +875,13 @@ function App() {
                 <strong>{formatInt.format(result.totalHeight)} mm</strong>
               </article>
             </div>
+
+            <TopViewLayer
+              palletLength={appliedInput.pallet.length}
+              palletWidth={appliedInput.pallet.width}
+              selected={result.selected}
+              layers={result.layers}
+            />
 
             {result.errors.length > 0 && (
               <div className="error-box">
