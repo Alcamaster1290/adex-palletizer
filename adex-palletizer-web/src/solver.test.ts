@@ -1,4 +1,4 @@
-import { selectBestOrientation, solvePalletization } from './solver'
+import { buildBoxInstances, selectBestOrientation, solvePalletization } from './solver'
 import type { OrientationPlan, SolverInput } from './types'
 
 describe('solvePalletization', () => {
@@ -70,6 +70,39 @@ describe('solvePalletization', () => {
     expect(selected.utilization).toBe(0.65)
   })
 
+  it('en empate total mantiene orientacion A para asegurar determinismo', () => {
+    const planA: OrientationPlan = {
+      orientation: 'LxW',
+      boxFootprintL: 600,
+      boxFootprintW: 400,
+      nx: 2,
+      ny: 2,
+      perLayer: 4,
+      utilization: 0.8,
+      areaUsed: 800000,
+      areaFree: 200000,
+      residualLength: 0,
+      residualWidth: 100,
+    }
+    const planB: OrientationPlan = {
+      orientation: 'WxL',
+      boxFootprintL: 400,
+      boxFootprintW: 600,
+      nx: 2,
+      ny: 2,
+      perLayer: 4,
+      utilization: 0.8,
+      areaUsed: 800000,
+      areaFree: 200000,
+      residualLength: 100,
+      residualWidth: 0,
+    }
+
+    const selected = selectBestOrientation(planA, planB)
+
+    expect(selected).toBe(planA)
+  })
+
   it('si maxTotalHeight es menor o igual al pallet, retorna layers 0 y error', () => {
     const input: SolverInput = {
       pallet: { length: 1200, width: 1000, height: 150 },
@@ -121,5 +154,36 @@ describe('solvePalletization', () => {
     expect(result.availableHeight).toBe(1050)
     expect(result.freeHeight).toBe(150)
     expect(result.candidates.length).toBe(2)
+  })
+
+  it('buildBoxInstances respeta conteo y posiciones base del solver single', () => {
+    const input: SolverInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      box: { length: 500, width: 350, height: 450 },
+      maxTotalHeight: 1200,
+      allowRotation: true,
+      overhang: 0,
+    }
+
+    const result = solvePalletization(input)
+    const boxes = buildBoxInstances(input, result)
+
+    expect(boxes).toHaveLength(12)
+    expect(boxes[0]).toEqual({
+      x: -425,
+      y: 375,
+      z: -250,
+      length: 350,
+      width: 500,
+      height: 450,
+    })
+    expect(boxes[11]).toEqual({
+      x: 275,
+      y: 825,
+      z: 250,
+      length: 350,
+      width: 500,
+      height: 450,
+    })
   })
 })
