@@ -6,6 +6,7 @@ import { buildMultiPreview } from './multiPreview'
 import { Scene } from './scene/Scene'
 import { SceneMulti } from './scene/SceneMulti'
 import { solvePalletization } from './solver'
+import { TopViewLayer } from './top-view/TopViewLayer'
 import type { DimensionsMM, MultiBoxTypeInput, SolverInput } from './types'
 
 const DEFAULT_INPUT: SolverInput = {
@@ -22,6 +23,19 @@ const DEFAULT_INPUT: SolverInput = {
 
 type BoxSection = 'pallet' | 'box'
 type TabKey = 'single' | 'multi'
+type FieldErrors = Record<string, string>
+
+type SingleFieldId =
+  | 'pallet-length'
+  | 'pallet-width'
+  | 'pallet-height'
+  | 'box-length'
+  | 'box-width'
+  | 'box-height'
+  | 'max-total-height'
+  | 'overhang'
+
+type SingleFieldValues = Record<SingleFieldId, string>
 
 interface MultiDraftState {
   pallet: DimensionsMM
@@ -34,18 +48,31 @@ interface MultiDraftState {
 interface NumberFieldProps {
   id: string
   label: string
-  value: number
+  value: string
+  error?: string
   min?: number
   max?: number
   step?: number
   unit?: string
-  onChange: (value: number) => void
+  onChange: (value: string) => void
+}
+
+interface IntegerValidationConfig {
+  label: string
+  min: number
+  max?: number
+}
+
+interface ValidationResult {
+  value: number | null
+  error: string | null
 }
 
 function NumberField({
   id,
   label,
   value,
+  error,
   min,
   max,
   step = 1,
@@ -65,11 +92,17 @@ function NumberField({
         min={min}
         max={max}
         value={value}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
         onChange={(event) => {
-          const parsed = Number(event.target.value)
-          onChange(Number.isFinite(parsed) ? parsed : 0)
+          onChange(event.target.value)
         }}
       />
+      {error && (
+        <small id={`${id}-error`} className="field-error" role="alert">
+          {error}
+        </small>
+      )}
     </label>
   )
 }
@@ -156,6 +189,112 @@ function areMultiStatesEqual(left: MultiDraftState, right: MultiDraftState) {
   return true
 }
 
+function validateIntegerInput(
+  rawValue: string,
+  config: IntegerValidationConfig,
+): ValidationResult {
+  const value = rawValue.trim()
+
+  if (value.length === 0) {
+    return {
+      value: null,
+      error: `${config.label} es obligatorio.`,
+    }
+  }
+
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    return {
+      value: null,
+      error: `${config.label} debe ser numerico.`,
+    }
+  }
+
+  if (!Number.isInteger(parsed)) {
+    return {
+      value: null,
+      error: `${config.label} debe ser un entero.`,
+    }
+  }
+
+  if (parsed < config.min) {
+    return {
+      value: null,
+      error: `${config.label} debe ser mayor o igual a ${config.min}.`,
+    }
+  }
+
+  if (config.max !== undefined && parsed > config.max) {
+    return {
+      value: null,
+      error: `${config.label} debe ser menor o igual a ${config.max}.`,
+    }
+  }
+
+  return {
+    value: parsed,
+    error: null,
+  }
+}
+
+function upsertFieldError(
+  currentErrors: FieldErrors,
+  fieldId: string,
+  error: string | null,
+): FieldErrors {
+  const next = { ...currentErrors }
+  if (error) {
+    next[fieldId] = error
+  } else {
+    delete next[fieldId]
+  }
+  return next
+}
+
+function buildSingleFieldValues(input: SolverInput): SingleFieldValues {
+  return {
+    'pallet-length': String(input.pallet.length),
+    'pallet-width': String(input.pallet.width),
+    'pallet-height': String(input.pallet.height),
+    'box-length': String(input.box.length),
+    'box-width': String(input.box.width),
+    'box-height': String(input.box.height),
+    'max-total-height': String(input.maxTotalHeight),
+    overhang: String(input.overhang),
+  }
+}
+
+function getMultiBoxFieldId(
+  typeId: number,
+  field: 'length' | 'width' | 'height' | 'units',
+) {
+  return `multi-box-${field}-${typeId}`
+}
+
+function buildMultiFieldValues(state: MultiDraftState): Record<string, string> {
+  const values: Record<string, string> = {
+    'multi-pallet-length': String(state.pallet.length),
+    'multi-pallet-width': String(state.pallet.width),
+    'multi-pallet-height': String(state.pallet.height),
+    'multi-max-total-height': String(state.maxTotalHeight),
+    'multi-overhang': String(state.overhang),
+    'multi-type-count': String(state.boxTypes.length),
+  }
+
+  state.boxTypes.forEach((boxType) => {
+    values[getMultiBoxFieldId(boxType.id, 'length')] = String(boxType.length)
+    values[getMultiBoxFieldId(boxType.id, 'width')] = String(boxType.width)
+    values[getMultiBoxFieldId(boxType.id, 'height')] = String(boxType.height)
+    values[getMultiBoxFieldId(boxType.id, 'units')] = String(boxType.units)
+  })
+
+  return values
+}
+
+function buildMultiAllowedFieldIds(state: MultiDraftState): Set<string> {
+  return new Set(Object.keys(buildMultiFieldValues(state)))
+}
+
 const formatInt = new Intl.NumberFormat('es-ES')
 const percentFormatter = new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 2,
@@ -166,11 +305,19 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('single')
 
   const [draftInput, setDraftInput] = useState<SolverInput>(DEFAULT_INPUT)
+  const [singleFieldValues, setSingleFieldValues] = useState<SingleFieldValues>(() =>
+    buildSingleFieldValues(DEFAULT_INPUT),
+  )
+  const [singleFieldErrors, setSingleFieldErrors] = useState<FieldErrors>({})
   const [appliedInput, setAppliedInput] = useState<SolverInput>(DEFAULT_INPUT)
   const [singleCanvas, setSingleCanvas] = useState<HTMLCanvasElement | null>(null)
   const [lastCalculatedAt, setLastCalculatedAt] = useState<Date>(new Date())
 
   const [multiDraft, setMultiDraft] = useState<MultiDraftState>(DEFAULT_MULTI_STATE)
+  const [multiFieldValues, setMultiFieldValues] = useState<Record<string, string>>(() =>
+    buildMultiFieldValues(DEFAULT_MULTI_STATE),
+  )
+  const [multiFieldErrors, setMultiFieldErrors] = useState<FieldErrors>({})
   const [multiApplied, setMultiApplied] = useState<MultiDraftState>(DEFAULT_MULTI_STATE)
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date>(new Date())
 
@@ -187,50 +334,99 @@ function App() {
     [multiApplied],
   )
 
+  const singleHasValidationErrors = Object.keys(singleFieldErrors).length > 0
+  const multiHasValidationErrors = Object.keys(multiFieldErrors).length > 0
+
   const hasPendingSingle = useMemo(
-    () => !areInputsEqual(draftInput, appliedInput),
-    [draftInput, appliedInput],
+    () => singleHasValidationErrors || !areInputsEqual(draftInput, appliedInput),
+    [draftInput, appliedInput, singleHasValidationErrors],
   )
   const hasPendingMulti = useMemo(
-    () => !areMultiStatesEqual(multiDraft, multiApplied),
-    [multiDraft, multiApplied],
+    () => multiHasValidationErrors || !areMultiStatesEqual(multiDraft, multiApplied),
+    [multiDraft, multiApplied, multiHasValidationErrors],
   )
 
+  const setSingleValueAndValidation = (
+    fieldId: SingleFieldId,
+    rawValue: string,
+    config: IntegerValidationConfig,
+    applyValue: (value: number) => void,
+  ) => {
+    setSingleFieldValues((current) => ({
+      ...current,
+      [fieldId]: rawValue,
+    }))
+
+    const validation = validateIntegerInput(rawValue, config)
+    setSingleFieldErrors((current) =>
+      upsertFieldError(current, fieldId, validation.error),
+    )
+
+    if (validation.value !== null) {
+      applyValue(validation.value)
+    }
+  }
+
   const updateSingleDimensions = (
+    fieldId: SingleFieldId,
     section: BoxSection,
     key: keyof DimensionsMM,
-    value: number,
+    value: string,
   ) => {
-    setDraftInput((current) => {
-      const nextValue =
-        section === 'box'
-          ? Math.max(MIN_MASTER_BOX[key], value)
-          : Math.max(1, Math.floor(value))
+    const minValue = section === 'box' ? MIN_MASTER_BOX[key] : 1
+    const label =
+      section === 'box'
+        ? `El ${key === 'length' ? 'largo' : key === 'width' ? 'ancho' : 'alto'} de la caja`
+        : `El ${key === 'length' ? 'largo' : key === 'width' ? 'ancho' : 'alto'} del pallet`
 
-      return {
-        ...current,
-        [section]: {
-          ...current[section],
-          [key]: nextValue,
-        },
-      }
-    })
+    setSingleValueAndValidation(
+      fieldId,
+      value,
+      {
+        label,
+        min: minValue,
+      },
+      (nextValue) => {
+        setDraftInput((current) => ({
+          ...current,
+          [section]: {
+            ...current[section],
+            [key]: nextValue,
+          },
+        }))
+      },
+    )
   }
 
   const updateSingleInputField = (
+    fieldId: SingleFieldId,
     field: 'maxTotalHeight' | 'overhang',
-    value: number,
+    value: string,
   ) => {
-    setDraftInput((current) => ({
-      ...current,
-      [field]:
-        field === 'maxTotalHeight'
-          ? Math.max(1, Math.floor(value))
-          : Math.max(0, Math.floor(value)),
-    }))
+    const config: IntegerValidationConfig =
+      field === 'maxTotalHeight'
+        ? {
+            label: 'La altura maxima total',
+            min: 1,
+          }
+        : {
+            label: 'El overhang',
+            min: 0,
+          }
+
+    setSingleValueAndValidation(fieldId, value, config, (nextValue) => {
+      setDraftInput((current) => ({
+        ...current,
+        [field]: nextValue,
+      }))
+    })
   }
 
   const runSingleCalculation = () => {
+    if (singleHasValidationErrors) {
+      return
+    }
+
     setAppliedInput(cloneInput(draftInput))
     setLastCalculatedAt(new Date())
   }
@@ -239,95 +435,206 @@ function App() {
     const next = cloneInput(DEFAULT_INPUT)
     setDraftInput(next)
     setAppliedInput(next)
+    setSingleFieldValues(buildSingleFieldValues(next))
+    setSingleFieldErrors({})
     setLastCalculatedAt(new Date())
   }
 
-  const updateMultiPallet = (field: keyof DimensionsMM, value: number) => {
-    setMultiDraft((current) => ({
+  const setMultiValueAndValidation = (
+    fieldId: string,
+    rawValue: string,
+    config: IntegerValidationConfig,
+    applyValue: (value: number) => void,
+  ) => {
+    setMultiFieldValues((current) => ({
       ...current,
-      pallet: {
-        ...current.pallet,
-        [field]: Math.max(1, Math.floor(value)),
-      },
+      [fieldId]: rawValue,
     }))
+
+    const validation = validateIntegerInput(rawValue, config)
+    setMultiFieldErrors((current) =>
+      upsertFieldError(current, fieldId, validation.error),
+    )
+
+    if (validation.value !== null) {
+      applyValue(validation.value)
+    }
+  }
+
+  const updateMultiPallet = (field: keyof DimensionsMM, value: string) => {
+    const fieldId = `multi-pallet-${field}`
+    const label = `El ${field === 'length' ? 'largo' : field === 'width' ? 'ancho' : 'alto'} del pallet`
+
+    setMultiValueAndValidation(
+      fieldId,
+      value,
+      {
+        label,
+        min: 1,
+      },
+      (nextValue) => {
+        setMultiDraft((current) => ({
+          ...current,
+          pallet: {
+            ...current.pallet,
+            [field]: nextValue,
+          },
+        }))
+      },
+    )
   }
 
   const updateMultiCommon = (
     field: 'maxTotalHeight' | 'overhang' | 'allowRotation',
-    value: number | boolean,
+    value: string | boolean,
   ) => {
-    setMultiDraft((current) => {
-      if (field === 'allowRotation') {
-        return {
-          ...current,
-          allowRotation: Boolean(value),
-        }
-      }
-
-      return {
+    if (field === 'allowRotation') {
+      setMultiDraft((current) => ({
         ...current,
-        [field]:
-          field === 'maxTotalHeight'
-            ? Math.max(1, Math.floor(Number(value)))
-            : Math.max(0, Math.floor(Number(value))),
-      }
+        allowRotation: Boolean(value),
+      }))
+      return
+    }
+
+    const fieldId =
+      field === 'maxTotalHeight' ? 'multi-max-total-height' : 'multi-overhang'
+    const config: IntegerValidationConfig =
+      field === 'maxTotalHeight'
+        ? {
+            label: 'La altura maxima total',
+            min: 1,
+          }
+        : {
+            label: 'El overhang',
+            min: 0,
+          }
+
+    setMultiValueAndValidation(fieldId, String(value), config, (nextValue) => {
+      setMultiDraft((current) => ({
+        ...current,
+        [field]: nextValue,
+      }))
     })
   }
 
-  const handleMultiTypeCountChange = (value: number) => {
-    const nextCount = Math.max(1, Math.min(20, Math.floor(value)))
-    setMultiDraft((current) => {
-      const normalized = current.boxTypes.map((item, index) => ({
-        ...item,
-        id: index + 1,
-      }))
-      if (nextCount <= normalized.length) {
-        return {
-          ...current,
-          boxTypes: normalized.slice(0, nextCount),
+  const handleMultiTypeCountChange = (value: string) => {
+    const fieldId = 'multi-type-count'
+    setMultiFieldValues((current) => ({
+      ...current,
+      [fieldId]: value,
+    }))
+
+    const validation = validateIntegerInput(value, {
+      label: 'La cantidad de cajas maestras',
+      min: 1,
+      max: 20,
+    })
+
+    setMultiFieldErrors((current) =>
+      upsertFieldError(current, fieldId, validation.error),
+    )
+
+    if (validation.value === null) {
+      return
+    }
+
+    const nextCount = validation.value
+    const normalized = multiDraft.boxTypes.map((item, index) => ({
+      ...item,
+      id: index + 1,
+    }))
+
+    const nextBoxTypes: MultiBoxTypeInput[] =
+      nextCount <= normalized.length
+        ? normalized.slice(0, nextCount)
+        : [
+            ...normalized,
+            ...Array.from({ length: nextCount - normalized.length }, (_, index) =>
+              createDefaultMultiType(normalized.length + index + 1, 1),
+            ),
+          ]
+
+    const nextDraft: MultiDraftState = {
+      ...multiDraft,
+      boxTypes: nextBoxTypes,
+    }
+
+    setMultiDraft(nextDraft)
+
+    const allowedKeys = buildMultiAllowedFieldIds(nextDraft)
+    setMultiFieldErrors((current) => {
+      const filtered: FieldErrors = {}
+      Object.entries(current).forEach(([key, error]) => {
+        if (allowedKeys.has(key)) {
+          filtered[key] = error
         }
-      }
+      })
+      return filtered
+    })
 
-      const next = [...normalized]
-      for (let index = normalized.length; index < nextCount; index += 1) {
-        next.push(createDefaultMultiType(index + 1, 1))
-      }
+    setMultiFieldValues((current) => {
+      const defaults = buildMultiFieldValues(nextDraft)
+      const nextValues: Record<string, string> = {}
 
-      return {
-        ...current,
-        boxTypes: next,
-      }
+      Object.keys(defaults).forEach((key) => {
+        if (key === fieldId) {
+          nextValues[key] = String(nextCount)
+          return
+        }
+
+        nextValues[key] = current[key] ?? defaults[key]
+      })
+
+      return nextValues
     })
   }
 
   const updateMultiBox = (
     index: number,
     field: keyof Omit<MultiBoxTypeInput, 'id'>,
-    value: number,
+    value: string,
   ) => {
-    setMultiDraft((current) => ({
-      ...current,
-      boxTypes: current.boxTypes.map((item, rowIndex) => {
-        if (rowIndex !== index) {
-          return item
-        }
+    const currentType = multiDraft.boxTypes[index]
+    if (!currentType) {
+      return
+    }
 
-        if (field === 'units') {
+    const fieldId = getMultiBoxFieldId(currentType.id, field)
+    const config: IntegerValidationConfig =
+      field === 'units'
+        ? {
+            label: `Las unidades del tipo ${index + 1}`,
+            min: 1,
+          }
+        : {
+            label: `${
+              field === 'length' ? 'Largo' : field === 'width' ? 'Ancho' : 'Alto'
+            } del tipo ${index + 1}`,
+            min: MIN_MASTER_BOX[field],
+          }
+
+    setMultiValueAndValidation(fieldId, value, config, (nextValue) => {
+      setMultiDraft((current) => ({
+        ...current,
+        boxTypes: current.boxTypes.map((item, rowIndex) => {
+          if (rowIndex !== index) {
+            return item
+          }
+
           return {
             ...item,
-            units: Math.max(1, Math.floor(value)),
+            [field]: nextValue,
           }
-        }
-
-        return {
-          ...item,
-          [field]: Math.max(MIN_MASTER_BOX[field], Math.floor(value)),
-        }
-      }),
-    }))
+        }),
+      }))
+    })
   }
 
   const generateMulti3D = () => {
+    if (multiHasValidationErrors) {
+      return
+    }
+
     setMultiApplied(cloneMultiState(multiDraft))
     setLastGeneratedAt(new Date())
   }
@@ -336,6 +643,8 @@ function App() {
     const next = cloneMultiState(DEFAULT_MULTI_STATE)
     setMultiDraft(next)
     setMultiApplied(next)
+    setMultiFieldValues(buildMultiFieldValues(next))
+    setMultiFieldErrors({})
     setLastGeneratedAt(new Date())
   }
 
@@ -393,25 +702,30 @@ function App() {
                   id="pallet-length"
                   label="Largo"
                   min={1}
-                  value={draftInput.pallet.length}
+                  value={singleFieldValues['pallet-length']}
+                  error={singleFieldErrors['pallet-length']}
                   onChange={(value) =>
-                    updateSingleDimensions('pallet', 'length', value)
+                    updateSingleDimensions('pallet-length', 'pallet', 'length', value)
                   }
                 />
                 <NumberField
                   id="pallet-width"
                   label="Ancho"
                   min={1}
-                  value={draftInput.pallet.width}
-                  onChange={(value) => updateSingleDimensions('pallet', 'width', value)}
+                  value={singleFieldValues['pallet-width']}
+                  error={singleFieldErrors['pallet-width']}
+                  onChange={(value) =>
+                    updateSingleDimensions('pallet-width', 'pallet', 'width', value)
+                  }
                 />
                 <NumberField
                   id="pallet-height"
                   label="Alto"
                   min={1}
-                  value={draftInput.pallet.height}
+                  value={singleFieldValues['pallet-height']}
+                  error={singleFieldErrors['pallet-height']}
                   onChange={(value) =>
-                    updateSingleDimensions('pallet', 'height', value)
+                    updateSingleDimensions('pallet-height', 'pallet', 'height', value)
                   }
                 />
               </div>
@@ -422,22 +736,31 @@ function App() {
                   id="box-length"
                   label="Largo"
                   min={MIN_MASTER_BOX.length}
-                  value={draftInput.box.length}
-                  onChange={(value) => updateSingleDimensions('box', 'length', value)}
+                  value={singleFieldValues['box-length']}
+                  error={singleFieldErrors['box-length']}
+                  onChange={(value) =>
+                    updateSingleDimensions('box-length', 'box', 'length', value)
+                  }
                 />
                 <NumberField
                   id="box-width"
                   label="Ancho"
                   min={MIN_MASTER_BOX.width}
-                  value={draftInput.box.width}
-                  onChange={(value) => updateSingleDimensions('box', 'width', value)}
+                  value={singleFieldValues['box-width']}
+                  error={singleFieldErrors['box-width']}
+                  onChange={(value) =>
+                    updateSingleDimensions('box-width', 'box', 'width', value)
+                  }
                 />
                 <NumberField
                   id="box-height"
                   label="Alto"
                   min={MIN_MASTER_BOX.height}
-                  value={draftInput.box.height}
-                  onChange={(value) => updateSingleDimensions('box', 'height', value)}
+                  value={singleFieldValues['box-height']}
+                  error={singleFieldErrors['box-height']}
+                  onChange={(value) =>
+                    updateSingleDimensions('box-height', 'box', 'height', value)
+                  }
                 />
               </div>
 
@@ -447,15 +770,21 @@ function App() {
                   id="max-total-height"
                   label="Altura maxima total"
                   min={1}
-                  value={draftInput.maxTotalHeight}
-                  onChange={(value) => updateSingleInputField('maxTotalHeight', value)}
+                  value={singleFieldValues['max-total-height']}
+                  error={singleFieldErrors['max-total-height']}
+                  onChange={(value) =>
+                    updateSingleInputField('max-total-height', 'maxTotalHeight', value)
+                  }
                 />
                 <NumberField
                   id="overhang"
                   label="Overhang"
                   min={0}
-                  value={draftInput.overhang}
-                  onChange={(value) => updateSingleInputField('overhang', value)}
+                  value={singleFieldValues.overhang}
+                  error={singleFieldErrors.overhang}
+                  onChange={(value) =>
+                    updateSingleInputField('overhang', 'overhang', value)
+                  }
                 />
                 <label className="checkbox-row" htmlFor="allow-rotation">
                   <input
@@ -473,8 +802,12 @@ function App() {
                 </label>
               </div>
 
+              {singleHasValidationErrors && (
+                <p className="form-error">Corrige los campos marcados antes de calcular.</p>
+              )}
+
               <div className="action-row">
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="btn-primary" disabled={singleHasValidationErrors}>
                   {hasPendingSingle ? 'Calcular' : 'Recalcular'}
                 </button>
                 <button type="button" className="btn-secondary" onClick={resetSingle}>
@@ -542,6 +875,13 @@ function App() {
                 <strong>{formatInt.format(result.totalHeight)} mm</strong>
               </article>
             </div>
+
+            <TopViewLayer
+              palletLength={appliedInput.pallet.length}
+              palletWidth={appliedInput.pallet.width}
+              selected={result.selected}
+              layers={result.layers}
+            />
 
             {result.errors.length > 0 && (
               <div className="error-box">
@@ -643,21 +983,24 @@ function App() {
                   id="multi-pallet-length"
                   label="Largo"
                   min={1}
-                  value={multiDraft.pallet.length}
+                  value={multiFieldValues['multi-pallet-length']}
+                  error={multiFieldErrors['multi-pallet-length']}
                   onChange={(value) => updateMultiPallet('length', value)}
                 />
                 <NumberField
                   id="multi-pallet-width"
                   label="Ancho"
                   min={1}
-                  value={multiDraft.pallet.width}
+                  value={multiFieldValues['multi-pallet-width']}
+                  error={multiFieldErrors['multi-pallet-width']}
                   onChange={(value) => updateMultiPallet('width', value)}
                 />
                 <NumberField
                   id="multi-pallet-height"
                   label="Alto"
                   min={1}
-                  value={multiDraft.pallet.height}
+                  value={multiFieldValues['multi-pallet-height']}
+                  error={multiFieldErrors['multi-pallet-height']}
                   onChange={(value) => updateMultiPallet('height', value)}
                 />
               </div>
@@ -668,14 +1011,16 @@ function App() {
                   id="multi-max-total-height"
                   label="Altura maxima total"
                   min={1}
-                  value={multiDraft.maxTotalHeight}
+                  value={multiFieldValues['multi-max-total-height']}
+                  error={multiFieldErrors['multi-max-total-height']}
                   onChange={(value) => updateMultiCommon('maxTotalHeight', value)}
                 />
                 <NumberField
                   id="multi-overhang"
                   label="Overhang"
                   min={0}
-                  value={multiDraft.overhang}
+                  value={multiFieldValues['multi-overhang']}
+                  error={multiFieldErrors['multi-overhang']}
                   onChange={(value) => updateMultiCommon('overhang', value)}
                 />
                 <label className="checkbox-row" htmlFor="multi-allow-rotation">
@@ -699,7 +1044,8 @@ function App() {
                   min={1}
                   max={20}
                   unit="tipos"
-                  value={multiDraft.boxTypes.length}
+                  value={multiFieldValues['multi-type-count']}
+                  error={multiFieldErrors['multi-type-count']}
                   onChange={handleMultiTypeCountChange}
                 />
               </div>
@@ -709,40 +1055,48 @@ function App() {
                   <article key={item.id} className="multi-box-card">
                     <h4>Tipo {index + 1}</h4>
                     <NumberField
-                      id={`multi-box-length-${item.id}`}
+                      id={getMultiBoxFieldId(item.id, 'length')}
                       label="Largo"
                       min={MIN_MASTER_BOX.length}
-                      value={item.length}
+                      value={multiFieldValues[getMultiBoxFieldId(item.id, 'length')] ?? ''}
+                      error={multiFieldErrors[getMultiBoxFieldId(item.id, 'length')]}
                       onChange={(value) => updateMultiBox(index, 'length', value)}
                     />
                     <NumberField
-                      id={`multi-box-width-${item.id}`}
+                      id={getMultiBoxFieldId(item.id, 'width')}
                       label="Ancho"
                       min={MIN_MASTER_BOX.width}
-                      value={item.width}
+                      value={multiFieldValues[getMultiBoxFieldId(item.id, 'width')] ?? ''}
+                      error={multiFieldErrors[getMultiBoxFieldId(item.id, 'width')]}
                       onChange={(value) => updateMultiBox(index, 'width', value)}
                     />
                     <NumberField
-                      id={`multi-box-height-${item.id}`}
+                      id={getMultiBoxFieldId(item.id, 'height')}
                       label="Alto"
                       min={MIN_MASTER_BOX.height}
-                      value={item.height}
+                      value={multiFieldValues[getMultiBoxFieldId(item.id, 'height')] ?? ''}
+                      error={multiFieldErrors[getMultiBoxFieldId(item.id, 'height')]}
                       onChange={(value) => updateMultiBox(index, 'height', value)}
                     />
                     <NumberField
-                      id={`multi-box-units-${item.id}`}
+                      id={getMultiBoxFieldId(item.id, 'units')}
                       label="Unidades objetivo"
                       min={1}
                       unit="uds"
-                      value={item.units}
+                      value={multiFieldValues[getMultiBoxFieldId(item.id, 'units')] ?? ''}
+                      error={multiFieldErrors[getMultiBoxFieldId(item.id, 'units')]}
                       onChange={(value) => updateMultiBox(index, 'units', value)}
                     />
                   </article>
                 ))}
               </div>
 
+              {multiHasValidationErrors && (
+                <p className="form-error">Corrige los campos marcados antes de generar la vista 3D.</p>
+              )}
+
               <div className="action-row">
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="btn-primary" disabled={multiHasValidationErrors}>
                   {hasPendingMulti ? 'Generar 3D' : 'Regenerar 3D'}
                 </button>
                 <button type="button" className="btn-secondary" onClick={resetMulti}>

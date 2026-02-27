@@ -4,6 +4,8 @@ export const MIN_MASTER_BOX = {
   height: 200,
 } as const
 
+export const VISUAL_GAP_MM = 2
+
 export const MULTI_TYPE_COLORS = [
   '#2f8f9d',
   '#e67e22',

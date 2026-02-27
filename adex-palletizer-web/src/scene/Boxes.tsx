@@ -1,11 +1,11 @@
 import { Edges } from '@react-three/drei'
+import { VISUAL_GAP_MM } from '../constants'
 import type { BoxInstance } from '../types'
 
 interface BoxesProps {
   boxes: BoxInstance[]
 }
 
-const VISUAL_GAP_MM = 4
 const DEFAULT_BOX_COLOR = '#2f8f9d'
 
 export function Boxes({ boxes }: BoxesProps) {
