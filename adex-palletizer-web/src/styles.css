@@ -194,7 +194,23 @@ input[type='number'] {
   outline: none;
 }
 
+select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: var(--text);
+  background: #fffefb;
+  outline: none;
+}
+
 input[type='number']:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 111, 117, 0.16);
+}
+
+select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(15, 111, 117, 0.16);
 }
