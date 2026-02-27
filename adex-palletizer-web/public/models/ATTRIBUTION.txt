@@ -1,0 +1,4 @@
+Model: Wooden Pallet
+Author: J-Toastie
+Source: Poly Pizza (https://poly.pizza/m/XSKlcrzyi6)
+License: Creative Commons Attribution 3.0 (CC BY 3.0)
