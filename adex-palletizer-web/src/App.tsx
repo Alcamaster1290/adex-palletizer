@@ -5,6 +5,7 @@ import { exportPng } from './export/exportPng'
 import { buildMultiPreview } from './multiPreview'
 import { Scene } from './scene/Scene'
 import { SceneMulti } from './scene/SceneMulti'
+import { buildShareQuery, parseShareLinkInput } from './shareLink'
 import { solvePalletization } from './solver'
 import { TopViewLayer } from './top-view/TopViewLayer'
 import type { DimensionsMM, MultiBoxTypeInput, SolverInput } from './types'
@@ -302,14 +303,25 @@ const percentFormatter = new Intl.NumberFormat('es-ES', {
 const formatPercent = (value: number) => `${percentFormatter.format(value * 100)}%`
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabKey>('single')
+  const initialShareState = useMemo(
+    () => parseShareLinkInput(window.location.search, DEFAULT_INPUT),
+    [],
+  )
 
-  const [draftInput, setDraftInput] = useState<SolverInput>(DEFAULT_INPUT)
+  const [activeTab, setActiveTab] = useState<TabKey>(initialShareState.mode)
+  const [shareWarning] = useState<string | null>(initialShareState.warning)
+  const [shareStatus, setShareStatus] = useState<string | null>(null)
+
+  const [draftInput, setDraftInput] = useState<SolverInput>(() =>
+    cloneInput(initialShareState.input),
+  )
   const [singleFieldValues, setSingleFieldValues] = useState<SingleFieldValues>(() =>
-    buildSingleFieldValues(DEFAULT_INPUT),
+    buildSingleFieldValues(initialShareState.input),
   )
   const [singleFieldErrors, setSingleFieldErrors] = useState<FieldErrors>({})
-  const [appliedInput, setAppliedInput] = useState<SolverInput>(DEFAULT_INPUT)
+  const [appliedInput, setAppliedInput] = useState<SolverInput>(() =>
+    cloneInput(initialShareState.input),
+  )
   const [singleCanvas, setSingleCanvas] = useState<HTMLCanvasElement | null>(null)
   const [lastCalculatedAt, setLastCalculatedAt] = useState<Date>(new Date())
 
@@ -429,6 +441,7 @@ function App() {
 
     setAppliedInput(cloneInput(draftInput))
     setLastCalculatedAt(new Date())
+    setShareStatus(null)
   }
 
   const resetSingle = () => {
@@ -438,6 +451,7 @@ function App() {
     setSingleFieldValues(buildSingleFieldValues(next))
     setSingleFieldErrors({})
     setLastCalculatedAt(new Date())
+    setShareStatus(null)
   }
 
   const setMultiValueAndValidation = (
@@ -651,6 +665,25 @@ function App() {
   const areaUtilizationText = formatPercent(result.selected.utilization)
   const volumeUtilizationText = formatPercent(result.volumeUtilization)
 
+  const shareCurrentSingle = async () => {
+    const query = buildShareQuery(appliedInput, 'single')
+    const relativeUrl = `${window.location.pathname}${query}`
+    const absoluteUrl = `${window.location.origin}${relativeUrl}`
+    window.history.replaceState(window.history.state, '', relativeUrl)
+
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(absoluteUrl)
+        setShareStatus('Enlace copiado al portapapeles.')
+        return
+      } catch {
+        // Si falla el portapapeles, dejamos el enlace en pantalla.
+      }
+    }
+
+    setShareStatus(`Enlace listo: ${absoluteUrl}`)
+  }
+
   return (
     <main className="app-shell">
       <header className="hero">
@@ -661,6 +694,12 @@ function App() {
           <strong>Multiples cajas</strong> para preview 3D multicaja.
         </p>
       </header>
+
+      {shareWarning && (
+        <div className="notice-box" role="alert">
+          <p>{shareWarning}</p>
+        </div>
+      )}
 
       <nav className="tab-row" aria-label="Modos de palletizado">
         <button
@@ -836,6 +875,15 @@ function App() {
                 <button
                   type="button"
                   className="btn-secondary"
+                  onClick={() => {
+                    void shareCurrentSingle()
+                  }}
+                >
+                  Share link
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
                   onClick={() =>
                     exportJson({
                       input: appliedInput,
@@ -856,6 +904,8 @@ function App() {
                 </button>
               </div>
             </div>
+
+            {shareStatus && <p className="meta-text">{shareStatus}</p>}
 
             <div className="kpi-grid">
               <article className="kpi">

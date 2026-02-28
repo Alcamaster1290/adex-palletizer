@@ -85,6 +85,20 @@ body {
   border: 1px solid var(--line-soft);
 }
 
+.notice-box {
+  border: 1px solid var(--warn-line);
+  background: var(--warn-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.notice-box p {
+  margin: 0;
+  color: var(--warn-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .tab-button {
   background: transparent;
   color: var(--muted);

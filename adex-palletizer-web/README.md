@@ -22,6 +22,12 @@ npm run build
 npm run preview
 ```
 
+## Presets / Scenarios / Share link
+
+- Presets de pallet: `American 1200x1000x150`, `Euro 1200x800x144` y `Custom`.
+- Escenarios: guardado local en `localStorage` con comparativa rapida.
+- Share link: genera URL con query params (`pL,pW,pH,bL,bW,bH,maxH,rot,ov,mode`) para reproducir el caso.
+
 ## Deploy en Vercel
 
 Este proyecto esta preparado para desplegarse como app Vite estatica en Vercel.
