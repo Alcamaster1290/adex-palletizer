@@ -1706,7 +1706,7 @@ function App() {
     <main className="app-shell">
       <header className="hero">
         <p className="eyebrow">ADEX PALLETIZER WEB</p>
-        <h1>Palletizer con escenarios por tab</h1>
+        <h1>Pallet Solver by Alvaro Cáceres</h1>
         <p>
           Usa <strong>Caja unica</strong> para solver homogeneo y{' '}
           <strong>Multiples cajas</strong> para preview 3D multicaja.
@@ -1739,7 +1739,7 @@ function App() {
           className={`tab-button ${activeTab === 'container' ? 'active' : ''}`}
           onClick={() => setActiveTab('container')}
         >
-          Container loading
+          Contenedores
         </button>
       </nav>
 

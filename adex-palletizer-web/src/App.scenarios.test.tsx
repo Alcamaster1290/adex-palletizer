@@ -78,7 +78,7 @@ describe('App scenarios storage', () => {
   it('guarda y carga escenario de container restaurando dimensiones', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: /container loading/i }))
+    fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
     fireEvent.change(document.getElementById('container-preset') as HTMLSelectElement, {
       target: { value: '40gp' },
     })

@@ -79,7 +79,7 @@ describe('App input validation', () => {
   it('aplica preset de contenedor 40GP y recalcula layout', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: /container loading/i }))
+    fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
 
     const containerLengthInput = document.getElementById('container-length') as HTMLInputElement
     const containerPreset = document.getElementById('container-preset') as HTMLSelectElement
@@ -97,7 +97,7 @@ describe('App input validation', () => {
   it('use current pallet result actualiza pallet de carga en tab container', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: /container loading/i }))
+    fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
 
     const palletHeightInput = document.getElementById(
       'container-pallet-height',

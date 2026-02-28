@@ -1,4 +1,8 @@
-import { buildTopViewCells, buildTopViewGeometry } from './TopViewLayer'
+import {
+  buildTopViewCells,
+  buildTopViewDimensionLines,
+  buildTopViewGeometry,
+} from './TopViewLayer'
 
 describe('TopViewLayer helpers', () => {
   it('construye la grilla de celdas en orden determinista', () => {
@@ -20,5 +24,23 @@ describe('TopViewLayer helpers', () => {
     )
     expect(geometry.offsetX).toBeGreaterThanOrEqual(0)
     expect(geometry.offsetY).toBeGreaterThanOrEqual(0)
+  })
+
+  it('genera cotas tecnicas para total y residual cuando aplica', () => {
+    const geometry = buildTopViewGeometry(1200, 1000)
+    const lines = buildTopViewDimensionLines(
+      geometry,
+      1200,
+      1000,
+      1000,
+      800,
+      200,
+      200,
+    )
+
+    expect(lines.some((line) => line.id === 'single-total-length')).toBe(true)
+    expect(lines.some((line) => line.id === 'single-total-width')).toBe(true)
+    expect(lines.some((line) => line.id === 'single-residual-length')).toBe(true)
+    expect(lines.some((line) => line.id === 'single-residual-width')).toBe(true)
   })
 })

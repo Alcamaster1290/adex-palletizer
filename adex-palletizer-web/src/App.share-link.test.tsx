@@ -88,7 +88,7 @@ describe('App share link', () => {
   it('genera URL compartible en modo container', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: /container loading/i }))
+    fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
     fireEvent.click(screen.getByRole('button', { name: /share link/i }))
 
     expect(window.location.search).toContain('mode=container')
