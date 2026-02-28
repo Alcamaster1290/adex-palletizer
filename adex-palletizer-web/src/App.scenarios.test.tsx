@@ -10,6 +10,10 @@ vi.mock('./scene/SceneMulti', () => ({
   SceneMulti: () => <div data-testid="scene-multi">scene-multi</div>,
 }))
 
+vi.mock('./scene/SceneContainer', () => ({
+  SceneContainer: () => <div data-testid="scene-container">scene-container</div>,
+}))
+
 describe('App scenarios storage', () => {
   beforeEach(() => {
     window.localStorage.clear()
@@ -69,5 +73,25 @@ describe('App scenarios storage', () => {
       | undefined
     expect(Array.isArray(multi?.input?.skus)).toBe(true)
     expect((multi?.input?.skus ?? []).length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('guarda y carga escenario de container restaurando dimensiones', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /container loading/i }))
+    fireEvent.change(document.getElementById('container-preset') as HTMLSelectElement, {
+      target: { value: '40gp' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save scenario/i }))
+
+    fireEvent.change(document.getElementById('container-preset') as HTMLSelectElement, {
+      target: { value: '20gp' },
+    })
+    expect((document.getElementById('container-length') as HTMLInputElement).value).toBe('5898')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+
+    expect((document.getElementById('container-length') as HTMLInputElement).value).toBe('12032')
+    expect(screen.getByText(/patron: 10 x 2/i)).toBeInTheDocument()
   })
 })

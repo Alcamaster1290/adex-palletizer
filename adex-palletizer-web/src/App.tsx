@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { MIN_MASTER_BOX } from './constants'
+import { ContainerTopView } from './container-view/ContainerTopView'
+import { solveContainerLoading } from './containerSolver'
 import { exportJson } from './export/exportJson'
 import { exportPng } from './export/exportPng'
 import { buildMultiPreview } from './multiPreview'
@@ -12,12 +14,15 @@ import {
   type StoredScenario,
 } from './scenarios'
 import { Scene } from './scene/Scene'
+import { SceneContainer } from './scene/SceneContainer'
 import { SceneMulti } from './scene/SceneMulti'
 import { buildShareQuery, parseShareLinkInput } from './shareLink'
 import { solvePalletization } from './solver'
 import { TopViewLayer } from './top-view/TopViewLayer'
 import { solveMultiHeuristic } from './multiSolver'
 import type {
+  ContainerInput,
+  ContainerPresetKey,
   DimensionsMM,
   MultiBoxTypeInput,
   MultiPreviewInput,
@@ -38,10 +43,46 @@ const DEFAULT_INPUT: SolverInput = {
   overhang: 0,
 }
 
+const CONTAINER_PRESET_OPTIONS: Array<{
+  key: ContainerPresetKey
+  label: string
+  dimensions?: DimensionsMM
+}> = [
+  {
+    key: '20gp',
+    label: "20' GP (5898 x 2352 x 2393)",
+    dimensions: { length: 5898, width: 2352, height: 2393 },
+  },
+  {
+    key: '40gp',
+    label: "40' GP (12032 x 2352 x 2393)",
+    dimensions: { length: 12032, width: 2352, height: 2393 },
+  },
+  {
+    key: '40hc',
+    label: "40' HC (12032 x 2352 x 2698)",
+    dimensions: { length: 12032, width: 2352, height: 2698 },
+  },
+  {
+    key: 'custom',
+    label: 'Custom',
+  },
+]
+
+const DEFAULT_CONTAINER_INPUT: ContainerInput = {
+  preset: '20gp',
+  container: { length: 5898, width: 2352, height: 2393 },
+  pallet: { length: 1200, width: 1000, height: 150 },
+  allowRotation: true,
+  clearance: 0,
+  allowStacking: false,
+}
+
 type BoxSection = 'pallet' | 'box'
-type TabKey = 'single' | 'multi'
+type TabKey = 'single' | 'multi' | 'container'
 type FieldErrors = Record<string, string>
 type PalletPresetKey = 'american' | 'euro' | 'custom'
+type ContainerPalletSource = 'single' | 'multi'
 
 type SingleFieldId =
   | 'pallet-length'
@@ -54,6 +95,19 @@ type SingleFieldId =
   | 'overhang'
 
 type SingleFieldValues = Record<SingleFieldId, string>
+
+type ContainerFieldId =
+  | 'container-length'
+  | 'container-width'
+  | 'container-height'
+  | 'container-pallet-length'
+  | 'container-pallet-width'
+  | 'container-pallet-height'
+  | 'container-clearance'
+  | 'container-weight-per-pallet'
+  | 'container-payload-max'
+
+type ContainerFieldValues = Record<ContainerFieldId, string>
 
 interface MultiDraftState {
   pallet: DimensionsMM
@@ -124,6 +178,29 @@ function detectPalletPreset(pallet: DimensionsMM): PalletPresetKey {
       item.pallet.length === pallet.length &&
       item.pallet.width === pallet.width &&
       item.pallet.height === pallet.height
+    )
+  })
+
+  return matched?.key ?? 'custom'
+}
+
+function getContainerPresetDimensions(
+  preset: ContainerPresetKey,
+): DimensionsMM | null {
+  const option = CONTAINER_PRESET_OPTIONS.find((item) => item.key === preset)
+  return option?.dimensions ?? null
+}
+
+function detectContainerPreset(container: DimensionsMM): ContainerPresetKey {
+  const matched = CONTAINER_PRESET_OPTIONS.find((item) => {
+    if (!item.dimensions) {
+      return false
+    }
+
+    return (
+      item.dimensions.length === container.length &&
+      item.dimensions.width === container.width &&
+      item.dimensions.height === container.height
     )
   })
 
@@ -229,6 +306,19 @@ function cloneMultiPreviewInput(state: MultiDraftState): MultiPreviewInput {
     overhang: state.overhang,
     allowRotation: state.allowRotation,
     skus: state.skus.map((sku) => ({ ...sku })),
+  }
+}
+
+function cloneContainerInput(input: ContainerInput): ContainerInput {
+  return {
+    preset: input.preset,
+    container: { ...input.container },
+    pallet: { ...input.pallet },
+    allowRotation: input.allowRotation,
+    clearance: input.clearance,
+    weightPerPalletKg: input.weightPerPalletKg,
+    payloadMaxKg: input.payloadMaxKg,
+    allowStacking: input.allowStacking,
   }
 }
 
@@ -358,6 +448,22 @@ function areMultiStatesEqual(left: MultiDraftState, right: MultiDraftState) {
   return true
 }
 
+function areContainerInputsEqual(left: ContainerInput, right: ContainerInput) {
+  return (
+    left.preset === right.preset &&
+    left.container.length === right.container.length &&
+    left.container.width === right.container.width &&
+    left.container.height === right.container.height &&
+    left.pallet.length === right.pallet.length &&
+    left.pallet.width === right.pallet.width &&
+    left.pallet.height === right.pallet.height &&
+    left.allowRotation === right.allowRotation &&
+    left.clearance === right.clearance &&
+    left.weightPerPalletKg === right.weightPerPalletKg &&
+    left.payloadMaxKg === right.payloadMaxKg
+  )
+}
+
 function validateIntegerInput(
   rawValue: string,
   config: IntegerValidationConfig,
@@ -476,6 +582,22 @@ function buildMultiAllowedFieldIds(state: MultiDraftState): Set<string> {
   return new Set(Object.keys(buildMultiFieldValues(state)))
 }
 
+function buildContainerFieldValues(input: ContainerInput): ContainerFieldValues {
+  return {
+    'container-length': String(input.container.length),
+    'container-width': String(input.container.width),
+    'container-height': String(input.container.height),
+    'container-pallet-length': String(input.pallet.length),
+    'container-pallet-width': String(input.pallet.width),
+    'container-pallet-height': String(input.pallet.height),
+    'container-clearance': String(input.clearance),
+    'container-weight-per-pallet':
+      input.weightPerPalletKg !== undefined ? String(input.weightPerPalletKg) : '',
+    'container-payload-max':
+      input.payloadMaxKg !== undefined ? String(input.payloadMaxKg) : '',
+  }
+}
+
 const formatInt = new Intl.NumberFormat('es-ES')
 const percentFormatter = new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 2,
@@ -484,7 +606,12 @@ const formatPercent = (value: number) => `${percentFormatter.format(value * 100)
 
 function App() {
   const initialShareState = useMemo(
-    () => parseShareLinkInput(window.location.search, DEFAULT_INPUT),
+    () =>
+      parseShareLinkInput(
+        window.location.search,
+        DEFAULT_INPUT,
+        DEFAULT_CONTAINER_INPUT,
+      ),
     [],
   )
 
@@ -522,6 +649,29 @@ function App() {
   )
   const [multiHeuristicResult, setMultiHeuristicResult] =
     useState<MultiPreviewResult | null>(null)
+
+  const [containerDraft, setContainerDraft] = useState<ContainerInput>(() =>
+    cloneContainerInput(initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT),
+  )
+  const [containerPreset, setContainerPreset] = useState<ContainerPresetKey>(() =>
+    detectContainerPreset(
+      (initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT).container,
+    ),
+  )
+  const [containerFieldValues, setContainerFieldValues] = useState<ContainerFieldValues>(
+    () => buildContainerFieldValues(initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT),
+  )
+  const [containerFieldErrors, setContainerFieldErrors] = useState<FieldErrors>({})
+  const [containerApplied, setContainerApplied] = useState<ContainerInput>(() =>
+    cloneContainerInput(initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT),
+  )
+  const [containerPalletSource, setContainerPalletSource] =
+    useState<ContainerPalletSource>('single')
+  const [containerShowTechnical, setContainerShowTechnical] = useState(true)
+  const [lastContainerCalculatedAt, setLastContainerCalculatedAt] = useState<Date>(
+    new Date(),
+  )
+
   const [scenarios, setScenarios] = useState<StoredScenario[]>(() =>
     loadStoredScenarios(),
   )
@@ -540,9 +690,14 @@ function App() {
     multiAlgorithm === 'heuristic' && multiHeuristicResult
       ? multiHeuristicResult
       : multiPreviewResult
+  const containerResult = useMemo(
+    () => solveContainerLoading(containerApplied),
+    [containerApplied],
+  )
 
   const singleHasValidationErrors = Object.keys(singleFieldErrors).length > 0
   const multiHasValidationErrors = Object.keys(multiFieldErrors).length > 0
+  const containerHasValidationErrors = Object.keys(containerFieldErrors).length > 0
 
   const hasPendingSingle = useMemo(
     () => singleHasValidationErrors || !areInputsEqual(draftInput, appliedInput),
@@ -551,6 +706,12 @@ function App() {
   const hasPendingMulti = useMemo(
     () => multiHasValidationErrors || !areMultiStatesEqual(multiDraft, multiApplied),
     [multiDraft, multiApplied, multiHasValidationErrors],
+  )
+  const hasPendingContainer = useMemo(
+    () =>
+      containerHasValidationErrors ||
+      !areContainerInputsEqual(containerDraft, containerApplied),
+    [containerDraft, containerApplied, containerHasValidationErrors],
   )
 
   const setSingleValueAndValidation = (
@@ -682,6 +843,215 @@ function App() {
     setSingleFieldValues(buildSingleFieldValues(next))
     setSingleFieldErrors({})
     setLastCalculatedAt(new Date())
+    setShareStatus(null)
+  }
+
+  const setContainerValueAndValidation = (
+    fieldId: ContainerFieldId,
+    rawValue: string,
+    config: IntegerValidationConfig,
+    applyValue: (value: number) => void,
+  ) => {
+    setContainerFieldValues((current) => ({
+      ...current,
+      [fieldId]: rawValue,
+    }))
+
+    const validation = validateIntegerInput(rawValue, config)
+    setContainerFieldErrors((current) =>
+      upsertFieldError(current, fieldId, validation.error),
+    )
+
+    if (validation.value !== null) {
+      applyValue(validation.value)
+    }
+  }
+
+  const applyContainerPreset = (preset: ContainerPresetKey) => {
+    setContainerPreset(preset)
+    const presetDimensions = getContainerPresetDimensions(preset)
+    if (presetDimensions === null) {
+      setContainerDraft((current) => ({
+        ...current,
+        preset,
+      }))
+      return
+    }
+
+    setContainerDraft((current) => ({
+      ...current,
+      preset,
+      container: { ...presetDimensions },
+    }))
+    setContainerApplied((current) => ({
+      ...current,
+      preset,
+      container: { ...presetDimensions },
+    }))
+    setContainerFieldValues((current) => ({
+      ...current,
+      'container-length': String(presetDimensions.length),
+      'container-width': String(presetDimensions.width),
+      'container-height': String(presetDimensions.height),
+    }))
+    setContainerFieldErrors((current) => {
+      const next = { ...current }
+      delete next['container-length']
+      delete next['container-width']
+      delete next['container-height']
+      return next
+    })
+    setLastContainerCalculatedAt(new Date())
+    setShareStatus(null)
+  }
+
+  const updateContainerDimensions = (
+    fieldId: ContainerFieldId,
+    section: 'container' | 'pallet',
+    key: keyof DimensionsMM,
+    value: string,
+  ) => {
+    if (section === 'container' && containerPreset !== 'custom') {
+      setContainerPreset('custom')
+      setContainerDraft((current) => ({
+        ...current,
+        preset: 'custom',
+      }))
+    }
+
+    const label =
+      section === 'container'
+        ? `La dimension interna de ${
+            key === 'length' ? 'largo' : key === 'width' ? 'ancho' : 'alto'
+          } del contenedor`
+        : `La dimension de ${
+            key === 'length' ? 'largo' : key === 'width' ? 'ancho' : 'alto'
+          } del pallet de carga`
+
+    setContainerValueAndValidation(
+      fieldId,
+      value,
+      {
+        label,
+        min: 1,
+      },
+      (nextValue) => {
+        setContainerDraft((current) => ({
+          ...current,
+          [section]: {
+            ...current[section],
+            [key]: nextValue,
+          },
+        }))
+      },
+    )
+  }
+
+  const updateContainerCommonField = (
+    fieldId: ContainerFieldId,
+    field: 'clearance' | 'weightPerPalletKg' | 'payloadMaxKg',
+    value: string,
+  ) => {
+    setContainerFieldValues((current) => ({
+      ...current,
+      [fieldId]: value,
+    }))
+
+    if (field !== 'clearance' && value.trim().length === 0) {
+      setContainerFieldErrors((current) => upsertFieldError(current, fieldId, null))
+      setContainerDraft((current) => ({
+        ...current,
+        [field]: undefined,
+      }))
+      return
+    }
+
+    const validation = validateIntegerInput(value, {
+      label:
+        field === 'clearance'
+          ? 'El clearance'
+          : field === 'weightPerPalletKg'
+            ? 'El peso por pallet'
+            : 'El payload maximo',
+      min: field === 'clearance' ? 0 : 1,
+    })
+    setContainerFieldErrors((current) =>
+      upsertFieldError(current, fieldId, validation.error),
+    )
+
+    if (validation.value === null) {
+      return
+    }
+
+    setContainerDraft((current) => ({
+      ...current,
+      [field]: validation.value,
+    }))
+  }
+
+  const runContainerCalculation = () => {
+    if (containerHasValidationErrors) {
+      return
+    }
+
+    setContainerApplied(cloneContainerInput(containerDraft))
+    setLastContainerCalculatedAt(new Date())
+    setShareStatus(null)
+  }
+
+  const resolveCurrentPalletFromSource = (source: ContainerPalletSource): DimensionsMM => {
+    if (source === 'multi') {
+      return {
+        length: multiApplied.pallet.length,
+        width: multiApplied.pallet.width,
+        height: multiApplied.pallet.height + multiResult.heightUsed,
+      }
+    }
+
+    return {
+      length: appliedInput.pallet.length,
+      width: appliedInput.pallet.width,
+      height: result.totalHeight,
+    }
+  }
+
+  const useCurrentPalletResult = () => {
+    const sourcePallet = resolveCurrentPalletFromSource(containerPalletSource)
+    setContainerDraft((current) => ({
+      ...current,
+      pallet: { ...sourcePallet },
+    }))
+    setContainerApplied((current) => ({
+      ...current,
+      pallet: { ...sourcePallet },
+    }))
+    setContainerFieldValues((current) => ({
+      ...current,
+      'container-pallet-length': String(sourcePallet.length),
+      'container-pallet-width': String(sourcePallet.width),
+      'container-pallet-height': String(sourcePallet.height),
+    }))
+    setContainerFieldErrors((current) => {
+      const next = { ...current }
+      delete next['container-pallet-length']
+      delete next['container-pallet-width']
+      delete next['container-pallet-height']
+      return next
+    })
+    setLastContainerCalculatedAt(new Date())
+    setShareStatus(null)
+  }
+
+  const resetContainer = () => {
+    const next = cloneContainerInput(DEFAULT_CONTAINER_INPUT)
+    setContainerDraft(next)
+    setContainerApplied(next)
+    setContainerPreset(next.preset)
+    setContainerFieldValues(buildContainerFieldValues(next))
+    setContainerFieldErrors({})
+    setContainerPalletSource('single')
+    setContainerShowTechnical(true)
+    setLastContainerCalculatedAt(new Date())
     setShareStatus(null)
   }
 
@@ -1170,14 +1540,23 @@ function App() {
               result: solvePalletization(cloneInput(appliedInput)),
             },
           }
-        : {
-            ...baseScenario,
-            mode: 'multi',
-            multi: {
-              input: cloneMultiPreviewInput(multiApplied),
-              result: multiResult,
-            },
-          }
+        : activeTab === 'multi'
+          ? {
+              ...baseScenario,
+              mode: 'multi',
+              multi: {
+                input: cloneMultiPreviewInput(multiApplied),
+                result: multiResult,
+              },
+            }
+          : {
+              ...baseScenario,
+              mode: 'container',
+              container: {
+                input: cloneContainerInput(containerApplied),
+                result: containerResult,
+              },
+            }
 
     const nextScenarios = [scenario, ...scenarios]
     persistScenarios(nextScenarios)
@@ -1201,21 +1580,33 @@ function App() {
       return
     }
 
-    const nextMulti = normalizeMultiInput(
-      scenario.multi.input as MultiPreviewInput | Record<string, unknown>,
-    )
-    setActiveTab('multi')
-    setMultiPalletPreset(detectPalletPreset(nextMulti.pallet))
-    setMultiDraft(nextMulti)
-    setMultiApplied(nextMulti)
-    setMultiFieldValues(buildMultiFieldValues(nextMulti))
-    setMultiFieldErrors({})
-    const loadedAlgorithm = scenario.multi.result.algorithm ?? 'preview'
-    setMultiAlgorithm(loadedAlgorithm === 'heuristic' ? 'heuristic' : 'preview')
-    setMultiHeuristicResult(
-      loadedAlgorithm === 'heuristic' ? scenario.multi.result : null,
-    )
-    setLastGeneratedAt(new Date())
+    if (scenario.mode === 'multi') {
+      const nextMulti = normalizeMultiInput(
+        scenario.multi.input as MultiPreviewInput | Record<string, unknown>,
+      )
+      setActiveTab('multi')
+      setMultiPalletPreset(detectPalletPreset(nextMulti.pallet))
+      setMultiDraft(nextMulti)
+      setMultiApplied(nextMulti)
+      setMultiFieldValues(buildMultiFieldValues(nextMulti))
+      setMultiFieldErrors({})
+      const loadedAlgorithm = scenario.multi.result.algorithm ?? 'preview'
+      setMultiAlgorithm(loadedAlgorithm === 'heuristic' ? 'heuristic' : 'preview')
+      setMultiHeuristicResult(
+        loadedAlgorithm === 'heuristic' ? scenario.multi.result : null,
+      )
+      setLastGeneratedAt(new Date())
+      return
+    }
+
+    const nextContainer = cloneContainerInput(scenario.container.input)
+    setActiveTab('container')
+    setContainerDraft(nextContainer)
+    setContainerApplied(nextContainer)
+    setContainerPreset(detectContainerPreset(nextContainer.container))
+    setContainerFieldValues(buildContainerFieldValues(nextContainer))
+    setContainerFieldErrors({})
+    setLastContainerCalculatedAt(new Date())
   }
 
   const renameScenario = (scenario: StoredScenario) => {
@@ -1269,6 +1660,25 @@ function App() {
     setShareStatus(`Enlace listo: ${absoluteUrl}`)
   }
 
+  const shareCurrentContainer = async () => {
+    const query = buildShareQuery(containerApplied, 'container')
+    const relativeUrl = `${window.location.pathname}${query}`
+    const absoluteUrl = `${window.location.origin}${relativeUrl}`
+    window.history.replaceState(window.history.state, '', relativeUrl)
+
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(absoluteUrl)
+        setShareStatus('Enlace copiado al portapapeles.')
+        return
+      } catch {
+        // Si falla el portapapeles, dejamos el enlace en pantalla.
+      }
+    }
+
+    setShareStatus(`Enlace listo: ${absoluteUrl}`)
+  }
+
   return (
     <main className="app-shell">
       <header className="hero">
@@ -1300,6 +1710,13 @@ function App() {
           onClick={() => setActiveTab('multi')}
         >
           Multiples cajas
+        </button>
+        <button
+          type="button"
+          className={`tab-button ${activeTab === 'container' ? 'active' : ''}`}
+          onClick={() => setActiveTab('container')}
+        >
+          Container loading
         </button>
       </nav>
 
@@ -1614,7 +2031,7 @@ function App() {
             </table>
           </section>
         </>
-      ) : (
+      ) : activeTab === 'multi' ? (
         <>
           <section className="top-grid">
             <form
@@ -2038,6 +2455,351 @@ function App() {
             </div>
           </section>
         </>
+      ) : (
+        <>
+          <section className="top-grid">
+            <form
+              className="panel form-panel"
+              onSubmit={(event) => {
+                event.preventDefault()
+                runContainerCalculation()
+              }}
+            >
+              <div className="form-title-row">
+                <h2>Container loading</h2>
+                <span className={hasPendingContainer ? 'chip pending' : 'chip ready'}>
+                  {hasPendingContainer ? 'Cambios sin calcular' : 'Calculo al dia'}
+                </span>
+              </div>
+
+              <div className="field-group">
+                <h3>Contenedor</h3>
+                <label className="field" htmlFor="container-preset">
+                  <span>
+                    Container preset
+                    <strong>preset</strong>
+                  </span>
+                  <select
+                    id="container-preset"
+                    value={containerPreset}
+                    onChange={(event) =>
+                      applyContainerPreset(event.target.value as ContainerPresetKey)
+                    }
+                  >
+                    {CONTAINER_PRESET_OPTIONS.map((preset) => (
+                      <option key={preset.key} value={preset.key}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <NumberField
+                  id="container-length"
+                  label="Largo interno"
+                  min={1}
+                  value={containerFieldValues['container-length']}
+                  error={containerFieldErrors['container-length']}
+                  onChange={(value) =>
+                    updateContainerDimensions('container-length', 'container', 'length', value)
+                  }
+                />
+                <NumberField
+                  id="container-width"
+                  label="Ancho interno"
+                  min={1}
+                  value={containerFieldValues['container-width']}
+                  error={containerFieldErrors['container-width']}
+                  onChange={(value) =>
+                    updateContainerDimensions('container-width', 'container', 'width', value)
+                  }
+                />
+                <NumberField
+                  id="container-height"
+                  label="Alto interno"
+                  min={1}
+                  value={containerFieldValues['container-height']}
+                  error={containerFieldErrors['container-height']}
+                  onChange={(value) =>
+                    updateContainerDimensions('container-height', 'container', 'height', value)
+                  }
+                />
+              </div>
+
+              <div className="field-group">
+                <h3>Pallet de carga</h3>
+                <label className="field" htmlFor="container-pallet-source">
+                  <span>
+                    Fuente de pallet
+                    <strong>origen</strong>
+                  </span>
+                  <select
+                    id="container-pallet-source"
+                    value={containerPalletSource}
+                    onChange={(event) =>
+                      setContainerPalletSource(event.target.value as ContainerPalletSource)
+                    }
+                  >
+                    <option value="single">Single result</option>
+                    <option value="multi">Multi result</option>
+                  </select>
+                </label>
+                <button
+                  id="container-use-current"
+                  type="button"
+                  className="btn-secondary"
+                  onClick={useCurrentPalletResult}
+                >
+                  Use current pallet result
+                </button>
+                <NumberField
+                  id="container-pallet-length"
+                  label="Largo pallet"
+                  min={1}
+                  value={containerFieldValues['container-pallet-length']}
+                  error={containerFieldErrors['container-pallet-length']}
+                  onChange={(value) =>
+                    updateContainerDimensions(
+                      'container-pallet-length',
+                      'pallet',
+                      'length',
+                      value,
+                    )
+                  }
+                />
+                <NumberField
+                  id="container-pallet-width"
+                  label="Ancho pallet"
+                  min={1}
+                  value={containerFieldValues['container-pallet-width']}
+                  error={containerFieldErrors['container-pallet-width']}
+                  onChange={(value) =>
+                    updateContainerDimensions('container-pallet-width', 'pallet', 'width', value)
+                  }
+                />
+                <NumberField
+                  id="container-pallet-height"
+                  label="Alto pallet carga"
+                  min={1}
+                  value={containerFieldValues['container-pallet-height']}
+                  error={containerFieldErrors['container-pallet-height']}
+                  onChange={(value) =>
+                    updateContainerDimensions(
+                      'container-pallet-height',
+                      'pallet',
+                      'height',
+                      value,
+                    )
+                  }
+                />
+              </div>
+
+              <div className="field-group">
+                <h3>Reglas operativas</h3>
+                <NumberField
+                  id="container-clearance"
+                  label="Clearance"
+                  min={0}
+                  value={containerFieldValues['container-clearance']}
+                  error={containerFieldErrors['container-clearance']}
+                  onChange={(value) =>
+                    updateContainerCommonField('container-clearance', 'clearance', value)
+                  }
+                />
+                <NumberField
+                  id="container-weight-per-pallet"
+                  label="Peso por pallet"
+                  min={1}
+                  unit="kg"
+                  value={containerFieldValues['container-weight-per-pallet']}
+                  error={containerFieldErrors['container-weight-per-pallet']}
+                  onChange={(value) =>
+                    updateContainerCommonField(
+                      'container-weight-per-pallet',
+                      'weightPerPalletKg',
+                      value,
+                    )
+                  }
+                />
+                <NumberField
+                  id="container-payload-max"
+                  label="Payload maximo"
+                  min={1}
+                  unit="kg"
+                  value={containerFieldValues['container-payload-max']}
+                  error={containerFieldErrors['container-payload-max']}
+                  onChange={(value) =>
+                    updateContainerCommonField('container-payload-max', 'payloadMaxKg', value)
+                  }
+                />
+                <label className="checkbox-row" htmlFor="container-allow-rotation">
+                  <input
+                    id="container-allow-rotation"
+                    type="checkbox"
+                    checked={containerDraft.allowRotation}
+                    onChange={(event) =>
+                      setContainerDraft((current) => ({
+                        ...current,
+                        allowRotation: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>Permitir rotacion 90 grados</span>
+                </label>
+              </div>
+
+              {containerHasValidationErrors && (
+                <p className="form-error">Corrige los campos marcados antes de calcular.</p>
+              )}
+
+              <div className="action-row">
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={containerHasValidationErrors}
+                >
+                  {hasPendingContainer ? 'Calcular contenedor' : 'Recalcular contenedor'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={resetContainer}>
+                  Restablecer
+                </button>
+              </div>
+
+              <p className="meta-text">
+                Ultimo calculo:{' '}
+                {lastContainerCalculatedAt.toLocaleTimeString('es-ES', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </p>
+            </form>
+
+            <article className="panel scene-panel">
+              <SceneContainer input={containerApplied} result={containerResult} />
+            </article>
+          </section>
+
+          <section className="panel outputs-panel">
+            <div className="outputs-header">
+              <h2>Resultados contenedor</h2>
+              <div className="button-row">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    void shareCurrentContainer()
+                  }}
+                >
+                  Share link
+                </button>
+              </div>
+            </div>
+
+            {shareStatus && <p className="meta-text">{shareStatus}</p>}
+
+            <div className="kpi-grid">
+              <article className="kpi">
+                <span>Pallets por cama</span>
+                <strong>{formatInt.format(containerResult.totalPalletsBySpace)}</strong>
+              </article>
+              <article className="kpi">
+                <span>Total pallets</span>
+                <strong>{formatInt.format(containerResult.totalPallets)}</strong>
+              </article>
+              <article className="kpi">
+                <span>Utilizacion area</span>
+                <strong>{formatPercent(containerResult.utilizationArea)}</strong>
+              </article>
+              <article className="kpi">
+                <span>Utilizacion volumen</span>
+                <strong>{formatPercent(containerResult.utilizationVolume)}</strong>
+              </article>
+            </div>
+
+            <ContainerTopView
+              input={containerApplied}
+              result={containerResult}
+              technical={containerShowTechnical}
+              onTechnicalChange={setContainerShowTechnical}
+            />
+
+            {containerResult.errors.length > 0 && (
+              <div className="error-box">
+                {containerResult.errors.map((error) => (
+                  <p key={error}>{error}</p>
+                ))}
+              </div>
+            )}
+            {containerResult.warnings.length > 0 && (
+              <div className="notice-box">
+                {containerResult.warnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            )}
+
+            <table>
+              <tbody>
+                <tr>
+                  <th>Orientacion elegida</th>
+                  <td>{containerResult.selected.orientation}</td>
+                </tr>
+                <tr>
+                  <th>nx</th>
+                  <td>{formatInt.format(containerResult.selected.nx)}</td>
+                </tr>
+                <tr>
+                  <th>ny</th>
+                  <td>{formatInt.format(containerResult.selected.ny)}</td>
+                </tr>
+                <tr>
+                  <th>Pallets por espacio</th>
+                  <td>{formatInt.format(containerResult.totalPalletsBySpace)}</td>
+                </tr>
+                <tr>
+                  <th>Pallets por peso</th>
+                  <td>
+                    {containerResult.totalPalletsByWeight === null
+                      ? '-'
+                      : formatInt.format(containerResult.totalPalletsByWeight)}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Total pallets final</th>
+                  <td>{formatInt.format(containerResult.totalPallets)}</td>
+                </tr>
+                <tr>
+                  <th>Residual eje largo (mm)</th>
+                  <td>{formatInt.format(containerResult.selected.residualLength)}</td>
+                </tr>
+                <tr>
+                  <th>Residual eje ancho (mm)</th>
+                  <td>{formatInt.format(containerResult.selected.residualWidth)}</td>
+                </tr>
+                <tr>
+                  <th>Altura disponible (mm)</th>
+                  <td>{formatInt.format(containerResult.availableHeight)}</td>
+                </tr>
+                <tr>
+                  <th>Holgura altura (mm)</th>
+                  <td>{formatInt.format(containerResult.freeHeight)}</td>
+                </tr>
+                <tr>
+                  <th>Cabe en altura</th>
+                  <td>{containerResult.heightFits ? 'Si' : 'No'}</td>
+                </tr>
+                <tr>
+                  <th>Peso total estimado (kg)</th>
+                  <td>
+                    {containerResult.weightTotalKg === null
+                      ? '-'
+                      : formatInt.format(containerResult.weightTotalKg)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </>
       )}
 
       <section className="panel outputs-panel">
@@ -2059,8 +2821,8 @@ function App() {
                 <th>Nombre</th>
                 <th>Modo</th>
                 <th>nx x ny</th>
-                <th>Capas</th>
-                <th>Total cajas</th>
+                <th>Capas/Floors</th>
+                <th>Total unidades</th>
                 <th>Utilizacion</th>
                 <th>Altura total</th>
                 <th>Acciones</th>
@@ -2071,23 +2833,33 @@ function App() {
                 const nxNy =
                   scenario.mode === 'single'
                     ? `${scenario.single.result.selected.nx} x ${scenario.single.result.selected.ny}`
-                    : '-'
+                    : scenario.mode === 'container'
+                      ? `${scenario.container.result.selected.nx} x ${scenario.container.result.selected.ny}`
+                      : '-'
                 const layers =
                   scenario.mode === 'single'
                     ? String(scenario.single.result.layers)
-                    : String(scenario.multi.result.layersUsed ?? '-')
+                    : scenario.mode === 'multi'
+                      ? String(scenario.multi.result.layersUsed ?? '-')
+                      : String(scenario.container.result.floors)
                 const totalBoxes =
                   scenario.mode === 'single'
                     ? scenario.single.result.totalBoxes
-                    : scenario.multi.result.placedTotal
+                    : scenario.mode === 'multi'
+                      ? scenario.multi.result.placedTotal
+                      : scenario.container.result.totalPallets
                 const utilization =
                   scenario.mode === 'single'
                     ? formatPercent(scenario.single.result.selected.utilization)
-                    : formatPercent(scenario.multi.result.utilization ?? 0)
+                    : scenario.mode === 'multi'
+                      ? formatPercent(scenario.multi.result.utilization ?? 0)
+                      : formatPercent(scenario.container.result.utilizationArea ?? 0)
                 const totalHeight =
                   scenario.mode === 'single'
                     ? scenario.single.result.totalHeight
-                    : scenario.multi.input.pallet.height + (scenario.multi.result.heightUsed ?? 0)
+                    : scenario.mode === 'multi'
+                      ? scenario.multi.input.pallet.height + (scenario.multi.result.heightUsed ?? 0)
+                      : scenario.container.input.pallet.height
 
                 return (
                   <tr key={scenario.id}>

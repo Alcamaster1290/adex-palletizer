@@ -9,6 +9,10 @@ vi.mock('./scene/SceneMulti', () => ({
   SceneMulti: () => <div data-testid="scene-multi">scene-multi</div>,
 }))
 
+vi.mock('./scene/SceneContainer', () => ({
+  SceneContainer: () => <div data-testid="scene-container">scene-container</div>,
+}))
+
 describe('App input validation', () => {
   it('bloquea Calcular y muestra error cuando un campo queda vacio', () => {
     render(<App />)
@@ -70,5 +74,38 @@ describe('App input validation', () => {
     expect(palletHeightInput.value).toBe('144')
     expect(screen.getByText(/residual eje ancho: 0 mm/i)).toBeInTheDocument()
     expect(screen.getByTestId('scene-single')).toBeInTheDocument()
+  })
+
+  it('aplica preset de contenedor 40GP y recalcula layout', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /container loading/i }))
+
+    const containerLengthInput = document.getElementById('container-length') as HTMLInputElement
+    const containerPreset = document.getElementById('container-preset') as HTMLSelectElement
+
+    expect(containerLengthInput.value).toBe('5898')
+    expect(screen.getByText(/patron: 4 x 2/i)).toBeInTheDocument()
+
+    fireEvent.change(containerPreset, { target: { value: '40gp' } })
+
+    expect(containerLengthInput.value).toBe('12032')
+    expect(screen.getByText(/patron: 10 x 2/i)).toBeInTheDocument()
+    expect(screen.getByTestId('scene-container')).toBeInTheDocument()
+  })
+
+  it('use current pallet result actualiza pallet de carga en tab container', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /container loading/i }))
+
+    const palletHeightInput = document.getElementById(
+      'container-pallet-height',
+    ) as HTMLInputElement
+    expect(palletHeightInput.value).toBe('150')
+
+    fireEvent.click(screen.getByRole('button', { name: /use current pallet result/i }))
+
+    expect(palletHeightInput.value).toBe('1150')
   })
 })
