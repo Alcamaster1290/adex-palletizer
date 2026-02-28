@@ -2,8 +2,13 @@ import { useMemo, useState } from 'react'
 import { MIN_MASTER_BOX } from './constants'
 import { ContainerTopView } from './container-view/ContainerTopView'
 import { solveContainerLoading } from './containerSolver'
+import {
+  buildContainerTopViewPngFilename,
+  exportContainerPlanJson,
+} from './export/exportContainerPlan'
 import { exportJson } from './export/exportJson'
 import { exportPng } from './export/exportPng'
+import { exportTopViewPng } from './export/exportTopView'
 import { buildMultiPreview } from './multiPreview'
 import {
   SCENARIO_LIMIT,
@@ -668,6 +673,7 @@ function App() {
   const [containerPalletSource, setContainerPalletSource] =
     useState<ContainerPalletSource>('single')
   const [containerShowTechnical, setContainerShowTechnical] = useState(true)
+  const [containerTopViewSvg, setContainerTopViewSvg] = useState<SVGSVGElement | null>(null)
   const [lastContainerCalculatedAt, setLastContainerCalculatedAt] = useState<Date>(
     new Date(),
   )
@@ -1677,6 +1683,23 @@ function App() {
     }
 
     setShareStatus(`Enlace listo: ${absoluteUrl}`)
+  }
+
+  const exportContainerJsonPlan = () => {
+    const generatedAt = new Date().toISOString()
+    exportContainerPlanJson({
+      input: cloneContainerInput(containerApplied),
+      result: containerResult,
+      generatedAt,
+    })
+  }
+
+  const exportContainerTopViewPlan = () => {
+    const generatedAt = new Date().toISOString()
+    void exportTopViewPng(
+      containerTopViewSvg,
+      buildContainerTopViewPngFilename(generatedAt),
+    )
   }
 
   return (
@@ -2692,6 +2715,21 @@ function App() {
                 >
                   Share link
                 </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={exportContainerJsonPlan}
+                >
+                  Export Plan JSON
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={exportContainerTopViewPlan}
+                  disabled={containerTopViewSvg === null}
+                >
+                  Export Plan PNG
+                </button>
               </div>
             </div>
 
@@ -2721,6 +2759,7 @@ function App() {
               result={containerResult}
               technical={containerShowTechnical}
               onTechnicalChange={setContainerShowTechnical}
+              onSvgReady={setContainerTopViewSvg}
             />
 
             {containerResult.errors.length > 0 && (
