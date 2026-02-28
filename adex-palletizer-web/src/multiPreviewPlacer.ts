@@ -84,12 +84,17 @@ function validateInput(input: MultiPreviewInput): string[] {
 
 function emptyResult(errors: string[]): MultiPreviewResult {
   return {
+    algorithm: 'preview',
     boxes: [],
     bySku: [],
+    placedBySku: {},
+    unplacedBySku: {},
     requestedTotal: 0,
     placedTotal: 0,
     unplacedTotal: 0,
     unplaceableTotal: 0,
+    totalPlaced: 0,
+    totalUnplaced: 0,
     layersUsed: 0,
     utilization: 0,
     availableHeight: 0,
@@ -248,6 +253,8 @@ export function buildMultiPreviewPlacement(
 
   const boxes: BoxInstance[] = []
   const bySku: MultiTypePlacementSummary[] = []
+  const placedBySku: Record<string, number> = {}
+  const unplacedBySku: Record<string, number> = {}
   let placedTotal = 0
   let requestedTotal = 0
   let unplaceableTotal = 0
@@ -339,10 +346,13 @@ export function buildMultiPreviewPlacement(
     }
 
     const unplaced = requested - placed
+    const summarySkuId = sanitizeSkuString(sku.skuId, `SKU-${sku.id}`)
+    placedBySku[summarySkuId] = placed
+    unplacedBySku[summarySkuId] = unplaced
 
     bySku.push({
       id: sku.id,
-      skuId: sanitizeSkuString(sku.skuId, `SKU-${sku.id}`),
+      skuId: summarySkuId,
       name: sanitizeSkuString(sku.name, `SKU ${sku.id}`),
       requested,
       placed,
@@ -368,12 +378,17 @@ export function buildMultiPreviewPlacement(
       : 0
 
   return {
+    algorithm: 'preview',
     boxes,
     bySku,
+    placedBySku,
+    unplacedBySku,
     requestedTotal,
     placedTotal,
     unplacedTotal,
     unplaceableTotal,
+    totalPlaced: placedTotal,
+    totalUnplaced: unplacedTotal,
     layersUsed,
     utilization,
     availableHeight,

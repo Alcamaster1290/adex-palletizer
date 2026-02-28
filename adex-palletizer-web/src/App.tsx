@@ -16,10 +16,12 @@ import { SceneMulti } from './scene/SceneMulti'
 import { buildShareQuery, parseShareLinkInput } from './shareLink'
 import { solvePalletization } from './solver'
 import { TopViewLayer } from './top-view/TopViewLayer'
+import { solveMultiHeuristic } from './multiSolver'
 import type {
   DimensionsMM,
   MultiBoxTypeInput,
   MultiPreviewInput,
+  MultiPreviewResult,
   MultiSkuInput,
   SolverInput,
 } from './types'
@@ -510,6 +512,11 @@ function App() {
   const [multiApplied, setMultiApplied] = useState<MultiDraftState>(DEFAULT_MULTI_STATE)
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date>(new Date())
   const [multiShowLabels, setMultiShowLabels] = useState(false)
+  const [multiAlgorithm, setMultiAlgorithm] = useState<'preview' | 'heuristic'>(
+    'preview',
+  )
+  const [multiHeuristicResult, setMultiHeuristicResult] =
+    useState<MultiPreviewResult | null>(null)
   const [scenarios, setScenarios] = useState<StoredScenario[]>(() =>
     loadStoredScenarios(),
   )
@@ -520,10 +527,14 @@ function App() {
     () => cloneMultiPreviewInput(multiApplied),
     [multiApplied],
   )
-  const multiResult = useMemo(
+  const multiPreviewResult = useMemo(
     () => buildMultiPreview(multiAppliedInput),
     [multiAppliedInput],
   )
+  const multiResult =
+    multiAlgorithm === 'heuristic' && multiHeuristicResult
+      ? multiHeuristicResult
+      : multiPreviewResult
 
   const singleHasValidationErrors = Object.keys(singleFieldErrors).length > 0
   const multiHasValidationErrors = Object.keys(multiFieldErrors).length > 0
@@ -995,7 +1006,40 @@ function App() {
       return next
     })
     setMultiApplied(cloneMultiState(multiDraft))
+    setMultiAlgorithm('preview')
+    setMultiHeuristicResult(null)
     setLastGeneratedAt(new Date())
+  }
+
+  const solveMulti3DHeuristic = () => {
+    if (multiHasValidationErrors || multiDraft.skus.length === 0) {
+      if (multiDraft.skus.length === 0) {
+        setMultiFieldErrors((current) => ({
+          ...current,
+          'multi-skus-empty': 'Agrega al menos un SKU para resolver.',
+        }))
+      }
+      return
+    }
+
+    try {
+      const input = cloneMultiPreviewInput(multiDraft)
+      const result = solveMultiHeuristic(input)
+      if (result.errors.length > 0) {
+        setScenarioNotice('La heuristica encontro errores de entrada. Se mantiene el preview.')
+        return
+      }
+
+      setMultiApplied(cloneMultiState(multiDraft))
+      setMultiAlgorithm('heuristic')
+      setMultiHeuristicResult(result)
+      setScenarioNotice(null)
+      setLastGeneratedAt(new Date())
+    } catch {
+      setScenarioNotice('No se pudo ejecutar la heuristica. Se mantiene el preview multicaja.')
+      setMultiAlgorithm('preview')
+      setMultiHeuristicResult(null)
+    }
   }
 
   const resetMulti = () => {
@@ -1005,6 +1049,8 @@ function App() {
     setMultiPalletPreset('american')
     setMultiFieldValues(buildMultiFieldValues(next))
     setMultiFieldErrors({})
+    setMultiAlgorithm('preview')
+    setMultiHeuristicResult(null)
     setLastGeneratedAt(new Date())
     setScenarioNotice(null)
   }
@@ -1043,7 +1089,7 @@ function App() {
             mode: 'multi',
             multi: {
               input: cloneMultiPreviewInput(multiApplied),
-              result: buildMultiPreview(cloneMultiPreviewInput(multiApplied)),
+              result: multiResult,
             },
           }
 
@@ -1063,6 +1109,8 @@ function App() {
       setAppliedInput(nextInput)
       setSingleFieldValues(buildSingleFieldValues(nextInput))
       setSingleFieldErrors({})
+      setMultiAlgorithm('preview')
+      setMultiHeuristicResult(null)
       setLastCalculatedAt(new Date())
       return
     }
@@ -1076,6 +1124,11 @@ function App() {
     setMultiApplied(nextMulti)
     setMultiFieldValues(buildMultiFieldValues(nextMulti))
     setMultiFieldErrors({})
+    const loadedAlgorithm = scenario.multi.result.algorithm ?? 'preview'
+    setMultiAlgorithm(loadedAlgorithm === 'heuristic' ? 'heuristic' : 'preview')
+    setMultiHeuristicResult(
+      loadedAlgorithm === 'heuristic' ? scenario.multi.result : null,
+    )
     setLastGeneratedAt(new Date())
   }
 
@@ -1742,6 +1795,14 @@ function App() {
                 <button type="submit" className="btn-primary" disabled={multiHasValidationErrors}>
                   {hasPendingMulti ? 'Generar 3D' : 'Regenerar 3D'}
                 </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={solveMulti3DHeuristic}
+                  disabled={multiHasValidationErrors}
+                >
+                  Solve (heuristic)
+                </button>
                 <button type="button" className="btn-secondary" onClick={resetMulti}>
                   Restablecer
                 </button>
@@ -1770,9 +1831,9 @@ function App() {
             <div className="outputs-header">
               <h2>Resultados multicaja</h2>
               <span className={multiResult.unplacedTotal > 0 ? 'chip pending' : 'chip ready'}>
-                {multiResult.unplacedTotal > 0
-                  ? `${formatInt.format(multiResult.unplacedTotal)} sin ubicar`
-                  : 'Sin excedentes'}
+                {multiResult.algorithm === 'heuristic'
+                  ? 'Heuristica FFD'
+                  : 'Preview por grilla'}
               </span>
             </div>
 
