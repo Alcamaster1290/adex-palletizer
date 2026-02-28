@@ -1,4 +1,10 @@
 import { useMemo, useState } from 'react'
+import {
+  BOX_PRESET_OPTIONS,
+  detectBoxPreset,
+  getBoxPresetDimensions,
+  type BoxPresetId,
+} from './boxPresets'
 import { MIN_MASTER_BOX } from './constants'
 import { ContainerTopView } from './container-view/ContainerTopView'
 import { solveContainerLoading } from './containerSolver'
@@ -82,6 +88,8 @@ const DEFAULT_CONTAINER_INPUT: ContainerInput = {
   clearance: 0,
   allowStacking: false,
 }
+
+const MIN_SINGLE_BOX_DIMENSION_MM = 50
 
 type BoxSection = 'pallet' | 'box'
 type TabKey = 'single' | 'multi' | 'container'
@@ -629,6 +637,9 @@ function App() {
   )
   const [singlePalletPreset, setSinglePalletPreset] =
     useState<PalletPresetKey>(() => detectPalletPreset(initialShareState.input.pallet))
+  const [singleBoxPreset, setSingleBoxPreset] = useState<BoxPresetId>(
+    () => initialShareState.boxPresetId ?? detectBoxPreset(initialShareState.input.box),
+  )
   const [singleFieldValues, setSingleFieldValues] = useState<SingleFieldValues>(() =>
     buildSingleFieldValues(initialShareState.input),
   )
@@ -772,6 +783,37 @@ function App() {
     setLastCalculatedAt(new Date())
   }
 
+  const applySingleBoxPreset = (preset: BoxPresetId) => {
+    setSingleBoxPreset(preset)
+    const presetBox = getBoxPresetDimensions(preset)
+    if (presetBox === null) {
+      return
+    }
+
+    setDraftInput((current) => ({
+      ...current,
+      box: { ...presetBox },
+    }))
+    setAppliedInput((current) => ({
+      ...current,
+      box: { ...presetBox },
+    }))
+    setSingleFieldValues((current) => ({
+      ...current,
+      'box-length': String(presetBox.length),
+      'box-width': String(presetBox.width),
+      'box-height': String(presetBox.height),
+    }))
+    setSingleFieldErrors((current) => {
+      const next = { ...current }
+      delete next['box-length']
+      delete next['box-width']
+      delete next['box-height']
+      return next
+    })
+    setLastCalculatedAt(new Date())
+  }
+
   const updateSingleDimensions = (
     fieldId: SingleFieldId,
     section: BoxSection,
@@ -781,8 +823,11 @@ function App() {
     if (section === 'pallet' && singlePalletPreset !== 'custom') {
       setSinglePalletPreset('custom')
     }
+    if (section === 'box' && singleBoxPreset !== 'custom') {
+      setSingleBoxPreset('custom')
+    }
 
-    const minValue = section === 'box' ? MIN_MASTER_BOX[key] : 1
+    const minValue = section === 'box' ? MIN_SINGLE_BOX_DIMENSION_MM : 1
     const label =
       section === 'box'
         ? `El ${key === 'length' ? 'largo' : key === 'width' ? 'ancho' : 'alto'} de la caja`
@@ -846,6 +891,7 @@ function App() {
     setDraftInput(next)
     setAppliedInput(next)
     setSinglePalletPreset('american')
+    setSingleBoxPreset('standard-600-400-200')
     setSingleFieldValues(buildSingleFieldValues(next))
     setSingleFieldErrors({})
     setLastCalculatedAt(new Date())
@@ -1544,6 +1590,7 @@ function App() {
             single: {
               input: cloneInput(appliedInput),
               result: solvePalletization(cloneInput(appliedInput)),
+              boxPresetId: singleBoxPreset,
             },
           }
         : activeTab === 'multi'
@@ -1576,6 +1623,7 @@ function App() {
       const nextInput = cloneInput(scenario.single.input)
       setActiveTab('single')
       setSinglePalletPreset(detectPalletPreset(nextInput.pallet))
+      setSingleBoxPreset(scenario.single.boxPresetId ?? detectBoxPreset(nextInput.box))
       setDraftInput(nextInput)
       setAppliedInput(nextInput)
       setSingleFieldValues(buildSingleFieldValues(nextInput))
@@ -1648,7 +1696,9 @@ function App() {
   const volumeUtilizationText = formatPercent(result.volumeUtilization)
 
   const shareCurrentSingle = async () => {
-    const query = buildShareQuery(appliedInput, 'single')
+    const query = buildShareQuery(appliedInput, 'single', {
+      boxPresetId: singleBoxPreset,
+    })
     const relativeUrl = `${window.location.pathname}${query}`
     const absoluteUrl = `${window.location.origin}${relativeUrl}`
     window.history.replaceState(window.history.state, '', relativeUrl)
@@ -1815,10 +1865,29 @@ function App() {
 
               <div className="field-group">
                 <h3>Caja maestra</h3>
+                <label className="field" htmlFor="single-box-preset">
+                  <span>
+                    Preset de caja maestra
+                    <strong>preset</strong>
+                  </span>
+                  <select
+                    id="single-box-preset"
+                    value={singleBoxPreset}
+                    onChange={(event) =>
+                      applySingleBoxPreset(event.target.value as BoxPresetId)
+                    }
+                  >
+                    {BOX_PRESET_OPTIONS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <NumberField
                   id="box-length"
                   label="Largo"
-                  min={MIN_MASTER_BOX.length}
+                  min={MIN_SINGLE_BOX_DIMENSION_MM}
                   value={singleFieldValues['box-length']}
                   error={singleFieldErrors['box-length']}
                   onChange={(value) =>
@@ -1828,7 +1897,7 @@ function App() {
                 <NumberField
                   id="box-width"
                   label="Ancho"
-                  min={MIN_MASTER_BOX.width}
+                  min={MIN_SINGLE_BOX_DIMENSION_MM}
                   value={singleFieldValues['box-width']}
                   error={singleFieldErrors['box-width']}
                   onChange={(value) =>
@@ -1838,7 +1907,7 @@ function App() {
                 <NumberField
                   id="box-height"
                   label="Alto"
-                  min={MIN_MASTER_BOX.height}
+                  min={MIN_SINGLE_BOX_DIMENSION_MM}
                   value={singleFieldValues['box-height']}
                   error={singleFieldErrors['box-height']}
                   onChange={(value) =>

@@ -6,6 +6,7 @@ import type {
   SolverInput,
   SolverResult,
 } from './types'
+import type { BoxPresetId } from './boxPresets'
 
 export const SCENARIOS_STORAGE_KEY = 'adexPalletizer.scenarios.v1'
 export const SCENARIO_LIMIT = 5
@@ -15,6 +16,7 @@ interface StoredSingleScenarioData {
   single: {
     input: SolverInput
     result: SolverResult
+    boxPresetId?: BoxPresetId
   }
 }
 

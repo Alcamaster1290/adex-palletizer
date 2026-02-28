@@ -51,6 +51,33 @@ describe('App scenarios storage', () => {
     expect(screen.getAllByRole('button', { name: 'Load' })).toHaveLength(5)
   })
 
+  it('guarda y carga escenario single preservando boxPresetId', () => {
+    render(<App />)
+
+    const boxPreset = document.getElementById('single-box-preset') as HTMLSelectElement
+    fireEvent.change(boxPreset, { target: { value: 'compact-360-260-220' } })
+    fireEvent.click(screen.getByRole('button', { name: /save scenario/i }))
+
+    const storedRaw = window.localStorage.getItem(SCENARIOS_STORAGE_KEY)
+    expect(storedRaw).not.toBeNull()
+    const stored = JSON.parse(storedRaw ?? '[]') as Array<Record<string, unknown>>
+    const singleScenario = stored.find((item) => item.mode === 'single') as
+      | {
+          single?: { boxPresetId?: string }
+        }
+      | undefined
+
+    expect(singleScenario?.single?.boxPresetId).toBe('compact-360-260-220')
+
+    fireEvent.change(boxPreset, { target: { value: 'standard-600-400-200' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+
+    expect((document.getElementById('single-box-preset') as HTMLSelectElement).value).toBe(
+      'compact-360-260-220',
+    )
+    expect((document.getElementById('box-length') as HTMLInputElement).value).toBe('360')
+  })
+
   it('permite agregar SKU en modo multi y guardar escenario con render asociado', () => {
     render(<App />)
 
