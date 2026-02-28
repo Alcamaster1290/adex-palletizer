@@ -32,6 +32,9 @@ describe('App share link', () => {
     expect((document.getElementById('max-total-height') as HTMLInputElement).value).toBe('1400')
     expect((document.getElementById('overhang') as HTMLInputElement).value).toBe('25')
     expect((document.getElementById('allow-rotation') as HTMLInputElement).checked).toBe(false)
+    expect(screen.getByText(/patron: 1 x 1/i)).toBeInTheDocument()
+    expect(screen.getByText(/residual eje largo: 600 mm/i)).toBeInTheDocument()
+    expect(screen.getByText(/residual eje ancho: 400 mm/i)).toBeInTheDocument()
   })
 
   it('muestra warning y usa defaults si la query es invalida', () => {

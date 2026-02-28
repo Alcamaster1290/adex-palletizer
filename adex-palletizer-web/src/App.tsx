@@ -506,6 +506,7 @@ function App() {
   )
   const [singleCanvas, setSingleCanvas] = useState<HTMLCanvasElement | null>(null)
   const [lastCalculatedAt, setLastCalculatedAt] = useState<Date>(new Date())
+  const [topViewTechnical, setTopViewTechnical] = useState(true)
 
   const [multiDraft, setMultiDraft] = useState<MultiDraftState>(DEFAULT_MULTI_STATE)
   const [multiPalletPreset, setMultiPalletPreset] =
@@ -1535,6 +1536,8 @@ function App() {
               palletWidth={appliedInput.pallet.width}
               selected={result.selected}
               layers={result.layers}
+              technical={topViewTechnical}
+              onTechnicalChange={setTopViewTechnical}
             />
 
             {result.errors.length > 0 && (

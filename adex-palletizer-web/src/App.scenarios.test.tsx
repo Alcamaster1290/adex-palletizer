@@ -70,4 +70,21 @@ describe('App scenarios storage', () => {
     expect(Array.isArray(multi?.input?.skus)).toBe(true)
     expect((multi?.input?.skus ?? []).length).toBeGreaterThanOrEqual(3)
   })
+
+  it('cargar escenario single restaura dimensiones y top view', () => {
+    render(<App />)
+
+    const presetSelect = document.getElementById('single-pallet-preset') as HTMLSelectElement
+    fireEvent.change(presetSelect, { target: { value: 'euro' } })
+    fireEvent.click(screen.getByRole('button', { name: /save scenario/i }))
+
+    fireEvent.change(presetSelect, { target: { value: 'american' } })
+    expect(screen.getByText(/residual eje ancho: 200 mm/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+
+    expect((document.getElementById('pallet-width') as HTMLInputElement).value).toBe('800')
+    expect((document.getElementById('pallet-height') as HTMLInputElement).value).toBe('144')
+    expect(screen.getByText(/residual eje ancho: 0 mm/i)).toBeInTheDocument()
+  })
 })

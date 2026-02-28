@@ -70,5 +70,32 @@ describe('App input validation', () => {
     expect(palletHeightInput.value).toBe('144')
     expect(screen.getByText(/residual eje ancho: 0 mm/i)).toBeInTheDocument()
     expect(screen.getByTestId('scene-single')).toBeInTheDocument()
+
+    fireEvent.change(presetSelect, { target: { value: 'american' } })
+
+    expect(palletWidthInput.value).toBe('1000')
+    expect(palletHeightInput.value).toBe('150')
+    expect(screen.getByText(/residual eje ancho: 200 mm/i)).toBeInTheDocument()
+  })
+
+  it('al editar dimensiones manuales cambia a custom y actualiza residual tras recalcular', () => {
+    render(<App />)
+
+    const presetSelect = document.getElementById('single-pallet-preset') as HTMLSelectElement
+    expect(presetSelect.value).toBe('american')
+
+    fireEvent.change(document.getElementById('pallet-length') as HTMLInputElement, {
+      target: { value: '1300' },
+    })
+    fireEvent.change(document.getElementById('pallet-width') as HTMLInputElement, {
+      target: { value: '900' },
+    })
+
+    expect(presetSelect.value).toBe('custom')
+
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
+
+    expect(screen.getByText(/residual eje largo: 100 mm/i)).toBeInTheDocument()
+    expect(screen.getByText(/residual eje ancho: 100 mm/i)).toBeInTheDocument()
   })
 })
