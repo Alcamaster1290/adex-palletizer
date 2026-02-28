@@ -1,0 +1,115 @@
+import { solveMultiHeuristic } from './multiSolver'
+import type { MultiPreviewInput } from './types'
+
+describe('solveMultiHeuristic', () => {
+  it('coloca todos los SKUs cuando hay espacio suficiente', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 1200,
+      overhang: 0,
+      allowRotation: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'A',
+          name: 'SKU A',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 8,
+          allowRotation: true,
+        },
+      ],
+    }
+
+    const result = solveMultiHeuristic(input)
+
+    expect(result.errors).toHaveLength(0)
+    expect(result.totalPlaced).toBe(8)
+    expect(result.totalUnplaced).toBe(0)
+    expect(result.boxes).toHaveLength(8)
+  })
+
+  it('deja unidades como unplaced cuando no alcanza espacio', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 550,
+      overhang: 0,
+      allowRotation: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'A',
+          name: 'SKU A',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 12,
+          allowRotation: true,
+        },
+      ],
+    }
+
+    const result = solveMultiHeuristic(input)
+
+    expect(result.totalPlaced).toBeLessThan(12)
+    expect(result.totalUnplaced).toBeGreaterThan(0)
+    expect(result.unplacedBySku.A).toBeGreaterThan(0)
+  })
+
+  it('mantiene contrato de salida esperado', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 1200,
+      overhang: 0,
+      allowRotation: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'A',
+          name: 'SKU A',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 4,
+          allowRotation: true,
+        },
+        {
+          id: 2,
+          skuId: 'B',
+          name: 'SKU B',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 4,
+          allowRotation: true,
+        },
+      ],
+    }
+
+    const result = solveMultiHeuristic(input)
+
+    expect(result).toMatchObject({
+      algorithm: 'heuristic',
+      totalPlaced: expect.any(Number),
+      totalUnplaced: expect.any(Number),
+      layersUsed: expect.any(Number),
+      utilization: expect.any(Number),
+      placedBySku: expect.any(Object),
+      unplacedBySku: expect.any(Object),
+    })
+
+    if (result.boxes.length > 0) {
+      expect(result.boxes[0]).toMatchObject({
+        skuId: expect.any(String),
+        x: expect.any(Number),
+        y: expect.any(Number),
+        z: expect.any(Number),
+        length: expect.any(Number),
+        width: expect.any(Number),
+        height: expect.any(Number),
+        rotated: expect.any(Boolean),
+      })
+    }
+  })
+})

@@ -108,12 +108,17 @@ export interface MultiTypePlacementSummary {
 }
 
 export interface MultiPreviewResult {
+  algorithm: 'preview' | 'heuristic'
   boxes: BoxInstance[]
   bySku: MultiTypePlacementSummary[]
+  placedBySku: Record<string, number>
+  unplacedBySku: Record<string, number>
   requestedTotal: number
   placedTotal: number
   unplacedTotal: number
   unplaceableTotal: number
+  totalPlaced: number
+  totalUnplaced: number
   layersUsed: number
   utilization: number
   availableHeight: number
