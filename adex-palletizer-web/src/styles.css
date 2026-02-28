@@ -208,7 +208,23 @@ input[type='number'] {
   outline: none;
 }
 
+select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: var(--text);
+  background: #fffefb;
+  outline: none;
+}
+
 input[type='number']:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 111, 117, 0.16);
+}
+
+select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(15, 111, 117, 0.16);
 }
@@ -443,6 +459,19 @@ button:disabled {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.scenario-note {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scenario-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .error-box {
