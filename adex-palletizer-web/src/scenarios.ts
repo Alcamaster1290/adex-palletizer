@@ -1,4 +1,6 @@
 import type {
+  ContainerInput,
+  ContainerResult,
   MultiPreviewInput,
   MultiPreviewResult,
   SolverInput,
@@ -24,7 +26,18 @@ interface StoredMultiScenarioData {
   }
 }
 
-export type StoredScenarioData = StoredSingleScenarioData | StoredMultiScenarioData
+interface StoredContainerScenarioData {
+  mode: 'container'
+  container: {
+    input: ContainerInput
+    result: ContainerResult
+  }
+}
+
+export type StoredScenarioData =
+  | StoredSingleScenarioData
+  | StoredMultiScenarioData
+  | StoredContainerScenarioData
 
 export type StoredScenario = StoredScenarioData & {
   id: string
@@ -52,6 +65,10 @@ function isStoredScenario(value: unknown): value is StoredScenario {
 
   if (candidate.mode === 'multi') {
     return typeof candidate.multi === 'object' && candidate.multi !== null
+  }
+
+  if (candidate.mode === 'container') {
+    return typeof candidate.container === 'object' && candidate.container !== null
   }
 
   return false

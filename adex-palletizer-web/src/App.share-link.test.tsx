@@ -9,6 +9,10 @@ vi.mock('./scene/SceneMulti', () => ({
   SceneMulti: () => <div data-testid="scene-multi">scene-multi</div>,
 }))
 
+vi.mock('./scene/SceneContainer', () => ({
+  SceneContainer: () => <div data-testid="scene-container">scene-container</div>,
+}))
+
 describe('App share link', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/')
@@ -59,5 +63,42 @@ describe('App share link', () => {
     expect(window.location.search).toContain('rot=1')
     expect(window.location.search).toContain('ov=0')
     expect(window.location.search).toContain('mode=single')
+  })
+
+  it('inicializa tab container desde query params de contenedor', () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/?mode=container&cPr=40gp&cL=12032&cW=2352&cH=2393&ppL=1200&ppW=1000&ppH=1150&cRot=1&cClr=0&wpp=800&pMax=20000',
+    )
+
+    render(<App />)
+
+    expect((document.getElementById('container-length') as HTMLInputElement).value).toBe('12032')
+    expect((document.getElementById('container-width') as HTMLInputElement).value).toBe('2352')
+    expect((document.getElementById('container-pallet-height') as HTMLInputElement).value).toBe(
+      '1150',
+    )
+    expect((document.getElementById('container-allow-rotation') as HTMLInputElement).checked).toBe(
+      true,
+    )
+    expect(screen.getByTestId('scene-container')).toBeInTheDocument()
+  })
+
+  it('genera URL compartible en modo container', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /container loading/i }))
+    fireEvent.click(screen.getByRole('button', { name: /share link/i }))
+
+    expect(window.location.search).toContain('mode=container')
+    expect(window.location.search).toContain('cL=5898')
+    expect(window.location.search).toContain('cW=2352')
+    expect(window.location.search).toContain('cH=2393')
+    expect(window.location.search).toContain('ppL=1200')
+    expect(window.location.search).toContain('ppW=1000')
+    expect(window.location.search).toContain('ppH=150')
+    expect(window.location.search).toContain('cRot=1')
+    expect(window.location.search).toContain('cClr=0')
   })
 })

@@ -403,7 +403,7 @@ button:disabled {
 .top-view-panel {
   border: 1px solid var(--line-soft);
   border-radius: 12px;
-  background: #fffcf6;
+  background: #fffdf8;
   padding: 12px;
   display: grid;
   gap: 10px;
@@ -427,23 +427,64 @@ button:disabled {
   font-weight: 700;
 }
 
+.top-view-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.top-view-toggle {
+  margin: 0;
+  font-size: 13px;
+}
+
 .top-view-svg {
   width: 100%;
   border-radius: 10px;
   border: 1px solid var(--line-soft);
-  background: #fffef9;
+  background: #fefcf8;
 }
 
 .top-view-pallet {
-  fill: #efe1cd;
-  stroke: #b48f66;
-  stroke-width: 2;
+  fill: #f7ecd9;
+  stroke: #6d5844;
+  stroke-width: 2.1;
+  vector-effect: non-scaling-stroke;
 }
 
 .top-view-box {
-  fill: rgba(15, 111, 117, 0.28);
+  fill: rgba(15, 111, 117, 0.2);
   stroke: #0f6f75;
-  stroke-width: 1;
+  stroke-width: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+.top-view-dimension-line {
+  stroke: #4f4237;
+  stroke-width: 0.8;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.top-view-dimension-extension {
+  stroke: #8b7868;
+  stroke-width: 0.7;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.top-view-arrow-head {
+  fill: #4f4237;
+}
+
+.top-view-dimension-text {
+  fill: #3e3229;
+  font-size: 8.4px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.01em;
+  user-select: none;
 }
 
 .top-view-metrics {

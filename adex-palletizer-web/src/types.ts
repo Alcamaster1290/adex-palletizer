@@ -127,3 +127,60 @@ export interface MultiPreviewResult {
   errors: string[]
   warnings: string[]
 }
+
+export type ContainerPresetKey = '20gp' | '40gp' | '40hc' | 'custom'
+
+export interface ContainerInput {
+  preset: ContainerPresetKey
+  container: DimensionsMM
+  pallet: DimensionsMM
+  allowRotation: boolean
+  clearance: number
+  weightPerPalletKg?: number
+  payloadMaxKg?: number
+  allowStacking?: boolean
+}
+
+export interface ContainerOrientationPlan {
+  orientation: Orientation
+  palletFootprintL: number
+  palletFootprintW: number
+  nx: number
+  ny: number
+  perFloor: number
+  utilizationArea: number
+  residualLength: number
+  residualWidth: number
+}
+
+export interface PalletPlacement {
+  x: number
+  y: number
+  z: number
+  length: number
+  width: number
+  height: number
+  rotated: boolean
+  index: number
+  layer: number
+}
+
+export interface ContainerResult {
+  selected: ContainerOrientationPlan
+  candidates: ContainerOrientationPlan[]
+  floors: number
+  totalPalletsBySpace: number
+  totalPalletsByWeight: number | null
+  totalPallets: number
+  utilizationArea: number
+  utilizationVolume: number
+  heightFits: boolean
+  availableHeight: number
+  freeHeight: number
+  weightTotalKg: number | null
+  containerVolume: number
+  loadVolume: number
+  placements: PalletPlacement[]
+  errors: string[]
+  warnings: string[]
+}
