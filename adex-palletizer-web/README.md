@@ -28,6 +28,27 @@ npm run preview
 - Escenarios: guardado local en `localStorage` con comparativa rapida.
 - Share link: genera URL con query params (`pL,pW,pH,bL,bW,bH,maxH,rot,ov,mode`) para reproducir el caso.
 
+## Container loading (Sprint 4)
+
+- Nuevo tab `Container loading` para calcular pallets homogeneos dentro de contenedores.
+- Presets disponibles: `20' GP`, `40' GP`, `40' HC` y `Custom`.
+- Soporta rotacion 0/90 del pallet de carga, clearance y limite por payload (opcional).
+- Boton `Use current pallet result` para traer dimensiones desde resultados `single` o `multi`.
+- Share link en modo contenedor con parametros:
+  - `mode=container`
+  - `cPr,cL,cW,cH,ppL,ppW,ppH,cRot,cClr,wpp,pMax`
+- Exports del plan:
+  - `Export Plan JSON` (inputs + outputs + placements)
+  - `Export Plan PNG` (TopView del contenedor)
+
+Formula base del solver de contenedor:
+
+- `nx = floor((containerL - clearance) / palletL)`
+- `ny = floor((containerW - clearance) / palletW)`
+- `total = nx * ny`
+- desempate por mayor utilizacion de area
+- warning si `palletH > (containerH - clearance)`
+
 ## Modo multi (Sprint 3)
 
 - `Generar 3D`: crea un **preview determinista** por filas/columnas/capas usando la lista de SKUs.
