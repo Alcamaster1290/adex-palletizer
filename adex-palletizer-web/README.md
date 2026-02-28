@@ -26,7 +26,19 @@ npm run preview
 
 - Presets de pallet: `American 1200x1000x150`, `Euro 1200x800x144` y `Custom`.
 - Escenarios: guardado local en `localStorage` con comparativa rapida.
-- Share link: genera URL con query params (`pL,pW,pH,bL,bW,bH,maxH,rot,ov,mode`) para reproducir el caso.
+- Share link: genera URL con query params (`pL,pW,pH,bPr,bL,bW,bH,maxH,rot,ov,mode`) para reproducir el caso.
+
+## Presets de Caja Maestra
+
+- Disponible en `Caja unica` con selector `Preset de caja maestra`.
+- Presets incluidos:
+  - `Standard 600x400x200` (default)
+  - `Standard 500x350x450`
+  - `Euronorm 400x300x240`
+  - `Compact 360x260x220`
+  - `Custom`
+- Si editas manualmente largo/ancho/alto, el preset cambia automaticamente a `Custom`.
+- Validacion tecnica de dimensiones en caja unica: minimo `50 mm`.
 
 ## Container loading (Sprint 4)
 

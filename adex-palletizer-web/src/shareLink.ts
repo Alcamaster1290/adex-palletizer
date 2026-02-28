@@ -1,3 +1,8 @@
+import {
+  detectBoxPreset,
+  getBoxPresetDimensions,
+  type BoxPresetId,
+} from './boxPresets'
 import type { ContainerInput, SolverInput } from './types'
 
 export type ShareMode = 'single' | 'multi' | 'container'
@@ -7,9 +12,21 @@ interface ParseShareResult {
   containerInput: ContainerInput | null
   mode: ShareMode
   warning: string | null
+  boxPresetId: BoxPresetId | null
 }
 
-const SINGLE_SHARE_KEYS = ['pL', 'pW', 'pH', 'bL', 'bW', 'bH', 'maxH', 'rot', 'ov'] as const
+const SINGLE_SHARE_KEYS = [
+  'pL',
+  'pW',
+  'pH',
+  'bPr',
+  'bL',
+  'bW',
+  'bH',
+  'maxH',
+  'rot',
+  'ov',
+] as const
 const CONTAINER_SHARE_KEYS = [
   'cPr',
   'cL',
@@ -76,21 +93,40 @@ function parseOptionalPositiveInteger(value: string | null): number | null {
 function parseSingleInput(
   params: URLSearchParams,
   defaults: SolverInput,
-): { input: SolverInput; warning: string | null } {
+): { input: SolverInput; warning: string | null; boxPresetId: BoxPresetId | null } {
   const hasShareParams = SINGLE_SHARE_KEYS.some((key) => params.has(key))
   if (!hasShareParams) {
     return {
       input: cloneSolverInput(defaults),
       warning: null,
+      boxPresetId: null,
+    }
+  }
+
+  const presetRaw = params.get('bPr')
+  const requestedBoxPresetId: BoxPresetId | null =
+    presetRaw === 'standard-600-400-200' ||
+    presetRaw === 'standard-500-350-450' ||
+    presetRaw === 'euronorm-400-300-240' ||
+    presetRaw === 'compact-360-260-220' ||
+    presetRaw === 'custom'
+      ? presetRaw
+      : null
+
+  const baseInput = cloneSolverInput(defaults)
+  if (requestedBoxPresetId !== null) {
+    const presetDimensions = getBoxPresetDimensions(requestedBoxPresetId)
+    if (presetDimensions !== null) {
+      baseInput.box = { ...presetDimensions }
     }
   }
 
   const pL = parseIntegerParam(params.get('pL'), 1)
   const pW = parseIntegerParam(params.get('pW'), 1)
   const pH = parseIntegerParam(params.get('pH'), 1)
-  const bL = parseIntegerParam(params.get('bL'), 1)
-  const bW = parseIntegerParam(params.get('bW'), 1)
-  const bH = parseIntegerParam(params.get('bH'), 1)
+  const bL = parseIntegerParam(params.get('bL'), 50)
+  const bW = parseIntegerParam(params.get('bW'), 50)
+  const bH = parseIntegerParam(params.get('bH'), 50)
   const maxH = parseIntegerParam(params.get('maxH'), 1)
   const ov = parseIntegerParam(params.get('ov'), 0)
 
@@ -114,26 +150,38 @@ function parseSingleInput(
     return {
       input: cloneSolverInput(defaults),
       warning: 'Parametros de enlace invalidos. Se usaron valores por defecto.',
+      boxPresetId: null,
     }
   }
 
-  return {
-    input: {
-      pallet: {
-        length: pL ?? defaults.pallet.length,
-        width: pW ?? defaults.pallet.width,
-        height: pH ?? defaults.pallet.height,
-      },
-      box: {
-        length: bL ?? defaults.box.length,
-        width: bW ?? defaults.box.width,
-        height: bH ?? defaults.box.height,
-      },
-      maxTotalHeight: maxH ?? defaults.maxTotalHeight,
-      allowRotation: rot === null ? defaults.allowRotation : rot,
-      overhang: ov ?? defaults.overhang,
+  const input: SolverInput = {
+    pallet: {
+      length: pL ?? defaults.pallet.length,
+      width: pW ?? defaults.pallet.width,
+      height: pH ?? defaults.pallet.height,
     },
+    box: {
+      length: bL ?? baseInput.box.length,
+      width: bW ?? baseInput.box.width,
+      height: bH ?? baseInput.box.height,
+    },
+    maxTotalHeight: maxH ?? defaults.maxTotalHeight,
+    allowRotation: rot === null ? defaults.allowRotation : rot,
+    overhang: ov ?? defaults.overhang,
+  }
+
+  const hasExplicitBoxOverrides = bL !== null || bW !== null || bH !== null
+  const resolvedPresetId =
+    requestedBoxPresetId === null
+      ? null
+      : hasExplicitBoxOverrides
+        ? detectBoxPreset(input.box)
+        : requestedBoxPresetId
+
+  return {
+    input,
     warning: null,
+    boxPresetId: resolvedPresetId,
   }
 }
 
@@ -233,6 +281,7 @@ export function parseShareLinkInput(
     containerInput: parsedContainer.input,
     mode,
     warning,
+    boxPresetId: parsedSingle.boxPresetId,
   }
 }
 
@@ -248,6 +297,7 @@ function isContainerShareInput(input: SolverInput | ContainerInput): input is Co
 export function buildShareQuery(
   input: SolverInput | ContainerInput,
   mode: ShareMode,
+  options?: { boxPresetId?: BoxPresetId },
 ) {
   const params = new URLSearchParams()
 
@@ -275,6 +325,7 @@ export function buildShareQuery(
     params.set('pL', String(input.pallet.length))
     params.set('pW', String(input.pallet.width))
     params.set('pH', String(input.pallet.height))
+    params.set('bPr', options?.boxPresetId ?? detectBoxPreset(input.box))
     params.set('bL', String(input.box.length))
     params.set('bW', String(input.box.width))
     params.set('bH', String(input.box.height))

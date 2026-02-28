@@ -76,6 +76,36 @@ describe('App input validation', () => {
     expect(screen.getByTestId('scene-single')).toBeInTheDocument()
   })
 
+  it('aplica preset de caja maestra y actualiza dimensiones con recalculo', () => {
+    render(<App />)
+
+    const boxLengthInput = document.getElementById('box-length') as HTMLInputElement
+    const boxWidthInput = document.getElementById('box-width') as HTMLInputElement
+    const boxHeightInput = document.getElementById('box-height') as HTMLInputElement
+    const boxPreset = document.getElementById('single-box-preset') as HTMLSelectElement
+
+    fireEvent.change(boxPreset, { target: { value: 'euronorm-400-300-240' } })
+
+    expect(boxLengthInput.value).toBe('400')
+    expect(boxWidthInput.value).toBe('300')
+    expect(boxHeightInput.value).toBe('240')
+    expect(screen.getByText(/residual eje ancho: 100 mm/i)).toBeInTheDocument()
+    expect(screen.getByTestId('scene-single')).toBeInTheDocument()
+  })
+
+  it('cambia preset de caja a custom cuando se edita manualmente una dimension', () => {
+    render(<App />)
+
+    const boxPreset = document.getElementById('single-box-preset') as HTMLSelectElement
+    const boxLengthInput = document.getElementById('box-length') as HTMLInputElement
+
+    fireEvent.change(boxPreset, { target: { value: 'standard-500-350-450' } })
+    expect(boxPreset.value).toBe('standard-500-350-450')
+
+    fireEvent.change(boxLengthInput, { target: { value: '510' } })
+    expect(boxPreset.value).toBe('custom')
+  })
+
   it('aplica preset de contenedor 40GP y recalcula layout', () => {
     render(<App />)
 

@@ -56,6 +56,7 @@ describe('App share link', () => {
     expect(window.location.search).toContain('pL=1200')
     expect(window.location.search).toContain('pW=1000')
     expect(window.location.search).toContain('pH=150')
+    expect(window.location.search).toContain('bPr=standard-600-400-200')
     expect(window.location.search).toContain('bL=600')
     expect(window.location.search).toContain('bW=400')
     expect(window.location.search).toContain('bH=200')
@@ -63,6 +64,34 @@ describe('App share link', () => {
     expect(window.location.search).toContain('rot=1')
     expect(window.location.search).toContain('ov=0')
     expect(window.location.search).toContain('mode=single')
+  })
+
+  it('aplica bPr en la inicializacion del modo single', () => {
+    window.history.replaceState({}, '', '/?mode=single&bPr=euronorm-400-300-240')
+
+    render(<App />)
+
+    expect((document.getElementById('single-box-preset') as HTMLSelectElement).value).toBe(
+      'euronorm-400-300-240',
+    )
+    expect((document.getElementById('box-length') as HTMLInputElement).value).toBe('400')
+    expect((document.getElementById('box-width') as HTMLInputElement).value).toBe('300')
+    expect((document.getElementById('box-height') as HTMLInputElement).value).toBe('240')
+  })
+
+  it('permite override explicito de dimensiones sobre bPr', () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/?mode=single&bPr=standard-600-400-200&bL=650',
+    )
+
+    render(<App />)
+
+    expect((document.getElementById('box-length') as HTMLInputElement).value).toBe('650')
+    expect((document.getElementById('single-box-preset') as HTMLSelectElement).value).toBe(
+      'custom',
+    )
   })
 
   it('inicializa tab container desde query params de contenedor', () => {
