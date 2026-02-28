@@ -46,4 +46,28 @@ describe('App scenarios storage', () => {
     expect(screen.getByText(/limite de 5 escenarios alcanzado/i)).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Load' })).toHaveLength(5)
   })
+
+  it('permite agregar SKU en modo multi y guardar escenario con render asociado', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add sku/i }))
+
+    fireEvent.click(screen.getByRole('button', { name: /generar 3d|regenerar 3d/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save scenario/i }))
+
+    const storedRaw = window.localStorage.getItem(SCENARIOS_STORAGE_KEY)
+    expect(storedRaw).not.toBeNull()
+    const stored = JSON.parse(storedRaw ?? '[]') as Array<Record<string, unknown>>
+    const multiScenario = stored.find((item) => item.mode === 'multi') as
+      | Record<string, unknown>
+      | undefined
+
+    expect(multiScenario).toBeDefined()
+    const multi = multiScenario?.multi as
+      | { input?: { skus?: Array<unknown> } }
+      | undefined
+    expect(Array.isArray(multi?.input?.skus)).toBe(true)
+    expect((multi?.input?.skus ?? []).length).toBeGreaterThanOrEqual(3)
+  })
 })

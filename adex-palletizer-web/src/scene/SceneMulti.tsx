@@ -9,6 +9,7 @@ interface SceneMultiProps {
   pallet: DimensionsMM
   boxes: BoxInstance[]
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
+  showLabels?: boolean
 }
 
 interface CanvasReporterProps {
@@ -27,7 +28,12 @@ function CanvasReporter({ onReady }: CanvasReporterProps) {
   return null
 }
 
-export function SceneMulti({ pallet, boxes, onCanvasReady }: SceneMultiProps) {
+export function SceneMulti({
+  pallet,
+  boxes,
+  onCanvasReady,
+  showLabels = false,
+}: SceneMultiProps) {
   return (
     <div className="scene-frame">
       <Canvas
@@ -58,7 +64,7 @@ export function SceneMulti({ pallet, boxes, onCanvasReady }: SceneMultiProps) {
         >
           <Pallet length={pallet.length} width={pallet.width} height={pallet.height} />
         </Suspense>
-        <Boxes boxes={boxes} />
+        <Boxes boxes={boxes} showLabels={showLabels} />
 
         <gridHelper args={[3000, 30, '#ba9f84', '#d8c5b2']} />
         <OrbitControls makeDefault enableDamping dampingFactor={0.08} />

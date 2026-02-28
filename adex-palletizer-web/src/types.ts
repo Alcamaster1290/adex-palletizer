@@ -57,6 +57,11 @@ export interface BoxInstance {
   height: number
   color?: string
   typeId?: number
+  skuId?: string
+  skuName?: string
+  label?: string
+  rotated?: boolean
+  layer?: number
 }
 
 export interface MultiBoxTypeInput {
@@ -67,37 +72,53 @@ export interface MultiBoxTypeInput {
   units: number
 }
 
+export interface MultiSkuInput {
+  id: number
+  skuId: string
+  name: string
+  length: number
+  width: number
+  height: number
+  quantity: number
+  allowRotation: boolean
+  color?: string
+  maxLayers?: number
+  noStack?: boolean
+}
+
 export interface MultiPreviewInput {
   pallet: PalletInput
   maxTotalHeight: number
   allowRotation: boolean
   overhang: number
-  boxTypes: MultiBoxTypeInput[]
+  skus: MultiSkuInput[]
 }
 
 export interface MultiTypePlacementSummary {
-  typeId: number
+  id: number
+  skuId: string
+  name: string
   requested: number
   placed: number
-  overflow: number
+  unplaced: number
+  unplaceable: number
   layersUsed: number
-  orientation: Orientation
-  boxFootprintL: number
-  boxFootprintW: number
-  nx: number
-  ny: number
-  perLayer: number
+  rotationsUsed: number
   color: string
 }
 
 export interface MultiPreviewResult {
   boxes: BoxInstance[]
-  byType: MultiTypePlacementSummary[]
+  bySku: MultiTypePlacementSummary[]
   requestedTotal: number
   placedTotal: number
-  overflowTotal: number
+  unplacedTotal: number
+  unplaceableTotal: number
+  layersUsed: number
+  utilization: number
   availableHeight: number
   heightUsed: number
   heightFree: number
   errors: string[]
+  warnings: string[]
 }
