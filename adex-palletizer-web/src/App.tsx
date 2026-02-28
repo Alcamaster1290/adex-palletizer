@@ -3,11 +3,24 @@ import { MIN_MASTER_BOX } from './constants'
 import { exportJson } from './export/exportJson'
 import { exportPng } from './export/exportPng'
 import { buildMultiPreview } from './multiPreview'
+import {
+  SCENARIO_LIMIT,
+  createScenarioId,
+  getNextScenarioName,
+  loadStoredScenarios,
+  saveStoredScenarios,
+  type StoredScenario,
+} from './scenarios'
 import { Scene } from './scene/Scene'
 import { SceneMulti } from './scene/SceneMulti'
 import { solvePalletization } from './solver'
 import { TopViewLayer } from './top-view/TopViewLayer'
-import type { DimensionsMM, MultiBoxTypeInput, SolverInput } from './types'
+import type {
+  DimensionsMM,
+  MultiPreviewInput,
+  MultiBoxTypeInput,
+  SolverInput,
+} from './types'
 
 const DEFAULT_INPUT: SolverInput = {
   pallet: { length: 1200, width: 1000, height: 150 },
@@ -170,6 +183,16 @@ function cloneMultiState(state: MultiDraftState): MultiDraftState {
     maxTotalHeight: state.maxTotalHeight,
     allowRotation: state.allowRotation,
     overhang: state.overhang,
+    boxTypes: state.boxTypes.map((boxType) => ({ ...boxType })),
+  }
+}
+
+function cloneMultiPreviewInput(state: MultiDraftState): MultiPreviewInput {
+  return {
+    pallet: { ...state.pallet },
+    maxTotalHeight: state.maxTotalHeight,
+    overhang: state.overhang,
+    allowRotation: state.allowRotation,
     boxTypes: state.boxTypes.map((boxType) => ({ ...boxType })),
   }
 }
@@ -353,18 +376,19 @@ function App() {
   const [multiFieldErrors, setMultiFieldErrors] = useState<FieldErrors>({})
   const [multiApplied, setMultiApplied] = useState<MultiDraftState>(DEFAULT_MULTI_STATE)
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date>(new Date())
+  const [scenarios, setScenarios] = useState<StoredScenario[]>(() =>
+    loadStoredScenarios(),
+  )
+  const [scenarioNotice, setScenarioNotice] = useState<string | null>(null)
 
   const result = useMemo(() => solvePalletization(appliedInput), [appliedInput])
-  const multiResult = useMemo(
-    () =>
-      buildMultiPreview({
-        pallet: multiApplied.pallet,
-        maxTotalHeight: multiApplied.maxTotalHeight,
-        overhang: multiApplied.overhang,
-        allowRotation: multiApplied.allowRotation,
-        boxTypes: multiApplied.boxTypes,
-      }),
+  const multiAppliedInput = useMemo(
+    () => cloneMultiPreviewInput(multiApplied),
     [multiApplied],
+  )
+  const multiResult = useMemo(
+    () => buildMultiPreview(multiAppliedInput),
+    [multiAppliedInput],
   )
 
   const singleHasValidationErrors = Object.keys(singleFieldErrors).length > 0
@@ -751,6 +775,107 @@ function App() {
     setMultiFieldValues(buildMultiFieldValues(next))
     setMultiFieldErrors({})
     setLastGeneratedAt(new Date())
+  }
+
+  const persistScenarios = (nextScenarios: StoredScenario[]) => {
+    setScenarios(nextScenarios)
+    saveStoredScenarios(nextScenarios)
+  }
+
+  const saveCurrentScenario = () => {
+    if (scenarios.length >= SCENARIO_LIMIT) {
+      setScenarioNotice(
+        `Limite de ${SCENARIO_LIMIT} escenarios alcanzado. Elimina uno para continuar.`,
+      )
+      return
+    }
+
+    const baseScenario = {
+      id: createScenarioId(),
+      name: getNextScenarioName(scenarios),
+      createdAt: new Date().toISOString(),
+    }
+
+    const scenario: StoredScenario =
+      activeTab === 'single'
+        ? {
+            ...baseScenario,
+            mode: 'single',
+            single: {
+              input: cloneInput(appliedInput),
+              result: solvePalletization(cloneInput(appliedInput)),
+            },
+          }
+        : {
+            ...baseScenario,
+            mode: 'multi',
+            multi: {
+              input: cloneMultiPreviewInput(multiApplied),
+              result: buildMultiPreview(cloneMultiPreviewInput(multiApplied)),
+            },
+          }
+
+    const nextScenarios = [scenario, ...scenarios]
+    persistScenarios(nextScenarios)
+    setScenarioNotice(`Escenario guardado: ${scenario.name}`)
+  }
+
+  const loadScenario = (scenario: StoredScenario) => {
+    setScenarioNotice(null)
+
+    if (scenario.mode === 'single') {
+      const nextInput = cloneInput(scenario.single.input)
+      setActiveTab('single')
+      setDraftInput(nextInput)
+      setAppliedInput(nextInput)
+      setSingleFieldValues(buildSingleFieldValues(nextInput))
+      setSingleFieldErrors({})
+      setLastCalculatedAt(new Date())
+      return
+    }
+
+    const nextMulti = {
+      pallet: { ...scenario.multi.input.pallet },
+      maxTotalHeight: scenario.multi.input.maxTotalHeight,
+      allowRotation: scenario.multi.input.allowRotation,
+      overhang: scenario.multi.input.overhang,
+      boxTypes: scenario.multi.input.boxTypes.map((boxType) => ({ ...boxType })),
+    }
+    setActiveTab('multi')
+    setMultiDraft(nextMulti)
+    setMultiApplied(nextMulti)
+    setMultiFieldValues(buildMultiFieldValues(nextMulti))
+    setMultiFieldErrors({})
+    setLastGeneratedAt(new Date())
+  }
+
+  const renameScenario = (scenario: StoredScenario) => {
+    const nextName = window.prompt('Nuevo nombre del escenario', scenario.name)
+    if (!nextName) {
+      return
+    }
+
+    const cleaned = nextName.trim()
+    if (!cleaned) {
+      return
+    }
+
+    const nextScenarios = scenarios.map((item) =>
+      item.id === scenario.id
+        ? {
+            ...item,
+            name: cleaned,
+          }
+        : item,
+    )
+    persistScenarios(nextScenarios)
+    setScenarioNotice('Escenario renombrado.')
+  }
+
+  const deleteScenario = (scenarioId: string) => {
+    const nextScenarios = scenarios.filter((scenario) => scenario.id !== scenarioId)
+    persistScenarios(nextScenarios)
+    setScenarioNotice('Escenario eliminado.')
   }
 
   const areaUtilizationText = formatPercent(result.selected.utilization)
@@ -1362,6 +1487,95 @@ function App() {
           </section>
         </>
       )}
+
+      <section className="panel outputs-panel">
+        <div className="outputs-header">
+          <h2>Escenarios guardados</h2>
+          <button type="button" className="btn-secondary" onClick={saveCurrentScenario}>
+            Save scenario
+          </button>
+        </div>
+
+        {scenarioNotice && <p className="scenario-note">{scenarioNotice}</p>}
+
+        {scenarios.length === 0 ? (
+          <p className="top-view-empty">No hay escenarios guardados.</p>
+        ) : (
+          <table className="comparison-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Modo</th>
+                <th>nx x ny</th>
+                <th>Capas</th>
+                <th>Total cajas</th>
+                <th>Utilizacion</th>
+                <th>Altura total</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scenarios.map((scenario) => {
+                const nxNy =
+                  scenario.mode === 'single'
+                    ? `${scenario.single.result.selected.nx} x ${scenario.single.result.selected.ny}`
+                    : '-'
+                const layers =
+                  scenario.mode === 'single' ? String(scenario.single.result.layers) : '-'
+                const totalBoxes =
+                  scenario.mode === 'single'
+                    ? scenario.single.result.totalBoxes
+                    : scenario.multi.result.placedTotal
+                const utilization =
+                  scenario.mode === 'single'
+                    ? formatPercent(scenario.single.result.selected.utilization)
+                    : '-'
+                const totalHeight =
+                  scenario.mode === 'single'
+                    ? scenario.single.result.totalHeight
+                    : scenario.multi.input.pallet.height + scenario.multi.result.heightUsed
+
+                return (
+                  <tr key={scenario.id}>
+                    <td>{scenario.name}</td>
+                    <td>{scenario.mode}</td>
+                    <td>{nxNy}</td>
+                    <td>{layers}</td>
+                    <td>{formatInt.format(totalBoxes)}</td>
+                    <td>{utilization}</td>
+                    <td>{formatInt.format(totalHeight)} mm</td>
+                    <td>
+                      <div className="scenario-actions">
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => loadScenario(scenario)}
+                        >
+                          Load
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => renameScenario(scenario)}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => deleteScenario(scenario.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </section>
     </main>
   )
 }
