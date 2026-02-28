@@ -18,8 +18,9 @@ import { solvePalletization } from './solver'
 import { TopViewLayer } from './top-view/TopViewLayer'
 import type {
   DimensionsMM,
-  MultiPreviewInput,
   MultiBoxTypeInput,
+  MultiPreviewInput,
+  MultiSkuInput,
   SolverInput,
 } from './types'
 
@@ -57,7 +58,7 @@ interface MultiDraftState {
   maxTotalHeight: number
   allowRotation: boolean
   overhang: number
-  boxTypes: MultiBoxTypeInput[]
+  skus: MultiSkuInput[]
 }
 
 interface NumberFieldProps {
@@ -166,13 +167,25 @@ function NumberField({
   )
 }
 
-function createDefaultMultiType(id: number, units: number): MultiBoxTypeInput {
+function createDefaultMultiSku(
+  id: number,
+  overrides?: Partial<MultiSkuInput>,
+): MultiSkuInput {
+  const normalizedId = overrides?.id ?? id
+  const skuId = overrides?.skuId ?? `SKU-${normalizedId}`
+
   return {
-    id,
-    length: MIN_MASTER_BOX.length,
-    width: MIN_MASTER_BOX.width,
-    height: MIN_MASTER_BOX.height,
-    units,
+    id: normalizedId,
+    skuId,
+    name: overrides?.name ?? `Producto ${normalizedId}`,
+    length: overrides?.length ?? MIN_MASTER_BOX.length,
+    width: overrides?.width ?? MIN_MASTER_BOX.width,
+    height: overrides?.height ?? MIN_MASTER_BOX.height,
+    quantity: overrides?.quantity ?? 4,
+    allowRotation: overrides?.allowRotation ?? true,
+    color: overrides?.color,
+    maxLayers: overrides?.maxLayers,
+    noStack: overrides?.noStack,
   }
 }
 
@@ -181,7 +194,10 @@ const DEFAULT_MULTI_STATE: MultiDraftState = {
   maxTotalHeight: 1200,
   allowRotation: true,
   overhang: 0,
-  boxTypes: [createDefaultMultiType(1, 8), createDefaultMultiType(2, 12)],
+  skus: [
+    createDefaultMultiSku(1, { name: 'Caja A', quantity: 8, color: '#2f8f9d' }),
+    createDefaultMultiSku(2, { name: 'Caja B', quantity: 10, color: '#e67e22' }),
+  ],
 }
 
 function cloneInput(input: SolverInput): SolverInput {
@@ -200,7 +216,7 @@ function cloneMultiState(state: MultiDraftState): MultiDraftState {
     maxTotalHeight: state.maxTotalHeight,
     allowRotation: state.allowRotation,
     overhang: state.overhang,
-    boxTypes: state.boxTypes.map((boxType) => ({ ...boxType })),
+    skus: state.skus.map((sku) => ({ ...sku })),
   }
 }
 
@@ -210,7 +226,83 @@ function cloneMultiPreviewInput(state: MultiDraftState): MultiPreviewInput {
     maxTotalHeight: state.maxTotalHeight,
     overhang: state.overhang,
     allowRotation: state.allowRotation,
-    boxTypes: state.boxTypes.map((boxType) => ({ ...boxType })),
+    skus: state.skus.map((sku) => ({ ...sku })),
+  }
+}
+
+function isLegacyMultiBoxType(value: unknown): value is MultiBoxTypeInput {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.id === 'number' &&
+    typeof candidate.length === 'number' &&
+    typeof candidate.width === 'number' &&
+    typeof candidate.height === 'number' &&
+    typeof candidate.units === 'number'
+  )
+}
+
+function normalizeMultiInput(input: MultiPreviewInput | Record<string, unknown>): MultiDraftState {
+  const candidate = input as Partial<MultiPreviewInput>
+  const fallback = DEFAULT_MULTI_STATE
+  const base = {
+    pallet: { ...(candidate.pallet ?? fallback.pallet) },
+    maxTotalHeight: candidate.maxTotalHeight ?? fallback.maxTotalHeight,
+    allowRotation: candidate.allowRotation ?? fallback.allowRotation,
+    overhang: candidate.overhang ?? fallback.overhang,
+  }
+
+  const rawSkus = candidate.skus
+  if (Array.isArray(rawSkus) && rawSkus.length > 0) {
+    return {
+      ...base,
+      skus: rawSkus.map((sku, index) =>
+        createDefaultMultiSku(index + 1, {
+          id: sku.id,
+          skuId: sku.skuId,
+          name: sku.name,
+          length: sku.length,
+          width: sku.width,
+          height: sku.height,
+          quantity: sku.quantity,
+          allowRotation: sku.allowRotation,
+          color: sku.color,
+          maxLayers: sku.maxLayers,
+          noStack: sku.noStack,
+        }),
+      ),
+    }
+  }
+
+  const rawLegacy = (input as { boxTypes?: unknown[] }).boxTypes
+  if (Array.isArray(rawLegacy) && rawLegacy.length > 0) {
+    const legacySkus = rawLegacy
+      .filter(isLegacyMultiBoxType)
+      .map((boxType, index) =>
+        createDefaultMultiSku(index + 1, {
+          id: boxType.id,
+          skuId: `SKU-${boxType.id}`,
+          name: `SKU ${index + 1}`,
+          length: boxType.length,
+          width: boxType.width,
+          height: boxType.height,
+          quantity: boxType.units,
+          allowRotation: true,
+        }),
+      )
+
+    return {
+      ...base,
+      skus: legacySkus,
+    }
+  }
+
+  return {
+    ...base,
+    skus: [],
   }
 }
 
@@ -236,20 +328,24 @@ function areMultiStatesEqual(left: MultiDraftState, right: MultiDraftState) {
     left.maxTotalHeight !== right.maxTotalHeight ||
     left.allowRotation !== right.allowRotation ||
     left.overhang !== right.overhang ||
-    left.boxTypes.length !== right.boxTypes.length
+    left.skus.length !== right.skus.length
   ) {
     return false
   }
 
-  for (let index = 0; index < left.boxTypes.length; index += 1) {
-    const leftType = left.boxTypes[index]
-    const rightType = right.boxTypes[index]
+  for (let index = 0; index < left.skus.length; index += 1) {
+    const leftType = left.skus[index]
+    const rightType = right.skus[index]
     if (
       leftType.id !== rightType.id ||
+      leftType.skuId !== rightType.skuId ||
+      leftType.name !== rightType.name ||
       leftType.length !== rightType.length ||
       leftType.width !== rightType.width ||
       leftType.height !== rightType.height ||
-      leftType.units !== rightType.units
+      leftType.quantity !== rightType.quantity ||
+      leftType.allowRotation !== rightType.allowRotation ||
+      leftType.color !== rightType.color
     ) {
       return false
     }
@@ -333,11 +429,18 @@ function buildSingleFieldValues(input: SolverInput): SingleFieldValues {
   }
 }
 
-function getMultiBoxFieldId(
-  typeId: number,
-  field: 'length' | 'width' | 'height' | 'units',
+function getMultiSkuFieldId(
+  skuId: number,
+  field:
+    | 'skuId'
+    | 'name'
+    | 'length'
+    | 'width'
+    | 'height'
+    | 'quantity'
+    | 'color',
 ) {
-  return `multi-box-${field}-${typeId}`
+  return `multi-sku-${field}-${skuId}`
 }
 
 function buildMultiFieldValues(state: MultiDraftState): Record<string, string> {
@@ -347,14 +450,16 @@ function buildMultiFieldValues(state: MultiDraftState): Record<string, string> {
     'multi-pallet-height': String(state.pallet.height),
     'multi-max-total-height': String(state.maxTotalHeight),
     'multi-overhang': String(state.overhang),
-    'multi-type-count': String(state.boxTypes.length),
   }
 
-  state.boxTypes.forEach((boxType) => {
-    values[getMultiBoxFieldId(boxType.id, 'length')] = String(boxType.length)
-    values[getMultiBoxFieldId(boxType.id, 'width')] = String(boxType.width)
-    values[getMultiBoxFieldId(boxType.id, 'height')] = String(boxType.height)
-    values[getMultiBoxFieldId(boxType.id, 'units')] = String(boxType.units)
+  state.skus.forEach((sku) => {
+    values[getMultiSkuFieldId(sku.id, 'skuId')] = sku.skuId
+    values[getMultiSkuFieldId(sku.id, 'name')] = sku.name
+    values[getMultiSkuFieldId(sku.id, 'length')] = String(sku.length)
+    values[getMultiSkuFieldId(sku.id, 'width')] = String(sku.width)
+    values[getMultiSkuFieldId(sku.id, 'height')] = String(sku.height)
+    values[getMultiSkuFieldId(sku.id, 'quantity')] = String(sku.quantity)
+    values[getMultiSkuFieldId(sku.id, 'color')] = sku.color ?? ''
   })
 
   return values
@@ -404,6 +509,7 @@ function App() {
   const [multiFieldErrors, setMultiFieldErrors] = useState<FieldErrors>({})
   const [multiApplied, setMultiApplied] = useState<MultiDraftState>(DEFAULT_MULTI_STATE)
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date>(new Date())
+  const [multiShowLabels, setMultiShowLabels] = useState(false)
   const [scenarios, setScenarios] = useState<StoredScenario[]>(() =>
     loadStoredScenarios(),
   )
@@ -675,106 +781,106 @@ function App() {
     setLastGeneratedAt(new Date())
   }
 
-  const handleMultiTypeCountChange = (value: string) => {
-    const fieldId = 'multi-type-count'
+  const updateMultiSkuText = (
+    index: number,
+    field: 'skuId' | 'name' | 'color',
+    value: string,
+  ) => {
+    const currentSku = multiDraft.skus[index]
+    if (!currentSku) {
+      return
+    }
+
+    const fieldId = getMultiSkuFieldId(currentSku.id, field)
     setMultiFieldValues((current) => ({
       ...current,
       [fieldId]: value,
     }))
 
-    const validation = validateIntegerInput(value, {
-      label: 'La cantidad de cajas maestras',
-      min: 1,
-      max: 20,
-    })
-
-    setMultiFieldErrors((current) =>
-      upsertFieldError(current, fieldId, validation.error),
-    )
-
-    if (validation.value === null) {
-      return
+    if (field === 'color') {
+      const normalizedColor = value.trim()
+      const isValidColor =
+        normalizedColor.length === 0 || /^#?[0-9a-fA-F]{6}$/.test(normalizedColor)
+      setMultiFieldErrors((current) =>
+        upsertFieldError(
+          current,
+          fieldId,
+          isValidColor ? null : 'Color invalido. Usa formato HEX, por ejemplo #2f8f9d.',
+        ),
+      )
+      if (!isValidColor) {
+        return
+      }
+    } else {
+      const isValid = value.trim().length > 0
+      setMultiFieldErrors((current) =>
+        upsertFieldError(
+          current,
+          fieldId,
+          isValid ? null : `${field === 'name' ? 'Nombre' : 'SKU ID'} es obligatorio.`,
+        ),
+      )
+      if (!isValid) {
+        return
+      }
     }
 
-    const nextCount = validation.value
-    const normalized = multiDraft.boxTypes.map((item, index) => ({
-      ...item,
-      id: index + 1,
+    setMultiDraft((current) => ({
+      ...current,
+      skus: current.skus.map((item, rowIndex) => {
+        if (rowIndex !== index) {
+          return item
+        }
+
+        if (field === 'color') {
+          const normalized = value.trim()
+          return {
+            ...item,
+            color:
+              normalized.length > 0
+                ? normalized.startsWith('#')
+                  ? normalized
+                  : `#${normalized}`
+                : undefined,
+          }
+        }
+
+        return {
+          ...item,
+          [field]: value,
+        }
+      }),
     }))
-
-    const nextBoxTypes: MultiBoxTypeInput[] =
-      nextCount <= normalized.length
-        ? normalized.slice(0, nextCount)
-        : [
-            ...normalized,
-            ...Array.from({ length: nextCount - normalized.length }, (_, index) =>
-              createDefaultMultiType(normalized.length + index + 1, 1),
-            ),
-          ]
-
-    const nextDraft: MultiDraftState = {
-      ...multiDraft,
-      boxTypes: nextBoxTypes,
-    }
-
-    setMultiDraft(nextDraft)
-
-    const allowedKeys = buildMultiAllowedFieldIds(nextDraft)
-    setMultiFieldErrors((current) => {
-      const filtered: FieldErrors = {}
-      Object.entries(current).forEach(([key, error]) => {
-        if (allowedKeys.has(key)) {
-          filtered[key] = error
-        }
-      })
-      return filtered
-    })
-
-    setMultiFieldValues((current) => {
-      const defaults = buildMultiFieldValues(nextDraft)
-      const nextValues: Record<string, string> = {}
-
-      Object.keys(defaults).forEach((key) => {
-        if (key === fieldId) {
-          nextValues[key] = String(nextCount)
-          return
-        }
-
-        nextValues[key] = current[key] ?? defaults[key]
-      })
-
-      return nextValues
-    })
   }
 
-  const updateMultiBox = (
+  const updateMultiSkuNumber = (
     index: number,
-    field: keyof Omit<MultiBoxTypeInput, 'id'>,
+    field: 'length' | 'width' | 'height' | 'quantity',
     value: string,
   ) => {
-    const currentType = multiDraft.boxTypes[index]
-    if (!currentType) {
+    const currentSku = multiDraft.skus[index]
+    if (!currentSku) {
       return
     }
 
-    const fieldId = getMultiBoxFieldId(currentType.id, field)
+    const fieldId = getMultiSkuFieldId(currentSku.id, field)
     const config: IntegerValidationConfig =
-      field === 'units'
+      field === 'quantity'
         ? {
-            label: `Las unidades del tipo ${index + 1}`,
+            label: `Cantidad del SKU ${index + 1}`,
             min: 1,
           }
         : {
             label: `${
               field === 'length' ? 'Largo' : field === 'width' ? 'Ancho' : 'Alto'
-            } del tipo ${index + 1}`,
-            min: MIN_MASTER_BOX[field],
+            } del SKU ${index + 1}`,
+            min: 1,
           }
 
     setMultiValueAndValidation(fieldId, value, config, (nextValue) => {
       setMultiDraft((current) => ({
         ...current,
-        boxTypes: current.boxTypes.map((item, rowIndex) => {
+        skus: current.skus.map((item, rowIndex) => {
           if (rowIndex !== index) {
             return item
           }
@@ -788,11 +894,106 @@ function App() {
     })
   }
 
-  const generateMulti3D = () => {
-    if (multiHasValidationErrors) {
+  const updateMultiSkuRotation = (index: number, checked: boolean) => {
+    setMultiDraft((current) => ({
+      ...current,
+      skus: current.skus.map((item, rowIndex) =>
+        rowIndex === index
+          ? {
+              ...item,
+              allowRotation: checked,
+            }
+          : item,
+      ),
+    }))
+  }
+
+  const addMultiSku = () => {
+    if (multiDraft.skus.length >= 20) {
+      setScenarioNotice('Limite de 20 SKUs alcanzado para el preview multicaja.')
       return
     }
 
+    const nextId =
+      multiDraft.skus.reduce((maxId, sku) => Math.max(maxId, sku.id), 0) + 1
+    const nextSku = createDefaultMultiSku(nextId, {
+      quantity: 1,
+      name: `Producto ${nextId}`,
+    })
+
+    const nextDraft: MultiDraftState = {
+      ...multiDraft,
+      skus: [...multiDraft.skus, nextSku],
+    }
+    setMultiDraft(nextDraft)
+    setMultiFieldValues(buildMultiFieldValues(nextDraft))
+    setMultiFieldErrors((current) => {
+      const next = { ...current }
+      delete next['multi-skus-empty']
+      return next
+    })
+    setScenarioNotice(null)
+  }
+
+  const removeMultiSku = (index: number) => {
+    const target = multiDraft.skus[index]
+    if (!target) {
+      return
+    }
+
+    const nextDraft: MultiDraftState = {
+      ...multiDraft,
+      skus: multiDraft.skus.filter((_, rowIndex) => rowIndex !== index),
+    }
+
+    setMultiDraft(nextDraft)
+    setMultiFieldValues(buildMultiFieldValues(nextDraft))
+
+    const allowedKeys = buildMultiAllowedFieldIds(nextDraft)
+    setMultiFieldErrors((current) => {
+      const filtered: FieldErrors = {}
+      Object.entries(current).forEach(([key, error]) => {
+        if (allowedKeys.has(key)) {
+          filtered[key] = error
+        }
+      })
+      if (nextDraft.skus.length > 0) {
+        delete filtered['multi-skus-empty']
+      }
+      return filtered
+    })
+    setScenarioNotice(null)
+  }
+
+  const clearMultiSkus = () => {
+    const nextDraft: MultiDraftState = {
+      ...multiDraft,
+      skus: [],
+    }
+    setMultiDraft(nextDraft)
+    setMultiFieldValues(buildMultiFieldValues(nextDraft))
+    setMultiFieldErrors((current) => ({
+      ...current,
+      'multi-skus-empty': 'Agrega al menos un SKU para generar la vista.',
+    }))
+  }
+
+  const generateMulti3D = () => {
+    if (multiHasValidationErrors || multiDraft.skus.length === 0) {
+      if (multiDraft.skus.length === 0) {
+        setMultiFieldErrors((current) => ({
+          ...current,
+          'multi-skus-empty': 'Agrega al menos un SKU para generar la vista.',
+        }))
+      }
+      return
+    }
+
+    setMultiFieldErrors((current) => {
+      const next = { ...current }
+      delete next['multi-skus-empty']
+      return next
+    })
     setMultiApplied(cloneMultiState(multiDraft))
     setLastGeneratedAt(new Date())
   }
@@ -805,6 +1006,7 @@ function App() {
     setMultiFieldValues(buildMultiFieldValues(next))
     setMultiFieldErrors({})
     setLastGeneratedAt(new Date())
+    setScenarioNotice(null)
   }
 
   const persistScenarios = (nextScenarios: StoredScenario[]) => {
@@ -865,13 +1067,9 @@ function App() {
       return
     }
 
-    const nextMulti = {
-      pallet: { ...scenario.multi.input.pallet },
-      maxTotalHeight: scenario.multi.input.maxTotalHeight,
-      allowRotation: scenario.multi.input.allowRotation,
-      overhang: scenario.multi.input.overhang,
-      boxTypes: scenario.multi.input.boxTypes.map((boxType) => ({ ...boxType })),
-    }
+    const nextMulti = normalizeMultiInput(
+      scenario.multi.input as MultiPreviewInput | Record<string, unknown>,
+    )
     setActiveTab('multi')
     setMultiPalletPreset(detectPalletPreset(nextMulti.pallet))
     setMultiDraft(nextMulti)
@@ -1370,62 +1568,171 @@ function App() {
                   />
                   <span>Permitir rotacion 90 grados por tipo</span>
                 </label>
+                <label className="checkbox-row" htmlFor="multi-show-labels">
+                  <input
+                    id="multi-show-labels"
+                    type="checkbox"
+                    checked={multiShowLabels}
+                    onChange={(event) => setMultiShowLabels(event.target.checked)}
+                  />
+                  <span>Mostrar labels de SKU en 3D</span>
+                </label>
               </div>
 
               <div className="field-group">
-                <h3>Catalogo de cajas maestras</h3>
-                <NumberField
-                  id="multi-type-count"
-                  label="Cantidad de cajas maestras"
-                  min={1}
-                  max={20}
-                  unit="tipos"
-                  value={multiFieldValues['multi-type-count']}
-                  error={multiFieldErrors['multi-type-count']}
-                  onChange={handleMultiTypeCountChange}
-                />
+                <h3>Catalogo de SKUs</h3>
+                <div className="action-row">
+                  <button type="button" className="btn-secondary" onClick={addMultiSku}>
+                    Add SKU
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={clearMultiSkus}>
+                    Clear
+                  </button>
+                </div>
               </div>
 
               <div className="multi-box-list">
-                {multiDraft.boxTypes.map((item, index) => (
+                {multiDraft.skus.map((item, index) => (
                   <article key={item.id} className="multi-box-card">
-                    <h4>Tipo {index + 1}</h4>
+                    <div className="form-title-row">
+                      <h4>SKU {index + 1}</h4>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => removeMultiSku(index)}
+                      >
+                        Remove SKU
+                      </button>
+                    </div>
+                    <label className="field" htmlFor={getMultiSkuFieldId(item.id, 'skuId')}>
+                      {(() => {
+                        const skuIdField = getMultiSkuFieldId(item.id, 'skuId')
+                        return (
+                          <>
+                            <span>
+                              SKU ID
+                              <strong>texto</strong>
+                            </span>
+                            <input
+                              id={skuIdField}
+                              type="text"
+                              value={multiFieldValues[skuIdField] ?? ''}
+                              onChange={(event) =>
+                                updateMultiSkuText(index, 'skuId', event.target.value)
+                              }
+                            />
+                            {multiFieldErrors[skuIdField] && (
+                              <small className="field-error" role="alert">
+                                {multiFieldErrors[skuIdField]}
+                              </small>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </label>
+                    <label className="field" htmlFor={getMultiSkuFieldId(item.id, 'name')}>
+                      {(() => {
+                        const nameField = getMultiSkuFieldId(item.id, 'name')
+                        return (
+                          <>
+                            <span>
+                              Nombre
+                              <strong>texto</strong>
+                            </span>
+                            <input
+                              id={nameField}
+                              type="text"
+                              value={multiFieldValues[nameField] ?? ''}
+                              onChange={(event) =>
+                                updateMultiSkuText(index, 'name', event.target.value)
+                              }
+                            />
+                            {multiFieldErrors[nameField] && (
+                              <small className="field-error" role="alert">
+                                {multiFieldErrors[nameField]}
+                              </small>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </label>
                     <NumberField
-                      id={getMultiBoxFieldId(item.id, 'length')}
+                      id={getMultiSkuFieldId(item.id, 'length')}
                       label="Largo"
-                      min={MIN_MASTER_BOX.length}
-                      value={multiFieldValues[getMultiBoxFieldId(item.id, 'length')] ?? ''}
-                      error={multiFieldErrors[getMultiBoxFieldId(item.id, 'length')]}
-                      onChange={(value) => updateMultiBox(index, 'length', value)}
+                      min={1}
+                      value={multiFieldValues[getMultiSkuFieldId(item.id, 'length')] ?? ''}
+                      error={multiFieldErrors[getMultiSkuFieldId(item.id, 'length')]}
+                      onChange={(value) => updateMultiSkuNumber(index, 'length', value)}
                     />
                     <NumberField
-                      id={getMultiBoxFieldId(item.id, 'width')}
+                      id={getMultiSkuFieldId(item.id, 'width')}
                       label="Ancho"
-                      min={MIN_MASTER_BOX.width}
-                      value={multiFieldValues[getMultiBoxFieldId(item.id, 'width')] ?? ''}
-                      error={multiFieldErrors[getMultiBoxFieldId(item.id, 'width')]}
-                      onChange={(value) => updateMultiBox(index, 'width', value)}
+                      min={1}
+                      value={multiFieldValues[getMultiSkuFieldId(item.id, 'width')] ?? ''}
+                      error={multiFieldErrors[getMultiSkuFieldId(item.id, 'width')]}
+                      onChange={(value) => updateMultiSkuNumber(index, 'width', value)}
                     />
                     <NumberField
-                      id={getMultiBoxFieldId(item.id, 'height')}
+                      id={getMultiSkuFieldId(item.id, 'height')}
                       label="Alto"
-                      min={MIN_MASTER_BOX.height}
-                      value={multiFieldValues[getMultiBoxFieldId(item.id, 'height')] ?? ''}
-                      error={multiFieldErrors[getMultiBoxFieldId(item.id, 'height')]}
-                      onChange={(value) => updateMultiBox(index, 'height', value)}
+                      min={1}
+                      value={multiFieldValues[getMultiSkuFieldId(item.id, 'height')] ?? ''}
+                      error={multiFieldErrors[getMultiSkuFieldId(item.id, 'height')]}
+                      onChange={(value) => updateMultiSkuNumber(index, 'height', value)}
                     />
                     <NumberField
-                      id={getMultiBoxFieldId(item.id, 'units')}
-                      label="Unidades objetivo"
+                      id={getMultiSkuFieldId(item.id, 'quantity')}
+                      label="Cantidad"
                       min={1}
                       unit="uds"
-                      value={multiFieldValues[getMultiBoxFieldId(item.id, 'units')] ?? ''}
-                      error={multiFieldErrors[getMultiBoxFieldId(item.id, 'units')]}
-                      onChange={(value) => updateMultiBox(index, 'units', value)}
+                      value={multiFieldValues[getMultiSkuFieldId(item.id, 'quantity')] ?? ''}
+                      error={multiFieldErrors[getMultiSkuFieldId(item.id, 'quantity')]}
+                      onChange={(value) => updateMultiSkuNumber(index, 'quantity', value)}
                     />
+                    <label className="field" htmlFor={getMultiSkuFieldId(item.id, 'color')}>
+                      {(() => {
+                        const colorField = getMultiSkuFieldId(item.id, 'color')
+                        return (
+                          <>
+                            <span>
+                              Color HEX
+                              <strong>#RRGGBB</strong>
+                            </span>
+                            <input
+                              id={colorField}
+                              type="text"
+                              value={multiFieldValues[colorField] ?? ''}
+                              onChange={(event) =>
+                                updateMultiSkuText(index, 'color', event.target.value)
+                              }
+                            />
+                            {multiFieldErrors[colorField] && (
+                              <small className="field-error" role="alert">
+                                {multiFieldErrors[colorField]}
+                              </small>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </label>
+                    <label className="checkbox-row" htmlFor={`multi-sku-rotation-${item.id}`}>
+                      <input
+                        id={`multi-sku-rotation-${item.id}`}
+                        type="checkbox"
+                        checked={item.allowRotation}
+                        onChange={(event) =>
+                          updateMultiSkuRotation(index, event.target.checked)
+                        }
+                      />
+                      <span>Permitir rotacion SKU</span>
+                    </label>
                   </article>
                 ))}
               </div>
+
+              {multiFieldErrors['multi-skus-empty'] && (
+                <p className="form-error">{multiFieldErrors['multi-skus-empty']}</p>
+              )}
 
               {multiHasValidationErrors && (
                 <p className="form-error">Corrige los campos marcados antes de generar la vista 3D.</p>
@@ -1451,16 +1758,20 @@ function App() {
             </form>
 
             <article className="panel scene-panel">
-              <SceneMulti pallet={multiApplied.pallet} boxes={multiResult.boxes} />
+              <SceneMulti
+                pallet={multiApplied.pallet}
+                boxes={multiResult.boxes}
+                showLabels={multiShowLabels}
+              />
             </article>
           </section>
 
           <section className="panel outputs-panel">
             <div className="outputs-header">
               <h2>Resultados multicaja</h2>
-              <span className={multiResult.overflowTotal > 0 ? 'chip pending' : 'chip ready'}>
-                {multiResult.overflowTotal > 0
-                  ? `${formatInt.format(multiResult.overflowTotal)} cajas fuera`
+              <span className={multiResult.unplacedTotal > 0 ? 'chip pending' : 'chip ready'}>
+                {multiResult.unplacedTotal > 0
+                  ? `${formatInt.format(multiResult.unplacedTotal)} sin ubicar`
                   : 'Sin excedentes'}
               </span>
             </div>
@@ -1475,12 +1786,12 @@ function App() {
                 <strong>{formatInt.format(multiResult.placedTotal)}</strong>
               </article>
               <article className="kpi">
-                <span>Excedentes</span>
-                <strong>{formatInt.format(multiResult.overflowTotal)}</strong>
+                <span>Sin ubicar</span>
+                <strong>{formatInt.format(multiResult.unplacedTotal)}</strong>
               </article>
               <article className="kpi">
-                <span>Altura usada</span>
-                <strong>{formatInt.format(multiResult.heightUsed)} mm</strong>
+                <span>Capas usadas</span>
+                <strong>{formatInt.format(multiResult.layersUsed)}</strong>
               </article>
             </div>
 
@@ -1491,43 +1802,45 @@ function App() {
                 ))}
               </div>
             )}
+            {multiResult.warnings.length > 0 && (
+              <div className="notice-box">
+                {multiResult.warnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            )}
 
             <table className="comparison-table">
               <thead>
                 <tr>
-                  <th>Tipo</th>
-                  <th>Orientacion</th>
-                  <th>Huella (mm)</th>
-                  <th>nx/ny</th>
+                  <th>SKU</th>
+                  <th>Descripcion</th>
                   <th>Solicitadas</th>
                   <th>Ubicadas</th>
-                  <th>Excedentes</th>
+                  <th>Sin ubicar</th>
+                  <th>No ubicable</th>
                   <th>Capas usadas</th>
+                  <th>Rotaciones</th>
                 </tr>
               </thead>
               <tbody>
-                {multiResult.byType.map((item) => (
-                  <tr key={`multi-summary-${item.typeId}`}>
+                {multiResult.bySku.map((item) => (
+                  <tr key={`multi-summary-${item.id}`}>
                     <td>
                       <span
                         className="color-dot"
                         style={{ backgroundColor: item.color }}
                         aria-hidden="true"
                       />{' '}
-                      Tipo {item.typeId}
+                      {item.skuId}
                     </td>
-                    <td>{item.orientation}</td>
-                    <td>
-                      {formatInt.format(item.boxFootprintL)} x{' '}
-                      {formatInt.format(item.boxFootprintW)}
-                    </td>
-                    <td>
-                      {formatInt.format(item.nx)} / {formatInt.format(item.ny)}
-                    </td>
+                    <td>{item.name}</td>
                     <td>{formatInt.format(item.requested)}</td>
                     <td>{formatInt.format(item.placed)}</td>
-                    <td>{formatInt.format(item.overflow)}</td>
+                    <td>{formatInt.format(item.unplaced)}</td>
+                    <td>{formatInt.format(item.unplaceable)}</td>
                     <td>{formatInt.format(item.layersUsed)}</td>
+                    <td>{formatInt.format(item.rotationsUsed)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1548,6 +1861,10 @@ function App() {
                   <tr>
                     <th>Altura libre (mm)</th>
                     <td>{formatInt.format(multiResult.heightFree)}</td>
+                  </tr>
+                  <tr>
+                    <th>Utilizacion aproximada (%)</th>
+                    <td>{formatPercent(multiResult.utilization)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1589,7 +1906,9 @@ function App() {
                     ? `${scenario.single.result.selected.nx} x ${scenario.single.result.selected.ny}`
                     : '-'
                 const layers =
-                  scenario.mode === 'single' ? String(scenario.single.result.layers) : '-'
+                  scenario.mode === 'single'
+                    ? String(scenario.single.result.layers)
+                    : String(scenario.multi.result.layersUsed ?? '-')
                 const totalBoxes =
                   scenario.mode === 'single'
                     ? scenario.single.result.totalBoxes
@@ -1597,11 +1916,11 @@ function App() {
                 const utilization =
                   scenario.mode === 'single'
                     ? formatPercent(scenario.single.result.selected.utilization)
-                    : '-'
+                    : formatPercent(scenario.multi.result.utilization ?? 0)
                 const totalHeight =
                   scenario.mode === 'single'
                     ? scenario.single.result.totalHeight
-                    : scenario.multi.input.pallet.height + scenario.multi.result.heightUsed
+                    : scenario.multi.input.pallet.height + (scenario.multi.result.heightUsed ?? 0)
 
                 return (
                   <tr key={scenario.id}>

@@ -1,14 +1,15 @@
-import { Edges } from '@react-three/drei'
+import { Edges, Text } from '@react-three/drei'
 import { VISUAL_GAP_MM } from '../constants'
 import type { BoxInstance } from '../types'
 
 interface BoxesProps {
   boxes: BoxInstance[]
+  showLabels?: boolean
 }
 
 const DEFAULT_BOX_COLOR = '#2f8f9d'
 
-export function Boxes({ boxes }: BoxesProps) {
+export function Boxes({ boxes, showLabels = false }: BoxesProps) {
   return (
     <>
       {boxes.map((box, index) => {
@@ -29,6 +30,18 @@ export function Boxes({ boxes }: BoxesProps) {
               metalness={0.02}
             />
             <Edges threshold={15} color="#0c4950" />
+            {showLabels && box.label && (
+              <Text
+                position={[0, visualHeight / 2 + 14, 0]}
+                fontSize={28}
+                color="#1f1f1f"
+                anchorX="center"
+                anchorY="middle"
+                maxWidth={visualLength}
+              >
+                {box.label}
+              </Text>
+            )}
           </mesh>
         )
       })}
