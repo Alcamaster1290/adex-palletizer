@@ -39,7 +39,6 @@ export function Scene({ input, result, onCanvasReady }: SceneProps) {
         gl={{ preserveDrawingBuffer: true, antialias: true }}
       >
         <color attach="background" args={['#f6efe4']} />
-        <fog attach="fog" args={['#f6efe4', 2500, 5600]} />
 
         <ambientLight intensity={0.5} />
         <directionalLight
