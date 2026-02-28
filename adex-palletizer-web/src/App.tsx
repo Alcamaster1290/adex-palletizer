@@ -24,6 +24,7 @@ const DEFAULT_INPUT: SolverInput = {
 type BoxSection = 'pallet' | 'box'
 type TabKey = 'single' | 'multi'
 type FieldErrors = Record<string, string>
+type PalletPresetKey = 'american' | 'euro' | 'custom'
 
 type SingleFieldId =
   | 'pallet-length'
@@ -66,6 +67,34 @@ interface IntegerValidationConfig {
 interface ValidationResult {
   value: number | null
   error: string | null
+}
+
+const PALLET_PRESET_OPTIONS: Array<{
+  key: PalletPresetKey
+  label: string
+  pallet?: DimensionsMM
+}> = [
+  {
+    key: 'american',
+    label: 'American 1200x1000x150',
+    pallet: { length: 1200, width: 1000, height: 150 },
+  },
+  {
+    key: 'euro',
+    label: 'Euro 1200x800x144',
+    pallet: { length: 1200, width: 800, height: 144 },
+  },
+  {
+    key: 'custom',
+    label: 'Custom',
+  },
+]
+
+function getPresetPalletDimensions(
+  preset: PalletPresetKey,
+): DimensionsMM | null {
+  const option = PALLET_PRESET_OPTIONS.find((item) => item.key === preset)
+  return option?.pallet ?? null
 }
 
 function NumberField({
@@ -305,6 +334,8 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('single')
 
   const [draftInput, setDraftInput] = useState<SolverInput>(DEFAULT_INPUT)
+  const [singlePalletPreset, setSinglePalletPreset] =
+    useState<PalletPresetKey>('american')
   const [singleFieldValues, setSingleFieldValues] = useState<SingleFieldValues>(() =>
     buildSingleFieldValues(DEFAULT_INPUT),
   )
@@ -314,6 +345,8 @@ function App() {
   const [lastCalculatedAt, setLastCalculatedAt] = useState<Date>(new Date())
 
   const [multiDraft, setMultiDraft] = useState<MultiDraftState>(DEFAULT_MULTI_STATE)
+  const [multiPalletPreset, setMultiPalletPreset] =
+    useState<PalletPresetKey>('american')
   const [multiFieldValues, setMultiFieldValues] = useState<Record<string, string>>(() =>
     buildMultiFieldValues(DEFAULT_MULTI_STATE),
   )
@@ -367,12 +400,47 @@ function App() {
     }
   }
 
+  const applySinglePalletPreset = (preset: PalletPresetKey) => {
+    setSinglePalletPreset(preset)
+    const presetPallet = getPresetPalletDimensions(preset)
+    if (presetPallet === null) {
+      return
+    }
+
+    setDraftInput((current) => ({
+      ...current,
+      pallet: { ...presetPallet },
+    }))
+    setAppliedInput((current) => ({
+      ...current,
+      pallet: { ...presetPallet },
+    }))
+    setSingleFieldValues((current) => ({
+      ...current,
+      'pallet-length': String(presetPallet.length),
+      'pallet-width': String(presetPallet.width),
+      'pallet-height': String(presetPallet.height),
+    }))
+    setSingleFieldErrors((current) => {
+      const next = { ...current }
+      delete next['pallet-length']
+      delete next['pallet-width']
+      delete next['pallet-height']
+      return next
+    })
+    setLastCalculatedAt(new Date())
+  }
+
   const updateSingleDimensions = (
     fieldId: SingleFieldId,
     section: BoxSection,
     key: keyof DimensionsMM,
     value: string,
   ) => {
+    if (section === 'pallet' && singlePalletPreset !== 'custom') {
+      setSinglePalletPreset('custom')
+    }
+
     const minValue = section === 'box' ? MIN_MASTER_BOX[key] : 1
     const label =
       section === 'box'
@@ -435,6 +503,7 @@ function App() {
     const next = cloneInput(DEFAULT_INPUT)
     setDraftInput(next)
     setAppliedInput(next)
+    setSinglePalletPreset('american')
     setSingleFieldValues(buildSingleFieldValues(next))
     setSingleFieldErrors({})
     setLastCalculatedAt(new Date())
@@ -462,6 +531,10 @@ function App() {
   }
 
   const updateMultiPallet = (field: keyof DimensionsMM, value: string) => {
+    if (multiPalletPreset !== 'custom') {
+      setMultiPalletPreset('custom')
+    }
+
     const fieldId = `multi-pallet-${field}`
     const label = `El ${field === 'length' ? 'largo' : field === 'width' ? 'ancho' : 'alto'} del pallet`
 
@@ -515,6 +588,37 @@ function App() {
         [field]: nextValue,
       }))
     })
+  }
+
+  const applyMultiPalletPreset = (preset: PalletPresetKey) => {
+    setMultiPalletPreset(preset)
+    const presetPallet = getPresetPalletDimensions(preset)
+    if (presetPallet === null) {
+      return
+    }
+
+    setMultiDraft((current) => ({
+      ...current,
+      pallet: { ...presetPallet },
+    }))
+    setMultiApplied((current) => ({
+      ...current,
+      pallet: { ...presetPallet },
+    }))
+    setMultiFieldValues((current) => ({
+      ...current,
+      'multi-pallet-length': String(presetPallet.length),
+      'multi-pallet-width': String(presetPallet.width),
+      'multi-pallet-height': String(presetPallet.height),
+    }))
+    setMultiFieldErrors((current) => {
+      const next = { ...current }
+      delete next['multi-pallet-length']
+      delete next['multi-pallet-width']
+      delete next['multi-pallet-height']
+      return next
+    })
+    setLastGeneratedAt(new Date())
   }
 
   const handleMultiTypeCountChange = (value: string) => {
@@ -643,6 +747,7 @@ function App() {
     const next = cloneMultiState(DEFAULT_MULTI_STATE)
     setMultiDraft(next)
     setMultiApplied(next)
+    setMultiPalletPreset('american')
     setMultiFieldValues(buildMultiFieldValues(next))
     setMultiFieldErrors({})
     setLastGeneratedAt(new Date())
@@ -698,6 +803,25 @@ function App() {
 
               <div className="field-group">
                 <h3>Pallet</h3>
+                <label className="field" htmlFor="single-pallet-preset">
+                  <span>
+                    Pallet preset
+                    <strong>preset</strong>
+                  </span>
+                  <select
+                    id="single-pallet-preset"
+                    value={singlePalletPreset}
+                    onChange={(event) =>
+                      applySinglePalletPreset(event.target.value as PalletPresetKey)
+                    }
+                  >
+                    {PALLET_PRESET_OPTIONS.map((preset) => (
+                      <option key={preset.key} value={preset.key}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <NumberField
                   id="pallet-length"
                   label="Largo"
@@ -979,6 +1103,25 @@ function App() {
 
               <div className="field-group">
                 <h3>Pallet base</h3>
+                <label className="field" htmlFor="multi-pallet-preset">
+                  <span>
+                    Pallet preset
+                    <strong>preset</strong>
+                  </span>
+                  <select
+                    id="multi-pallet-preset"
+                    value={multiPalletPreset}
+                    onChange={(event) =>
+                      applyMultiPalletPreset(event.target.value as PalletPresetKey)
+                    }
+                  >
+                    {PALLET_PRESET_OPTIONS.map((preset) => (
+                      <option key={preset.key} value={preset.key}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <NumberField
                   id="multi-pallet-length"
                   label="Largo"

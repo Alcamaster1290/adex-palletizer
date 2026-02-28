@@ -53,4 +53,22 @@ describe('App input validation', () => {
     expect(screen.getByText(/debe ser mayor o igual a 0/i)).toBeInTheDocument()
     expect(screen.getByTestId('scene-multi')).toBeInTheDocument()
   })
+
+  it('aplica pallet preset euro y recalcula patron sin romper top view ni escena', () => {
+    render(<App />)
+
+    const palletWidthInput = document.getElementById('pallet-width') as HTMLInputElement
+    const palletHeightInput = document.getElementById('pallet-height') as HTMLInputElement
+    expect(palletWidthInput.value).toBe('1000')
+    expect(palletHeightInput.value).toBe('150')
+    expect(screen.getByText(/residual eje ancho: 200 mm/i)).toBeInTheDocument()
+
+    const presetSelect = document.getElementById('single-pallet-preset') as HTMLSelectElement
+    fireEvent.change(presetSelect, { target: { value: 'euro' } })
+
+    expect(palletWidthInput.value).toBe('800')
+    expect(palletHeightInput.value).toBe('144')
+    expect(screen.getByText(/residual eje ancho: 0 mm/i)).toBeInTheDocument()
+    expect(screen.getByTestId('scene-single')).toBeInTheDocument()
+  })
 })
