@@ -125,6 +125,18 @@ function canFitInBase(
   )
 }
 
+function isLayerAllowed(sku: MultiSkuInput, layerIndex: number) {
+  if (sku.noStack && layerIndex > 0) {
+    return false
+  }
+
+  if (typeof sku.maxLayers === 'number' && layerIndex >= sku.maxLayers) {
+    return false
+  }
+
+  return true
+}
+
 function buildGuillotineSplit(rect: FreeRect, length: number, width: number) {
   const right: FreeRect = {
     x: rect.x + length,
@@ -310,6 +322,11 @@ export function solveMultiHeuristic(input: MultiPreviewInput): MultiPreviewResul
 
     for (let unitIndex = 0; unitIndex < pendingUnits.length; ) {
       const unit = pendingUnits[unitIndex]
+      if (!isLayerAllowed(unit.sku, layerIndex)) {
+        unitIndex += 1
+        continue
+      }
+
       const fit = findFirstFit(unit, freeRects, input.allowRotation)
       if (!fit) {
         unitIndex += 1
@@ -373,6 +390,20 @@ export function solveMultiHeuristic(input: MultiPreviewInput): MultiPreviewResul
   if (unplacedTotal > 0) {
     warnings.push('Quedaron unidades sin ubicar con la heuristica first-fit decreasing.')
   }
+
+  input.skus.forEach((sku) => {
+    const skuId = sanitize(sku.skuId, `SKU-${sku.id}`)
+    const remaining = unplacedBySku[skuId] ?? 0
+    if (remaining <= 0) {
+      return
+    }
+
+    if (sku.noStack) {
+      warnings.push(`${skuId}: noStack activo, solo se permite capa 0.`)
+    } else if (typeof sku.maxLayers === 'number') {
+      warnings.push(`${skuId}: maxLayers=${sku.maxLayers} limito el apilamiento.`)
+    }
+  })
 
   return {
     algorithm: 'heuristic',
