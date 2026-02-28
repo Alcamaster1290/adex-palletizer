@@ -187,7 +187,7 @@ function createDefaultMultiSku(
     allowRotation: overrides?.allowRotation ?? true,
     color: overrides?.color,
     maxLayers: overrides?.maxLayers,
-    noStack: overrides?.noStack,
+    noStack: overrides?.noStack ?? false,
   }
 }
 
@@ -347,7 +347,9 @@ function areMultiStatesEqual(left: MultiDraftState, right: MultiDraftState) {
       leftType.height !== rightType.height ||
       leftType.quantity !== rightType.quantity ||
       leftType.allowRotation !== rightType.allowRotation ||
-      leftType.color !== rightType.color
+      leftType.color !== rightType.color ||
+      leftType.maxLayers !== rightType.maxLayers ||
+      leftType.noStack !== rightType.noStack
     ) {
       return false
     }
@@ -440,7 +442,8 @@ function getMultiSkuFieldId(
     | 'width'
     | 'height'
     | 'quantity'
-    | 'color',
+    | 'color'
+    | 'maxLayers',
 ) {
   return `multi-sku-${field}-${skuId}`
 }
@@ -462,6 +465,8 @@ function buildMultiFieldValues(state: MultiDraftState): Record<string, string> {
     values[getMultiSkuFieldId(sku.id, 'height')] = String(sku.height)
     values[getMultiSkuFieldId(sku.id, 'quantity')] = String(sku.quantity)
     values[getMultiSkuFieldId(sku.id, 'color')] = sku.color ?? ''
+    values[getMultiSkuFieldId(sku.id, 'maxLayers')] =
+      typeof sku.maxLayers === 'number' ? String(sku.maxLayers) : ''
   })
 
   return values
@@ -917,6 +922,87 @@ function App() {
           : item,
       ),
     }))
+  }
+
+  const updateMultiSkuMaxLayers = (index: number, value: string) => {
+    const currentSku = multiDraft.skus[index]
+    if (!currentSku) {
+      return
+    }
+
+    const fieldId = getMultiSkuFieldId(currentSku.id, 'maxLayers')
+    setMultiFieldValues((current) => ({
+      ...current,
+      [fieldId]: value,
+    }))
+
+    const trimmed = value.trim()
+    if (trimmed.length === 0) {
+      setMultiFieldErrors((current) => upsertFieldError(current, fieldId, null))
+      setMultiDraft((current) => ({
+        ...current,
+        skus: current.skus.map((sku, rowIndex) =>
+          rowIndex === index
+            ? {
+                ...sku,
+                maxLayers: undefined,
+              }
+            : sku,
+        ),
+      }))
+      return
+    }
+
+    const validation = validateIntegerInput(value, {
+      label: `Max layers del SKU ${index + 1}`,
+      min: 1,
+    })
+    setMultiFieldErrors((current) =>
+      upsertFieldError(current, fieldId, validation.error),
+    )
+    if (validation.value === null) {
+      return
+    }
+
+    setMultiDraft((current) => ({
+      ...current,
+      skus: current.skus.map((sku, rowIndex) =>
+        rowIndex === index
+          ? {
+              ...sku,
+              maxLayers: validation.value ?? undefined,
+            }
+          : sku,
+      ),
+    }))
+  }
+
+  const updateMultiSkuNoStack = (index: number, checked: boolean) => {
+    setMultiDraft((current) => ({
+      ...current,
+      skus: current.skus.map((item, rowIndex) =>
+        rowIndex === index
+          ? {
+              ...item,
+              noStack: checked,
+              maxLayers: checked ? 1 : item.maxLayers,
+            }
+          : item,
+      ),
+    }))
+
+    if (checked) {
+      const currentSku = multiDraft.skus[index]
+      if (currentSku) {
+        setMultiFieldValues((current) => ({
+          ...current,
+          [getMultiSkuFieldId(currentSku.id, 'maxLayers')]: '1',
+        }))
+        setMultiFieldErrors((current) =>
+          upsertFieldError(current, getMultiSkuFieldId(currentSku.id, 'maxLayers'), null),
+        )
+      }
+    }
   }
 
   const addMultiSku = () => {
@@ -1742,6 +1828,15 @@ function App() {
                       error={multiFieldErrors[getMultiSkuFieldId(item.id, 'quantity')]}
                       onChange={(value) => updateMultiSkuNumber(index, 'quantity', value)}
                     />
+                    <NumberField
+                      id={getMultiSkuFieldId(item.id, 'maxLayers')}
+                      label="Max layers SKU"
+                      min={1}
+                      unit="capas"
+                      value={multiFieldValues[getMultiSkuFieldId(item.id, 'maxLayers')] ?? ''}
+                      error={multiFieldErrors[getMultiSkuFieldId(item.id, 'maxLayers')]}
+                      onChange={(value) => updateMultiSkuMaxLayers(index, value)}
+                    />
                     <label className="field" htmlFor={getMultiSkuFieldId(item.id, 'color')}>
                       {(() => {
                         const colorField = getMultiSkuFieldId(item.id, 'color')
@@ -1778,6 +1873,17 @@ function App() {
                         }
                       />
                       <span>Permitir rotacion SKU</span>
+                    </label>
+                    <label className="checkbox-row" htmlFor={`multi-sku-nostack-${item.id}`}>
+                      <input
+                        id={`multi-sku-nostack-${item.id}`}
+                        type="checkbox"
+                        checked={Boolean(item.noStack)}
+                        onChange={(event) =>
+                          updateMultiSkuNoStack(index, event.target.checked)
+                        }
+                      />
+                      <span>No apilar (solo capa 0)</span>
                     </label>
                   </article>
                 ))}

@@ -112,4 +112,60 @@ describe('solveMultiHeuristic', () => {
       })
     }
   })
+
+  it('respeta noStack: el SKU no aparece en capas superiores', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 1200,
+      overhang: 0,
+      allowRotation: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'NST',
+          name: 'No stack',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 10,
+          allowRotation: true,
+          noStack: true,
+        },
+      ],
+    }
+
+    const result = solveMultiHeuristic(input)
+    const noStackBoxes = result.boxes.filter((box) => box.skuId === 'NST')
+
+    expect(noStackBoxes.length).toBeGreaterThan(0)
+    expect(noStackBoxes.every((box) => (box.layer ?? 0) === 0)).toBe(true)
+  })
+
+  it('respeta maxLayers por SKU', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 1200,
+      overhang: 0,
+      allowRotation: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'MAX2',
+          name: 'Max 2 layers',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 20,
+          allowRotation: true,
+          maxLayers: 2,
+        },
+      ],
+    }
+
+    const result = solveMultiHeuristic(input)
+    const skuBoxes = result.boxes.filter((box) => box.skuId === 'MAX2')
+
+    expect(skuBoxes.length).toBeGreaterThan(0)
+    expect(skuBoxes.every((box) => (box.layer ?? 0) < 2)).toBe(true)
+  })
 })

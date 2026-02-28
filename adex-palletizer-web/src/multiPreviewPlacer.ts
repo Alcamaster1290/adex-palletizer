@@ -125,6 +125,18 @@ function buildOrientationChoices(sku: MultiSkuInput, globalAllowRotation: boolea
   return choices
 }
 
+function isLayerAllowed(sku: MultiSkuInput, layerIndex: number) {
+  if (sku.noStack && layerIndex > 0) {
+    return false
+  }
+
+  if (typeof sku.maxLayers === 'number' && layerIndex >= sku.maxLayers) {
+    return false
+  }
+
+  return true
+}
+
 function evaluateCandidate(
   choice: OrientationChoice,
   state: PlacementState,
@@ -160,6 +172,7 @@ function chooseOrientationForState(
   palletLength: number,
   palletWidth: number,
   globalAllowRotation: boolean,
+  layersMax: number,
 ): CandidateFit {
   const choices = buildOrientationChoices(sku, globalAllowRotation)
 
@@ -168,6 +181,14 @@ function chooseOrientationForState(
 
   choices.forEach((choice) => {
     const step = evaluateCandidate(choice, state, palletLength, palletWidth)
+    const targetLayer = step === 2 ? state.layer + 1 : state.layer
+    if (step < 3 && targetLayer >= layersMax) {
+      return
+    }
+    if (step < 3 && !isLayerAllowed(sku, targetLayer)) {
+      return
+    }
+
     if (step < bestStep) {
       bestStep = step
       bestChoice = choice
@@ -260,8 +281,6 @@ export function buildMultiPreviewPlacement(
   let unplaceableTotal = 0
   let totalAreaUsed = 0
 
-  let noMoreSpace = layersMax === 0
-
   input.skus.forEach((sku, skuIndex) => {
     const requested = sku.quantity
     requestedTotal += requested
@@ -287,20 +306,16 @@ export function buildMultiPreviewPlacement(
       )
     } else {
       for (let unit = 0; unit < requested; unit += 1) {
-        if (noMoreSpace) {
-          break
-        }
-
         const candidate = chooseOrientationForState(
           sku,
           state,
           effectivePalletLength,
           effectivePalletWidth,
           input.allowRotation,
+          layersMax,
         )
 
         if (candidate.choice === null || candidate.step === 3) {
-          noMoreSpace = true
           break
         }
 
@@ -318,7 +333,6 @@ export function buildMultiPreviewPlacement(
         }
 
         if (state.layer >= layersMax) {
-          noMoreSpace = true
           break
         }
 
@@ -362,6 +376,15 @@ export function buildMultiPreviewPlacement(
       rotationsUsed,
       color,
     })
+
+    if (unplaced > 0 && (sku.noStack || typeof sku.maxLayers === 'number')) {
+      const skuName = sanitizeSkuString(sku.skuId, `SKU-${sku.id}`)
+      if (sku.noStack) {
+        warnings.push(`${skuName}: restriccion noStack impidio ubicar ${unplaced} unidades.`)
+      } else {
+        warnings.push(`${skuName}: maxLayers limito el apilamiento y quedaron ${unplaced} unidades.`)
+      }
+    }
   })
 
   const unplacedTotal = requestedTotal - placedTotal

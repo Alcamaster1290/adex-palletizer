@@ -28,6 +28,23 @@ npm run preview
 - Escenarios: guardado local en `localStorage` con comparativa rapida.
 - Share link: genera URL con query params (`pL,pW,pH,bL,bW,bH,maxH,rot,ov,mode`) para reproducir el caso.
 
+## Modo multi (Sprint 3)
+
+- `Generar 3D`: crea un **preview determinista** por filas/columnas/capas usando la lista de SKUs.
+- `Solve (heuristic)`: ejecuta heuristica **First-Fit Decreasing por capas** con free-rectangles para mejorar ubicacion.
+- Restricciones por SKU:
+  - `allowRotation`
+  - `maxLayers`
+  - `noStack` (solo capa 0)
+
+### Ejemplo rapido multi
+
+1. Ir a tab `Multiples cajas`.
+2. Agregar SKUs con `Add SKU` y completar `skuId`, dimensiones y `quantity`.
+3. Ejecutar `Generar 3D` para preview base.
+4. Ejecutar `Solve (heuristic)` para intentar mejor aprovechamiento.
+5. Guardar con `Save scenario` para comparar resultados.
+
 ## Deploy en Vercel
 
 Este proyecto esta preparado para desplegarse como app Vite estatica en Vercel.
