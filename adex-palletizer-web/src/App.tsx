@@ -6,6 +6,10 @@ import {
   type BoxPresetId,
 } from './boxPresets'
 import { MIN_MASTER_BOX } from './constants'
+import {
+  buildExportedPalletLoadFromMulti,
+  buildExportedPalletLoadFromSingle,
+} from './containerPalletLoad'
 import { ContainerTopView } from './container-view/ContainerTopView'
 import { solveContainerLoading } from './containerSolver'
 import {
@@ -35,6 +39,7 @@ import type {
   ContainerInput,
   ContainerPresetKey,
   DimensionsMM,
+  ExportedPalletLoad,
   MultiBoxTypeInput,
   MultiPreviewInput,
   MultiPreviewResult,
@@ -681,6 +686,8 @@ function App() {
   const [containerApplied, setContainerApplied] = useState<ContainerInput>(() =>
     cloneContainerInput(initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT),
   )
+  const [containerPalletLoad, setContainerPalletLoad] =
+    useState<ExportedPalletLoad | null>(null)
   const [containerPalletSource, setContainerPalletSource] =
     useState<ContainerPalletSource>('single')
   const [containerShowTechnical, setContainerShowTechnical] = useState(true)
@@ -970,6 +977,9 @@ function App() {
         preset: 'custom',
       }))
     }
+    if (section === 'pallet') {
+      setContainerPalletLoad(null)
+    }
 
     const label =
       section === 'container'
@@ -1051,24 +1061,23 @@ function App() {
     setShareStatus(null)
   }
 
-  const resolveCurrentPalletFromSource = (source: ContainerPalletSource): DimensionsMM => {
+  const resolveCurrentPalletLoadFromSource = (
+    source: ContainerPalletSource,
+  ): ExportedPalletLoad => {
     if (source === 'multi') {
-      return {
-        length: multiApplied.pallet.length,
-        width: multiApplied.pallet.width,
-        height: multiApplied.pallet.height + multiResult.heightUsed,
-      }
+      return buildExportedPalletLoadFromMulti(multiAppliedInput, multiResult)
     }
 
-    return {
-      length: appliedInput.pallet.length,
-      width: appliedInput.pallet.width,
-      height: result.totalHeight,
-    }
+    return buildExportedPalletLoadFromSingle(appliedInput, result)
   }
 
   const useCurrentPalletResult = () => {
-    const sourcePallet = resolveCurrentPalletFromSource(containerPalletSource)
+    const importedLoad = resolveCurrentPalletLoadFromSource(containerPalletSource)
+    const sourcePallet: DimensionsMM = {
+      length: importedLoad.palletLengthMm,
+      width: importedLoad.palletWidthMm,
+      height: importedLoad.loadTotalHeightMm,
+    }
     setContainerDraft((current) => ({
       ...current,
       pallet: { ...sourcePallet },
@@ -1090,6 +1099,7 @@ function App() {
       delete next['container-pallet-height']
       return next
     })
+    setContainerPalletLoad(importedLoad)
     setLastContainerCalculatedAt(new Date())
     setShareStatus(null)
   }
@@ -1101,6 +1111,7 @@ function App() {
     setContainerPreset(next.preset)
     setContainerFieldValues(buildContainerFieldValues(next))
     setContainerFieldErrors({})
+    setContainerPalletLoad(null)
     setContainerPalletSource('single')
     setContainerShowTechnical(true)
     setLastContainerCalculatedAt(new Date())
@@ -1660,6 +1671,7 @@ function App() {
     setContainerPreset(detectContainerPreset(nextContainer.container))
     setContainerFieldValues(buildContainerFieldValues(nextContainer))
     setContainerFieldErrors({})
+    setContainerPalletLoad(null)
     setLastContainerCalculatedAt(new Date())
   }
 
@@ -2767,7 +2779,11 @@ function App() {
             </form>
 
             <article className="panel scene-panel">
-              <SceneContainer input={containerApplied} result={containerResult} />
+              <SceneContainer
+                input={containerApplied}
+                result={containerResult}
+                palletLoad={containerPalletLoad}
+              />
             </article>
           </section>
 
