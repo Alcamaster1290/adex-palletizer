@@ -38,7 +38,6 @@ interface InstancedBoxGroupProps {
   instances: InstanceTransform[]
   applyVisualGap?: boolean
   gapMm?: number
-  wireframeColor?: string
 }
 
 interface LoadInstancedGroup extends InstancedBoxGroupProps {
@@ -53,10 +52,8 @@ function InstancedBoxGroup({
   instances,
   applyVisualGap = false,
   gapMm = VISUAL_GAP_MM,
-  wireframeColor,
 }: InstancedBoxGroupProps) {
   const meshRef = useRef<InstancedMesh>(null)
-  const wireframeRef = useRef<InstancedMesh>(null)
 
   useLayoutEffect(() => {
     const mesh = meshRef.current
@@ -71,13 +68,9 @@ function InstancedBoxGroup({
       dummy.rotation.set(0, instance.rotationY, 0)
       dummy.updateMatrix()
       mesh.setMatrixAt(index, dummy.matrix)
-      wireframeRef.current?.setMatrixAt(index, dummy.matrix)
     })
 
     mesh.instanceMatrix.needsUpdate = true
-    if (wireframeRef.current) {
-      wireframeRef.current.instanceMatrix.needsUpdate = true
-    }
   }, [instances])
 
   if (instances.length === 0) {
@@ -89,18 +82,10 @@ function InstancedBoxGroup({
   const visualWidth = Math.max(1, width - (applyVisualGap ? gapMm : 0))
 
   return (
-    <>
-      <instancedMesh ref={meshRef} args={[undefined, undefined, instances.length]} castShadow>
-        <boxGeometry args={[visualLength, visualHeight, visualWidth]} />
-        <meshStandardMaterial color={color} roughness={0.55} metalness={0.02} />
-      </instancedMesh>
-      {wireframeColor && (
-        <instancedMesh ref={wireframeRef} args={[undefined, undefined, instances.length]}>
-          <boxGeometry args={[visualLength, visualHeight, visualWidth]} />
-          <meshBasicMaterial color={wireframeColor} wireframe />
-        </instancedMesh>
-      )}
-    </>
+    <instancedMesh ref={meshRef} args={[undefined, undefined, instances.length]} castShadow>
+      <boxGeometry args={[visualLength, visualHeight, visualWidth]} />
+      <meshStandardMaterial color={color} roughness={0.55} metalness={0.02} />
+    </instancedMesh>
   )
 }
 
@@ -269,8 +254,7 @@ export function SceneContainer({
               color="#94653a"
               instances={basePalletInstances}
               applyVisualGap
-              gapMm={6}
-              wireframeColor="#5c3b1f"
+              gapMm={8}
             />
             {loadGroups.map((group) => (
               <InstancedBoxGroup
@@ -281,7 +265,7 @@ export function SceneContainer({
                 color={group.color}
                 instances={group.instances}
                 applyVisualGap={group.applyVisualGap}
-                wireframeColor="#0c4950"
+                gapMm={10}
               />
             ))}
           </>
