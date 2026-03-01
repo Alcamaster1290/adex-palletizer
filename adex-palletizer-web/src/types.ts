@@ -64,6 +64,32 @@ export interface BoxInstance {
   layer?: number
 }
 
+export interface ExportedPalletBoxPlacement {
+  xMm: number
+  yMm: number
+  zMm: number
+  lengthMm: number
+  widthMm: number
+  heightMm: number
+  skuId?: string
+  color?: string
+}
+
+export interface ExportedPalletLoad {
+  palletLengthMm: number
+  palletWidthMm: number
+  palletHeightMm: number
+  loadTotalHeightMm: number
+  boxesPlacements: ExportedPalletBoxPlacement[]
+  source: 'single' | 'multi'
+  meta?: {
+    nx?: number
+    ny?: number
+    layers?: number
+    totalBoxes?: number
+  }
+}
+
 export interface MultiBoxTypeInput {
   id: number
   length: number

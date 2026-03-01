@@ -10,7 +10,22 @@ vi.mock('./scene/SceneMulti', () => ({
 }))
 
 vi.mock('./scene/SceneContainer', () => ({
-  SceneContainer: () => <div data-testid="scene-container">scene-container</div>,
+  SceneContainer: (props: {
+    palletLoad?: {
+      loadTotalHeightMm?: number
+      palletHeightMm?: number
+      boxesPlacements?: Array<unknown>
+    } | null
+  }) => (
+    <div
+      data-testid="scene-container"
+      data-load-height={props.palletLoad?.loadTotalHeightMm ?? ''}
+      data-pallet-height={props.palletLoad?.palletHeightMm ?? ''}
+      data-load-boxes={props.palletLoad?.boxesPlacements?.length ?? 0}
+    >
+      scene-container
+    </div>
+  ),
 }))
 
 describe('App input validation', () => {
@@ -133,9 +148,16 @@ describe('App input validation', () => {
       'container-pallet-height',
     ) as HTMLInputElement
     expect(palletHeightInput.value).toBe('150')
+    const sceneContainer = screen.getByTestId('scene-container')
+    expect(sceneContainer.getAttribute('data-load-height')).toBe('')
 
     fireEvent.click(screen.getByRole('button', { name: /use current pallet result/i }))
 
     expect(palletHeightInput.value).toBe('1150')
+    const loadHeight = Number(sceneContainer.getAttribute('data-load-height') ?? '0')
+    const palletHeight = Number(sceneContainer.getAttribute('data-pallet-height') ?? '0')
+    const loadBoxes = Number(sceneContainer.getAttribute('data-load-boxes') ?? '0')
+    expect(loadHeight).toBeGreaterThan(palletHeight)
+    expect(loadBoxes).toBeGreaterThan(0)
   })
 })
