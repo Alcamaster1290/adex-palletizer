@@ -16,12 +16,12 @@ interface BoxPresetOption {
 export const BOX_PRESET_OPTIONS: BoxPresetOption[] = [
   {
     id: 'standard-600-400-200',
-    label: 'Standard 600x400x200',
+    label: 'Estandar 600x400x200',
     dimensions: { length: 600, width: 400, height: 200 },
   },
   {
     id: 'standard-500-350-450',
-    label: 'Standard 500x350x450',
+    label: 'Estandar 500x350x450',
     dimensions: { length: 500, width: 350, height: 450 },
   },
   {
@@ -31,12 +31,12 @@ export const BOX_PRESET_OPTIONS: BoxPresetOption[] = [
   },
   {
     id: 'compact-360-260-220',
-    label: 'Compact 360x260x220',
+    label: 'Compacta 360x260x220',
     dimensions: { length: 360, width: 260, height: 220 },
   },
   {
     id: 'custom',
-    label: 'Custom',
+    label: 'Personalizado',
   },
 ]
 

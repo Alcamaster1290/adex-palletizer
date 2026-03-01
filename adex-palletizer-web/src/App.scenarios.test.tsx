@@ -22,9 +22,9 @@ describe('App scenarios storage', () => {
   it('guarda escenario y lo mantiene tras recargar la app', () => {
     const { unmount } = render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: /save scenario/i }))
+    fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))
 
-    expect(screen.getByText('Scenario 1')).toBeInTheDocument()
+    expect(screen.getByText('Escenario 1')).toBeInTheDocument()
 
     const storedRaw = window.localStorage.getItem(SCENARIOS_STORAGE_KEY)
     expect(storedRaw).not.toBeNull()
@@ -32,23 +32,23 @@ describe('App scenarios storage', () => {
     unmount()
     render(<App />)
 
-    expect(screen.getByText('Scenario 1')).toBeInTheDocument()
+    expect(screen.getByText('Escenario 1')).toBeInTheDocument()
   })
 
   it('aplica limite maximo de 5 escenarios guardados', () => {
     render(<App />)
 
-    const saveButton = screen.getByRole('button', { name: /save scenario/i })
+    const saveButton = screen.getByRole('button', { name: /guardar escenario/i })
     for (let index = 0; index < 5; index += 1) {
       fireEvent.click(saveButton)
     }
 
-    expect(screen.getAllByRole('button', { name: 'Load' })).toHaveLength(5)
+    expect(screen.getAllByRole('button', { name: 'Cargar' })).toHaveLength(5)
 
     fireEvent.click(saveButton)
 
     expect(screen.getByText(/limite de 5 escenarios alcanzado/i)).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Load' })).toHaveLength(5)
+    expect(screen.getAllByRole('button', { name: 'Cargar' })).toHaveLength(5)
   })
 
   it('guarda y carga escenario single preservando boxPresetId', () => {
@@ -56,7 +56,7 @@ describe('App scenarios storage', () => {
 
     const boxPreset = document.getElementById('single-box-preset') as HTMLSelectElement
     fireEvent.change(boxPreset, { target: { value: 'compact-360-260-220' } })
-    fireEvent.click(screen.getByRole('button', { name: /save scenario/i }))
+    fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))
 
     const storedRaw = window.localStorage.getItem(SCENARIOS_STORAGE_KEY)
     expect(storedRaw).not.toBeNull()
@@ -70,7 +70,7 @@ describe('App scenarios storage', () => {
     expect(singleScenario?.single?.boxPresetId).toBe('compact-360-260-220')
 
     fireEvent.change(boxPreset, { target: { value: 'standard-600-400-200' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar' }))
 
     expect((document.getElementById('single-box-preset') as HTMLSelectElement).value).toBe(
       'compact-360-260-220',
@@ -82,10 +82,10 @@ describe('App scenarios storage', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
-    fireEvent.click(screen.getByRole('button', { name: /add sku/i }))
+    fireEvent.click(screen.getByRole('button', { name: /agregar sku/i }))
 
     fireEvent.click(screen.getByRole('button', { name: /generar 3d|regenerar 3d/i }))
-    fireEvent.click(screen.getByRole('button', { name: /save scenario/i }))
+    fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))
 
     const storedRaw = window.localStorage.getItem(SCENARIOS_STORAGE_KEY)
     expect(storedRaw).not.toBeNull()
@@ -109,14 +109,14 @@ describe('App scenarios storage', () => {
     fireEvent.change(document.getElementById('container-preset') as HTMLSelectElement, {
       target: { value: '40gp' },
     })
-    fireEvent.click(screen.getByRole('button', { name: /save scenario/i }))
+    fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))
 
     fireEvent.change(document.getElementById('container-preset') as HTMLSelectElement, {
       target: { value: '20gp' },
     })
     expect((document.getElementById('container-length') as HTMLInputElement).value).toBe('5898')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar' }))
 
     expect((document.getElementById('container-length') as HTMLInputElement).value).toBe('12032')
     expect(screen.getByText(/patron: 10 x 2/i)).toBeInTheDocument()

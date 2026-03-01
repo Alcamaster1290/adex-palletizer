@@ -110,18 +110,18 @@ export function getNextScenarioName(scenarios: StoredScenario[]): string {
   let maxIndex = 0
 
   scenarios.forEach((scenario) => {
-    const match = scenario.name.match(/^Scenario\s+(\d+)$/i)
+    const match = scenario.name.match(/^(Scenario|Escenario)\s+(\d+)$/i)
     if (!match) {
       return
     }
 
-    const parsed = Number(match[1])
+    const parsed = Number(match[2])
     if (Number.isFinite(parsed)) {
       maxIndex = Math.max(maxIndex, parsed)
     }
   })
 
-  return `Scenario ${maxIndex + 1}`
+  return `Escenario ${maxIndex + 1}`
 }
 
 export function createScenarioId() {

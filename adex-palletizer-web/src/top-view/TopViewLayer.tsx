@@ -253,7 +253,7 @@ export function TopViewLayer({
     return (
       <section className="top-view-panel">
         <div className="top-view-title-row">
-          <h3>Top View por capa</h3>
+          <h3>Vista superior por capa</h3>
         </div>
         <p className="top-view-empty">
           Sin patron disponible: revisa dimensiones o altura maxima.
@@ -284,7 +284,7 @@ export function TopViewLayer({
   return (
     <section className="top-view-panel" data-testid="single-top-view-panel">
       <div className="top-view-title-row">
-        <h3>Top View por capa</h3>
+        <h3>Vista superior por capa</h3>
         <span>
           Patron: {selected.nx} x {selected.ny}
         </span>

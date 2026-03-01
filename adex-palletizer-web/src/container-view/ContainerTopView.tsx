@@ -29,7 +29,7 @@ export function ContainerTopView({
     return (
       <section className="top-view-panel">
         <div className="top-view-title-row">
-          <h3>Top View contenedor</h3>
+          <h3>Vista superior del contenedor</h3>
         </div>
         <p className="top-view-empty">
           Sin patron disponible: revisa dimensiones del contenedor y del pallet.
@@ -45,7 +45,7 @@ export function ContainerTopView({
   return (
     <section className="top-view-panel" data-testid="container-top-view-panel">
       <div className="top-view-title-row">
-        <h3>Top View contenedor</h3>
+        <h3>Vista superior del contenedor</h3>
         <span>
           Patron: {result.selected.nx} x {result.selected.ny}
         </span>
@@ -160,7 +160,7 @@ export function ContainerTopView({
 
       <div className="top-view-metrics">
         <p>
-          Footprint ocupado: {result.selected.nx * result.selected.palletFootprintL} mm x{' '}
+          Huella ocupada: {result.selected.nx * result.selected.palletFootprintL} mm x{' '}
           {result.selected.ny * result.selected.palletFootprintW} mm
         </p>
         <p>Residual eje largo: {result.selected.residualLength} mm</p>

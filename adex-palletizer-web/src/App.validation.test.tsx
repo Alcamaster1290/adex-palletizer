@@ -139,7 +139,7 @@ describe('App input validation', () => {
     expect(screen.getByTestId('scene-container')).toBeInTheDocument()
   })
 
-  it('use current pallet result actualiza pallet de carga en tab container', () => {
+  it('usar resultado actual del pallet actualiza pallet de carga en tab container', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
@@ -151,7 +151,7 @@ describe('App input validation', () => {
     const sceneContainer = screen.getByTestId('scene-container')
     expect(sceneContainer.getAttribute('data-load-height')).toBe('')
 
-    fireEvent.click(screen.getByRole('button', { name: /use current pallet result/i }))
+    fireEvent.click(screen.getByRole('button', { name: /usar resultado actual del pallet/i }))
 
     expect(palletHeightInput.value).toBe('1150')
     const loadHeight = Number(sceneContainer.getAttribute('data-load-height') ?? '0')

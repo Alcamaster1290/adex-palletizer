@@ -81,7 +81,7 @@ const CONTAINER_PRESET_OPTIONS: Array<{
   },
   {
     key: 'custom',
-    label: 'Custom',
+    label: 'Personalizado',
   },
 ]
 
@@ -165,7 +165,7 @@ const PALLET_PRESET_OPTIONS: Array<{
 }> = [
   {
     key: 'american',
-    label: 'American 1200x1000x150',
+    label: 'Americano 1200x1000x150',
     pallet: { length: 1200, width: 1000, height: 150 },
   },
   {
@@ -175,7 +175,7 @@ const PALLET_PRESET_OPTIONS: Array<{
   },
   {
     key: 'custom',
-    label: 'Custom',
+    label: 'Personalizado',
   },
 ]
 
@@ -1387,7 +1387,7 @@ function App() {
     }
 
     const validation = validateIntegerInput(value, {
-      label: `Max layers del SKU ${index + 1}`,
+      label: `Capas maximas del SKU ${index + 1}`,
       min: 1,
     })
     setMultiFieldErrors((current) =>
@@ -1440,7 +1440,7 @@ function App() {
 
   const addMultiSku = () => {
     if (multiDraft.skus.length >= 20) {
-      setScenarioNotice('Limite de 20 SKUs alcanzado para el preview multicaja.')
+      setScenarioNotice('Limite de 20 SKUs alcanzado para la vista previa multicaja.')
       return
     }
 
@@ -1545,7 +1545,7 @@ function App() {
       const input = cloneMultiPreviewInput(multiDraft)
       const result = solveMultiHeuristic(input)
       if (result.errors.length > 0) {
-        setScenarioNotice('La heuristica encontro errores de entrada. Se mantiene el preview.')
+        setScenarioNotice('La heuristica encontro errores de entrada. Se mantiene la vista previa.')
         return
       }
 
@@ -1555,7 +1555,7 @@ function App() {
       setScenarioNotice(null)
       setLastGeneratedAt(new Date())
     } catch {
-      setScenarioNotice('No se pudo ejecutar la heuristica. Se mantiene el preview multicaja.')
+      setScenarioNotice('No se pudo ejecutar la heuristica. Se mantiene la vista previa multicaja.')
       setMultiAlgorithm('preview')
       setMultiHeuristicResult(null)
     }
@@ -1767,11 +1767,11 @@ function App() {
   return (
     <main className="app-shell">
       <header className="hero">
-        <p className="eyebrow">ADEX PALLETIZER WEB</p>
-        <h1>Pallet Solver by Alvaro Cáceres</h1>
+        <p className="eyebrow">ADEX SOLUCIONADOR DE PALLETS</p>
+        <h1>Solucionador de pallets por Alvaro Caceres</h1>
         <p>
-          Usa <strong>Caja unica</strong> para solver homogeneo y{' '}
-          <strong>Multiples cajas</strong> para preview 3D multicaja.
+          Usa <strong>Caja unica</strong> para calculo homogeneo y{' '}
+          <strong>Multiples cajas</strong> para vista 3D multicaja.
         </p>
       </header>
 
@@ -1826,8 +1826,8 @@ function App() {
                 <h3>Pallet</h3>
                 <label className="field" htmlFor="single-pallet-preset">
                   <span>
-                    Pallet preset
-                    <strong>preset</strong>
+                    Preset de pallet
+                    <strong>predef.</strong>
                   </span>
                   <select
                     id="single-pallet-preset"
@@ -1880,7 +1880,7 @@ function App() {
                 <label className="field" htmlFor="single-box-preset">
                   <span>
                     Preset de caja maestra
-                    <strong>preset</strong>
+                    <strong>predef.</strong>
                   </span>
                   <select
                     id="single-box-preset"
@@ -1942,7 +1942,7 @@ function App() {
                 />
                 <NumberField
                   id="overhang"
-                  label="Overhang"
+                  label="Voladizo"
                   min={0}
                   value={singleFieldValues.overhang}
                   error={singleFieldErrors.overhang}
@@ -2004,7 +2004,7 @@ function App() {
                     void shareCurrentSingle()
                   }}
                 >
-                  Share link
+                  Compartir enlace
                 </button>
                 <button
                   type="button"
@@ -2017,7 +2017,7 @@ function App() {
                     })
                   }
                 >
-                  Export JSON
+                  Exportar JSON
                 </button>
                 <button
                   type="button"
@@ -2025,7 +2025,7 @@ function App() {
                   onClick={() => exportPng(singleCanvas)}
                   disabled={singleCanvas === null}
                 >
-                  Export PNG
+                  Exportar PNG
                 </button>
               </div>
             </div>
@@ -2156,8 +2156,8 @@ function App() {
                 <h3>Pallet base</h3>
                 <label className="field" htmlFor="multi-pallet-preset">
                   <span>
-                    Pallet preset
-                    <strong>preset</strong>
+                    Preset de pallet
+                    <strong>predef.</strong>
                   </span>
                   <select
                     id="multi-pallet-preset"
@@ -2211,7 +2211,7 @@ function App() {
                 />
                 <NumberField
                   id="multi-overhang"
-                  label="Overhang"
+                  label="Voladizo"
                   min={0}
                   value={multiFieldValues['multi-overhang']}
                   error={multiFieldErrors['multi-overhang']}
@@ -2235,7 +2235,7 @@ function App() {
                     checked={multiShowLabels}
                     onChange={(event) => setMultiShowLabels(event.target.checked)}
                   />
-                  <span>Mostrar labels de SKU en 3D</span>
+                  <span>Mostrar etiquetas de SKU en 3D</span>
                 </label>
               </div>
 
@@ -2243,10 +2243,10 @@ function App() {
                 <h3>Catalogo de SKUs</h3>
                 <div className="action-row">
                   <button type="button" className="btn-secondary" onClick={addMultiSku}>
-                    Add SKU
+                    Agregar SKU
                   </button>
                   <button type="button" className="btn-secondary" onClick={clearMultiSkus}>
-                    Clear
+                    Limpiar
                   </button>
                 </div>
               </div>
@@ -2261,7 +2261,7 @@ function App() {
                         className="btn-secondary"
                         onClick={() => removeMultiSku(index)}
                       >
-                        Remove SKU
+                        Quitar SKU
                       </button>
                     </div>
                     <label className="field" htmlFor={getMultiSkuFieldId(item.id, 'skuId')}>
@@ -2270,7 +2270,7 @@ function App() {
                         return (
                           <>
                             <span>
-                              SKU ID
+                              ID SKU
                               <strong>texto</strong>
                             </span>
                             <input
@@ -2351,7 +2351,7 @@ function App() {
                     />
                     <NumberField
                       id={getMultiSkuFieldId(item.id, 'maxLayers')}
-                      label="Max layers SKU"
+                      label="Capas maximas SKU"
                       min={1}
                       unit="capas"
                       value={multiFieldValues[getMultiSkuFieldId(item.id, 'maxLayers')] ?? ''}
@@ -2364,7 +2364,7 @@ function App() {
                         return (
                           <>
                             <span>
-                              Color HEX
+                              Color hexadecimal
                               <strong>#RRGGBB</strong>
                             </span>
                             <input
@@ -2428,7 +2428,7 @@ function App() {
                   onClick={solveMulti3DHeuristic}
                   disabled={multiHasValidationErrors}
                 >
-                  Solve (heuristic)
+                  Resolver (heuristica)
                 </button>
                 <button type="button" className="btn-secondary" onClick={resetMulti}>
                   Restablecer
@@ -2460,7 +2460,7 @@ function App() {
               <span className={multiResult.unplacedTotal > 0 ? 'chip pending' : 'chip ready'}>
                 {multiResult.algorithm === 'heuristic'
                   ? 'Heuristica FFD'
-                  : 'Preview por grilla'}
+                  : 'Vista previa por grilla'}
               </span>
             </div>
 
@@ -2570,7 +2570,7 @@ function App() {
               }}
             >
               <div className="form-title-row">
-                <h2>Container loading</h2>
+                <h2>Carga en contenedor</h2>
                 <span className={hasPendingContainer ? 'chip pending' : 'chip ready'}>
                   {hasPendingContainer ? 'Cambios sin calcular' : 'Calculo al dia'}
                 </span>
@@ -2580,8 +2580,8 @@ function App() {
                 <h3>Contenedor</h3>
                 <label className="field" htmlFor="container-preset">
                   <span>
-                    Container preset
-                    <strong>preset</strong>
+                    Preset de contenedor
+                    <strong>predef.</strong>
                   </span>
                   <select
                     id="container-preset"
@@ -2643,8 +2643,8 @@ function App() {
                       setContainerPalletSource(event.target.value as ContainerPalletSource)
                     }
                   >
-                    <option value="single">Single result</option>
-                    <option value="multi">Multi result</option>
+                    <option value="single">Resultado caja unica</option>
+                    <option value="multi">Resultado multiples cajas</option>
                   </select>
                 </label>
                 <button
@@ -2653,7 +2653,7 @@ function App() {
                   className="btn-secondary"
                   onClick={useCurrentPalletResult}
                 >
-                  Use current pallet result
+                  Usar resultado actual del pallet
                 </button>
                 <NumberField
                   id="container-pallet-length"
@@ -2701,7 +2701,7 @@ function App() {
                 <h3>Reglas operativas</h3>
                 <NumberField
                   id="container-clearance"
-                  label="Clearance"
+                  label="Holgura"
                   min={0}
                   value={containerFieldValues['container-clearance']}
                   error={containerFieldErrors['container-clearance']}
@@ -2726,7 +2726,7 @@ function App() {
                 />
                 <NumberField
                   id="container-payload-max"
-                  label="Payload maximo"
+                  label="Carga util maxima"
                   min={1}
                   unit="kg"
                   value={containerFieldValues['container-payload-max']}
@@ -2798,14 +2798,14 @@ function App() {
                     void shareCurrentContainer()
                   }}
                 >
-                  Share link
+                  Compartir enlace
                 </button>
                 <button
                   type="button"
                   className="btn-secondary"
                   onClick={exportContainerJsonPlan}
                 >
-                  Export Plan JSON
+                  Exportar plan JSON
                 </button>
                 <button
                   type="button"
@@ -2813,7 +2813,7 @@ function App() {
                   onClick={exportContainerTopViewPlan}
                   disabled={containerTopViewSvg === null}
                 >
-                  Export Plan PNG
+                  Exportar plan PNG
                 </button>
               </div>
             </div>
@@ -2889,7 +2889,7 @@ function App() {
                   </td>
                 </tr>
                 <tr>
-                  <th>Total pallets final</th>
+                  <th>Total de pallets final</th>
                   <td>{formatInt.format(containerResult.totalPallets)}</td>
                 </tr>
                 <tr>
@@ -2930,7 +2930,7 @@ function App() {
         <div className="outputs-header">
           <h2>Escenarios guardados</h2>
           <button type="button" className="btn-secondary" onClick={saveCurrentScenario}>
-            Save scenario
+            Guardar escenario
           </button>
         </div>
 
@@ -2945,7 +2945,7 @@ function App() {
                 <th>Nombre</th>
                 <th>Modo</th>
                 <th>nx x ny</th>
-                <th>Capas/Floors</th>
+                <th>Capas/Niveles</th>
                 <th>Total unidades</th>
                 <th>Utilizacion</th>
                 <th>Altura total</th>
@@ -2984,11 +2984,17 @@ function App() {
                     : scenario.mode === 'multi'
                       ? scenario.multi.input.pallet.height + (scenario.multi.result.heightUsed ?? 0)
                       : scenario.container.input.pallet.height
+                const modeLabel =
+                  scenario.mode === 'single'
+                    ? 'Caja unica'
+                    : scenario.mode === 'multi'
+                      ? 'Multiples cajas'
+                      : 'Contenedores'
 
                 return (
                   <tr key={scenario.id}>
                     <td>{scenario.name}</td>
-                    <td>{scenario.mode}</td>
+                    <td>{modeLabel}</td>
                     <td>{nxNy}</td>
                     <td>{layers}</td>
                     <td>{formatInt.format(totalBoxes)}</td>
@@ -3001,21 +3007,21 @@ function App() {
                           className="btn-secondary"
                           onClick={() => loadScenario(scenario)}
                         >
-                          Load
+                          Cargar
                         </button>
                         <button
                           type="button"
                           className="btn-secondary"
                           onClick={() => renameScenario(scenario)}
                         >
-                          Rename
+                          Renombrar
                         </button>
                         <button
                           type="button"
                           className="btn-secondary"
                           onClick={() => deleteScenario(scenario.id)}
                         >
-                          Delete
+                          Eliminar
                         </button>
                       </div>
                     </td>
@@ -3031,3 +3037,4 @@ function App() {
 }
 
 export default App
+

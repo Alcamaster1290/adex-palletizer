@@ -51,7 +51,7 @@ describe('App share link', () => {
   it('genera URL compartible con los parametros actuales', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: /share link/i }))
+    fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
 
     expect(window.location.search).toContain('pL=1200')
     expect(window.location.search).toContain('pW=1000')
@@ -118,7 +118,7 @@ describe('App share link', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
-    fireEvent.click(screen.getByRole('button', { name: /share link/i }))
+    fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
 
     expect(window.location.search).toContain('mode=container')
     expect(window.location.search).toContain('cL=5898')
