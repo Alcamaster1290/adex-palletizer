@@ -77,6 +77,20 @@ describe('App share link', () => {
     )
   })
 
+  it('usa Grid como modo estandar cuando la grilla no deja area libre', () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/?mode=single&pL=1200&pW=1000&pH=150&bL=600&bW=500&bH=200&maxH=1200&rot=1&ov=0',
+    )
+
+    render(<App />)
+
+    expect((document.getElementById('single-packing-mode') as HTMLSelectElement).value).toBe(
+      'grid',
+    )
+  })
+
   it('incluye pm=advanced al compartir enlace en modo avanzado', () => {
     render(<App />)
 

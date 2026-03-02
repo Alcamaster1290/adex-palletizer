@@ -227,6 +227,13 @@ function detectContainerPreset(container: DimensionsMM): ContainerPresetKey {
   return matched?.key ?? 'custom'
 }
 
+function resolveStandardSinglePackingMode(input: SolverInput): PackingMode {
+  const gridResult = solvePalletization(input)
+  const hasGridPlacement = gridResult.layers > 0 && gridResult.selected.perLayer > 0
+  const leavesFreeArea = hasGridPlacement && gridResult.freeArea > 0
+  return leavesFreeArea ? 'advanced' : 'grid'
+}
+
 function NumberField({
   id,
   label,
@@ -648,10 +655,14 @@ function App() {
     () => initialShareState.boxPresetId ?? detectBoxPreset(initialShareState.input.box),
   )
   const [singlePackingModeDraft, setSinglePackingModeDraft] = useState<PackingMode>(
-    () => initialShareState.packingMode ?? 'advanced',
+    () =>
+      initialShareState.packingMode ??
+      resolveStandardSinglePackingMode(initialShareState.input),
   )
   const [singlePackingModeApplied, setSinglePackingModeApplied] = useState<PackingMode>(
-    () => initialShareState.packingMode ?? 'advanced',
+    () =>
+      initialShareState.packingMode ??
+      resolveStandardSinglePackingMode(initialShareState.input),
   )
   const [singleFieldValues, setSingleFieldValues] = useState<SingleFieldValues>(() =>
     buildSingleFieldValues(initialShareState.input),
@@ -930,12 +941,13 @@ function App() {
 
   const resetSingle = () => {
     const next = cloneInput(DEFAULT_INPUT)
+    const nextDefaultMode = resolveStandardSinglePackingMode(next)
     setDraftInput(next)
     setAppliedInput(next)
     setSinglePalletPreset('american')
     setSingleBoxPreset('standard-600-400-200')
-    setSinglePackingModeDraft('advanced')
-    setSinglePackingModeApplied('advanced')
+    setSinglePackingModeDraft(nextDefaultMode)
+    setSinglePackingModeApplied(nextDefaultMode)
     setSingleFieldValues(buildSingleFieldValues(next))
     setSingleFieldErrors({})
     setLastCalculatedAt(new Date())
@@ -1673,7 +1685,8 @@ function App() {
       setActiveTab('single')
       setSinglePalletPreset(detectPalletPreset(nextInput.pallet))
       setSingleBoxPreset(scenario.single.boxPresetId ?? detectBoxPreset(nextInput.box))
-      const nextPackingMode = scenario.single.packingMode ?? 'advanced'
+      const nextPackingMode =
+        scenario.single.packingMode ?? resolveStandardSinglePackingMode(nextInput)
       setSinglePackingModeDraft(nextPackingMode)
       setSinglePackingModeApplied(nextPackingMode)
       setDraftInput(nextInput)
