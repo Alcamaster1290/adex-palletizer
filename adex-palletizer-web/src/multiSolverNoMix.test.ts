@@ -203,4 +203,115 @@ describe('solveMultiHeuristicNoMix', () => {
     expect(second.columnsBySku).toEqual(first.columnsBySku)
     expect(second.bySku).toEqual(first.bySku)
   })
+
+  it('aumenta huellas para SKU unico qty=10 cuando mejora ocupacion de area', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 650,
+      overhang: 0,
+      allowRotation: true,
+      noMixedSkuStacking: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'ORG',
+          name: 'Naranja',
+          length: 600,
+          width: 400,
+          height: 100,
+          quantity: 10,
+          allowRotation: true,
+        },
+      ],
+    }
+
+    const result = solveMultiHeuristicNoMix(input)
+    const palletArea = input.pallet.length * input.pallet.width
+    const usedArea = Math.round(result.utilization * palletArea)
+    const baselineHighColumns = 2
+    const baselineHighArea = baselineHighColumns * 600 * 400
+
+    expect(result.errors).toHaveLength(0)
+    expect(result.columnsBySku?.ORG ?? 0).toBeGreaterThanOrEqual(3)
+    expect(usedArea).toBeGreaterThanOrEqual(baselineHighArea)
+    expect(result.placedBySku.ORG).toBe(10)
+    expect(() => assertNoMixedColumns(result.boxes)).not.toThrow()
+  })
+
+  it('en caso de 2 SKUs mejora huellas del SKU de mayor qty sin mezclar columnas', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 650,
+      overhang: 0,
+      allowRotation: true,
+      noMixedSkuStacking: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'SKU1',
+          name: 'SKU 1',
+          length: 600,
+          width: 400,
+          height: 100,
+          quantity: 3,
+          allowRotation: true,
+        },
+        {
+          id: 2,
+          skuId: 'SKU2',
+          name: 'SKU 2',
+          length: 600,
+          width: 400,
+          height: 100,
+          quantity: 10,
+          allowRotation: true,
+        },
+      ],
+    }
+
+    const result = solveMultiHeuristicNoMix(input)
+
+    expect(result.errors).toHaveLength(0)
+    expect(result.columnsBySku?.SKU2 ?? 0).toBeGreaterThanOrEqual(3)
+    expect(() => assertNoMixedColumns(result.boxes)).not.toThrow()
+  })
+
+  it('usa rotacion por columna cuando mejora el encaje', () => {
+    const rotOn: MultiPreviewInput = {
+      pallet: { length: 1000, width: 1000, height: 150 },
+      maxTotalHeight: 350,
+      overhang: 0,
+      allowRotation: true,
+      noMixedSkuStacking: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'ROT',
+          name: 'Rotable',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 3,
+          allowRotation: true,
+        },
+      ],
+    }
+
+    const rotOff: MultiPreviewInput = {
+      ...rotOn,
+      allowRotation: false,
+      skus: [
+        {
+          ...rotOn.skus[0],
+          allowRotation: false,
+        },
+      ],
+    }
+
+    const withRotation = solveMultiHeuristicNoMix(rotOn)
+    const withoutRotation = solveMultiHeuristicNoMix(rotOff)
+
+    expect(withRotation.placedTotal).toBeGreaterThan(withoutRotation.placedTotal)
+    expect((withRotation.bySku.find((item) => item.skuId === 'ROT')?.rotationsUsed ?? 0)).toBeGreaterThan(0)
+  })
 })

@@ -8,6 +8,66 @@ import type {
   RectPackPlacement,
 } from './types'
 
+interface PreparedSkuContext {
+  sku: MultiSkuInput
+  skuId: string
+  skuName: string
+  color: string
+  canRotate: boolean
+  baseFits: boolean
+  maxStack: number
+  candidateHeights: number[]
+  limitedByVerticalRules: boolean
+  unplaceable: number
+}
+
+interface ColumnPlan {
+  id: string
+  sequence: number
+  skuId: string
+  skuName: string
+  sku: MultiSkuInput
+  color: string
+  canRotate: boolean
+  w: number
+  h: number
+  stackCount: number
+  chosenHeight: number
+}
+
+interface PackedColumn {
+  plan: ColumnPlan
+  placement: RectPackPlacement
+}
+
+interface EvaluationScore {
+  areaUsed: number
+  placedUnits: number
+  usedHeight: number
+  placedColumns: number
+  freeRectCount: number
+}
+
+interface EvaluationResult {
+  score: EvaluationScore
+  packedColumns: PackedColumn[]
+  columnsReduced: boolean
+  columnsBySku: Record<string, number>
+}
+
+interface HeightCandidate {
+  skuId: string
+  heights: Record<string, number>
+  evaluation: EvaluationResult
+}
+
+const isPositive = (value: number) => Number.isFinite(value) && value > 0
+
+function sanitize(value: string, fallback: string) {
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : fallback
+}
+
 function normalizeColumnValue(value: number) {
   return Number(value.toFixed(4))
 }
@@ -18,37 +78,6 @@ function buildColumnSignature(box: BoxInstance) {
   const length = normalizeColumnValue(box.length)
   const width = normalizeColumnValue(box.width)
   return `${x}|${z}|${length}|${width}`
-}
-
-interface PreparedSku {
-  sku: MultiSkuInput
-  skuId: string
-  skuName: string
-  color: string
-  stackPerColumn: number
-  columnsNeeded: number
-  columnsAssigned: number
-  value: number
-  canRotate: boolean
-  limitedByVerticalRules: boolean
-  baseFits: boolean
-  unplaceable: number
-}
-
-interface ColumnItem {
-  id: string
-  skuId: string
-  w: number
-  h: number
-  canRotate: boolean
-  color: string
-}
-
-const isPositive = (value: number) => Number.isFinite(value) && value > 0
-
-function sanitize(value: string, fallback: string) {
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : fallback
 }
 
 function validateInput(input: MultiPreviewInput): string[] {
@@ -174,49 +203,328 @@ function buildSummary(
   })
 }
 
-function buildColumns(preparedSkus: PreparedSku[]): ColumnItem[] {
-  const columns: ColumnItem[] = []
-  preparedSkus.forEach((prepared) => {
-    for (let index = 0; index < prepared.columnsAssigned; index += 1) {
-      columns.push({
-        id: `${prepared.skuId}::${index + 1}`,
-        skuId: prepared.skuId,
-        w: prepared.sku.length,
-        h: prepared.sku.width,
-        canRotate: prepared.canRotate,
-        color: prepared.color,
-      })
-    }
-  })
-  return columns
+function uniqueDescending(values: number[]) {
+  const unique = Array.from(new Set(values.filter((value) => value >= 1)))
+  unique.sort((left, right) => right - left)
+  return unique
 }
 
-function sortByPriority(preparedSkus: PreparedSku[]) {
-  return [...preparedSkus].sort((left, right) => {
-    if (right.value !== left.value) {
-      return right.value - left.value
+function buildCandidateHeights(maxStack: number) {
+  return uniqueDescending([1, 2, 3, 4, maxStack])
+}
+
+function compareScores(left: EvaluationScore, right: EvaluationScore) {
+  if (left.areaUsed !== right.areaUsed) {
+    return left.areaUsed - right.areaUsed
+  }
+  if (left.placedUnits !== right.placedUnits) {
+    return left.placedUnits - right.placedUnits
+  }
+  if (left.usedHeight !== right.usedHeight) {
+    return right.usedHeight - left.usedHeight
+  }
+  if (left.placedColumns !== right.placedColumns) {
+    return left.placedColumns - right.placedColumns
+  }
+  if (left.freeRectCount !== right.freeRectCount) {
+    return right.freeRectCount - left.freeRectCount
+  }
+  return 0
+}
+
+function nextLowerHeight(current: number, candidates: number[]) {
+  const index = candidates.indexOf(current)
+  if (index < 0 || index >= candidates.length - 1) {
+    return current
+  }
+  return candidates[index + 1]
+}
+
+function clampHeight(height: number, maxStack: number) {
+  return Math.max(1, Math.min(maxStack, height))
+}
+
+function buildColumnPlansForHeights(
+  contexts: PreparedSkuContext[],
+  heightsBySku: Record<string, number>,
+) {
+  const bySku = new Map<string, ColumnPlan[]>()
+  const allPlans: ColumnPlan[] = []
+
+  contexts.forEach((context) => {
+    if (!context.baseFits || context.maxStack <= 0) {
+      bySku.set(context.skuId, [])
+      return
     }
-    return left.skuId.localeCompare(right.skuId)
+
+    const chosenHeight = clampHeight(
+      heightsBySku[context.skuId] ?? context.maxStack,
+      context.maxStack,
+    )
+    const columnsNeeded = Math.ceil(context.sku.quantity / chosenHeight)
+    const plans: ColumnPlan[] = []
+
+    for (let index = 0; index < columnsNeeded; index += 1) {
+      const remaining = context.sku.quantity - index * chosenHeight
+      const stackCount = Math.min(chosenHeight, remaining)
+      const plan: ColumnPlan = {
+        id: `${context.skuId}::${index + 1}`,
+        sequence: index,
+        skuId: context.skuId,
+        skuName: context.skuName,
+        sku: context.sku,
+        color: context.color,
+        canRotate: context.canRotate,
+        w: context.sku.length,
+        h: context.sku.width,
+        stackCount,
+        chosenHeight,
+      }
+      plans.push(plan)
+      allPlans.push(plan)
+    }
+
+    bySku.set(context.skuId, plans)
   })
+
+  allPlans.sort((left, right) => {
+    const leftArea = left.w * left.h
+    const rightArea = right.w * right.h
+    if (rightArea !== leftArea) {
+      return rightArea - leftArea
+    }
+    if (right.stackCount !== left.stackCount) {
+      return right.stackCount - left.stackCount
+    }
+    if (left.skuId !== right.skuId) {
+      return left.skuId.localeCompare(right.skuId)
+    }
+    return left.sequence - right.sequence
+  })
+
+  return { bySku, allPlans }
 }
 
 function runColumnPacking(
   palletLength: number,
   palletWidth: number,
-  columns: ColumnItem[],
+  plans: ColumnPlan[],
 ) {
   return rectPack2d(
     palletLength,
     palletWidth,
-    columns.map((column) => ({
-      id: column.id,
-      skuId: column.skuId,
-      w: column.w,
-      h: column.h,
-      canRotate: column.canRotate,
-      color: column.color,
+    plans.map((plan) => ({
+      id: plan.id,
+      skuId: plan.skuId,
+      w: plan.w,
+      h: plan.h,
+      canRotate: plan.canRotate,
+      color: plan.color,
     })),
   )
+}
+
+function buildPriorityByValue(
+  contexts: PreparedSkuContext[],
+  heightsBySku: Record<string, number>,
+) {
+  const ordered = [...contexts].filter((context) => context.baseFits && context.maxStack > 0)
+  ordered.sort((left, right) => {
+    const leftHeight = clampHeight(
+      heightsBySku[left.skuId] ?? left.maxStack,
+      left.maxStack,
+    )
+    const rightHeight = clampHeight(
+      heightsBySku[right.skuId] ?? right.maxStack,
+      right.maxStack,
+    )
+    const leftValue = leftHeight / (left.sku.length * left.sku.width)
+    const rightValue = rightHeight / (right.sku.length * right.sku.width)
+    if (rightValue !== leftValue) {
+      return rightValue - leftValue
+    }
+    return left.skuId.localeCompare(right.skuId)
+  })
+
+  return {
+    keepOrder: ordered.map((context) => context.skuId),
+    removeOrder: [...ordered.map((context) => context.skuId)].reverse(),
+  }
+}
+
+function evaluateHeights(
+  contexts: PreparedSkuContext[],
+  heightsBySku: Record<string, number>,
+  palletLength: number,
+  palletWidth: number,
+): EvaluationResult {
+  const { bySku } = buildColumnPlansForHeights(contexts, heightsBySku)
+  const { removeOrder } = buildPriorityByValue(contexts, heightsBySku)
+
+  let columnsReduced = false
+  let plans = Array.from(bySku.values()).flat()
+  let packResult = runColumnPacking(palletLength, palletWidth, plans)
+
+  while (packResult.unplaced.length > 0) {
+    let reduced = false
+    for (const skuId of removeOrder) {
+      const skuPlans = bySku.get(skuId)
+      if (skuPlans && skuPlans.length > 0) {
+        skuPlans.pop()
+        columnsReduced = true
+        reduced = true
+        break
+      }
+    }
+
+    if (!reduced) {
+      break
+    }
+
+    plans = Array.from(bySku.values()).flat()
+    packResult = runColumnPacking(palletLength, palletWidth, plans)
+  }
+
+  const planById = new Map<string, ColumnPlan>()
+  plans.forEach((plan) => {
+    planById.set(plan.id, plan)
+  })
+
+  const packedColumns: PackedColumn[] = []
+  packResult.placements.forEach((placement) => {
+    const plan = planById.get(placement.itemId)
+    if (!plan) {
+      return
+    }
+    packedColumns.push({ plan, placement })
+  })
+
+  packedColumns.sort((left, right) => {
+    if (left.placement.y !== right.placement.y) {
+      return left.placement.y - right.placement.y
+    }
+    if (left.placement.x !== right.placement.x) {
+      return left.placement.x - right.placement.x
+    }
+    if (left.plan.skuId !== right.plan.skuId) {
+      return left.plan.skuId.localeCompare(right.plan.skuId)
+    }
+    return left.plan.sequence - right.plan.sequence
+  })
+
+  const columnsBySku: Record<string, number> = {}
+  let areaUsed = 0
+  let placedUnits = 0
+  let usedHeight = 0
+
+  packedColumns.forEach(({ plan, placement }) => {
+    areaUsed += placement.w * placement.h
+    placedUnits += plan.stackCount
+    usedHeight = Math.max(usedHeight, plan.stackCount * plan.sku.height)
+    columnsBySku[plan.skuId] = (columnsBySku[plan.skuId] ?? 0) + 1
+  })
+
+  return {
+    score: {
+      areaUsed,
+      placedUnits,
+      usedHeight,
+      placedColumns: packedColumns.length,
+      freeRectCount: packResult.stats.freeRectCount,
+    },
+    packedColumns,
+    columnsReduced,
+    columnsBySku,
+  }
+}
+
+function optimizeHeights(
+  contexts: PreparedSkuContext[],
+  palletLength: number,
+  palletWidth: number,
+) {
+  const heights: Record<string, number> = {}
+  contexts.forEach((context) => {
+    if (context.maxStack > 0) {
+      heights[context.skuId] = context.maxStack
+    }
+  })
+
+  let best = evaluateHeights(contexts, heights, palletLength, palletWidth)
+
+  while (true) {
+    let bestCandidate: HeightCandidate | null = null
+
+    for (const context of contexts) {
+      if (context.maxStack <= 1 || context.candidateHeights.length <= 1) {
+        continue
+      }
+
+      const current = heights[context.skuId] ?? context.maxStack
+      const next = nextLowerHeight(current, context.candidateHeights)
+      if (next === current) {
+        continue
+      }
+
+      const trialHeights = {
+        ...heights,
+        [context.skuId]: next,
+      }
+      const trialEvaluation = evaluateHeights(
+        contexts,
+        trialHeights,
+        palletLength,
+        palletWidth,
+      )
+
+      if (compareScores(trialEvaluation.score, best.score) <= 0) {
+        continue
+      }
+
+      if (!bestCandidate) {
+        bestCandidate = {
+          skuId: context.skuId,
+          heights: trialHeights,
+          evaluation: trialEvaluation,
+        }
+        continue
+      }
+
+      const candidateComparison = compareScores(
+        trialEvaluation.score,
+        bestCandidate.evaluation.score,
+      )
+      if (candidateComparison > 0) {
+        bestCandidate = {
+          skuId: context.skuId,
+          heights: trialHeights,
+          evaluation: trialEvaluation,
+        }
+        continue
+      }
+
+      if (candidateComparison === 0 && context.skuId.localeCompare(bestCandidate.skuId) < 0) {
+        bestCandidate = {
+          skuId: context.skuId,
+          heights: trialHeights,
+          evaluation: trialEvaluation,
+        }
+      }
+    }
+
+    const chosenCandidate = bestCandidate
+    if (!chosenCandidate) {
+      break
+    }
+
+    Object.assign(heights, chosenCandidate.heights)
+    best = chosenCandidate.evaluation
+  }
+
+  return {
+    heightsBySku: heights,
+    evaluation: best,
+  }
 }
 
 export function assertNoMixedColumns(boxes: BoxInstance[]) {
@@ -252,186 +560,114 @@ export function solveMultiHeuristicNoMix(input: MultiPreviewInput): MultiPreview
   const placedBySku: Record<string, number> = {}
   const unplacedBySku: Record<string, number> = {}
   const unplaceableBySku: Record<string, number> = {}
-  const columnsBySku: Record<string, number> = {}
-  const layersUsedBySku: Record<string, number> = {}
   const rotationsBySku: Record<string, number> = {}
   const layersBySku = new Map<string, Set<number>>()
 
-  const preparedSkus: PreparedSku[] = []
+  const contexts: PreparedSkuContext[] = []
   let requestedTotal = 0
   let unplaceableTotal = 0
-  let limitedByVerticalRules = false
+  let verticalLimitsApplied = false
 
   input.skus.forEach((sku, index) => {
     const skuId = sanitize(sku.skuId, `SKU-${sku.id}`)
     const skuName = sanitize(sku.name, `SKU ${index + 1}`)
     const color = resolveSkuColor(sku.color)
     const baseFits = canFitInBase(sku, palletLength, palletWidth, input.allowRotation)
+    const canRotate = input.allowRotation && sku.allowRotation
 
     requestedTotal += sku.quantity
     placedBySku[skuId] = 0
     unplacedBySku[skuId] = sku.quantity
     unplaceableBySku[skuId] = 0
-    columnsBySku[skuId] = 0
-    layersUsedBySku[skuId] = 0
     rotationsBySku[skuId] = 0
 
     if (!baseFits) {
       unplaceableBySku[skuId] = sku.quantity
       unplaceableTotal += sku.quantity
       warnings.push(`${skuId} no cabe por base y queda como no ubicable.`)
-      preparedSkus.push({
+      contexts.push({
         sku,
         skuId,
         skuName,
         color,
-        stackPerColumn: 0,
-        columnsNeeded: 0,
-        columnsAssigned: 0,
-        value: 0,
-        canRotate: input.allowRotation && sku.allowRotation,
-        limitedByVerticalRules: false,
+        canRotate,
         baseFits: false,
+        maxStack: 0,
+        candidateHeights: [1],
+        limitedByVerticalRules: false,
         unplaceable: sku.quantity,
       })
       return
     }
 
-    const globalLayers = Math.floor(availableHeight / sku.height)
-    let maxLayersForSku = globalLayers
+    const globalLayersForSku = Math.floor(availableHeight / sku.height)
+    let maxStack = globalLayersForSku
     if (typeof sku.maxLayers === 'number') {
-      maxLayersForSku = Math.min(maxLayersForSku, sku.maxLayers)
+      maxStack = Math.min(maxStack, sku.maxLayers)
     }
     if (sku.noStack) {
-      maxLayersForSku = Math.min(maxLayersForSku, 1)
+      maxStack = Math.min(maxStack, 1)
     }
-    const stackPerColumn = Math.max(0, maxLayersForSku)
 
-    if (stackPerColumn === 0) {
+    if (maxStack <= 0) {
       unplaceableBySku[skuId] = sku.quantity
       unplaceableTotal += sku.quantity
-      limitedByVerticalRules = true
-      preparedSkus.push({
+      verticalLimitsApplied = true
+      contexts.push({
         sku,
         skuId,
         skuName,
         color,
-        stackPerColumn: 0,
-        columnsNeeded: 0,
-        columnsAssigned: 0,
-        value: 0,
-        canRotate: input.allowRotation && sku.allowRotation,
-        limitedByVerticalRules: true,
+        canRotate,
         baseFits: true,
+        maxStack: 0,
+        candidateHeights: [1],
+        limitedByVerticalRules: true,
         unplaceable: sku.quantity,
       })
       return
     }
 
-    const columnsNeeded = Math.ceil(sku.quantity / stackPerColumn)
-    const footprintArea = sku.length * sku.width
-    const value = stackPerColumn / footprintArea
-    const hasVerticalRestriction =
+    const limitedByVerticalRules =
       sku.noStack ||
-      (typeof sku.maxLayers === 'number' && sku.maxLayers < globalLayers) ||
-      stackPerColumn < globalLayers
-    if (hasVerticalRestriction) {
-      limitedByVerticalRules = true
+      (typeof sku.maxLayers === 'number' && sku.maxLayers < globalLayersForSku)
+    if (limitedByVerticalRules) {
+      verticalLimitsApplied = true
     }
 
-    preparedSkus.push({
+    contexts.push({
       sku,
       skuId,
       skuName,
       color,
-      stackPerColumn,
-      columnsNeeded,
-      columnsAssigned: columnsNeeded,
-      value,
-      canRotate: input.allowRotation && sku.allowRotation,
-      limitedByVerticalRules: hasVerticalRestriction,
+      canRotate,
       baseFits: true,
+      maxStack,
+      candidateHeights: buildCandidateHeights(maxStack),
+      limitedByVerticalRules,
       unplaceable: 0,
     })
   })
 
-  const activeSkus = preparedSkus.filter((sku) => sku.columnsNeeded > 0)
-  const priorityDesc = sortByPriority(activeSkus)
-  const removalOrder = [...priorityDesc].reverse()
+  const activeContexts = contexts.filter((context) => context.baseFits && context.maxStack > 0)
+  const { evaluation } = optimizeHeights(activeContexts, palletLength, palletWidth)
 
-  let columnsReduced = false
-  let columnItems = buildColumns(priorityDesc)
-  let packResult = runColumnPacking(palletLength, palletWidth, columnItems)
-
-  while (packResult.unplaced.length > 0) {
-    let reduced = false
-    for (const sku of removalOrder) {
-      if (sku.columnsAssigned > 0) {
-        sku.columnsAssigned -= 1
-        columnsReduced = true
-        reduced = true
-        break
-      }
-    }
-
-    if (!reduced) {
-      break
-    }
-
-    columnItems = buildColumns(priorityDesc)
-    packResult = runColumnPacking(palletLength, palletWidth, columnItems)
-  }
-
-  if (columnsReduced) {
+  if (evaluation.columnsReduced) {
     warnings.push('Columns reduced because pallet area is insufficient.')
   }
-  if (limitedByVerticalRules) {
+  if (verticalLimitsApplied) {
     warnings.push('Vertical capacity limits applied (maxLayers/noStack).')
   }
 
-  const placementById = new Map<string, RectPackPlacement>()
-  packResult.placements.forEach((placement) => {
-    placementById.set(placement.itemId, placement)
-  })
-
-  const remainingBySku: Record<string, number> = {}
-  preparedSkus.forEach((prepared) => {
-    remainingBySku[prepared.skuId] = prepared.sku.quantity
-  })
-
   const boxes: BoxInstance[] = []
-  let totalBaseAreaUsed = 0
   let maxLayerIndex = -1
   let maxTopY = input.pallet.height
 
-  columnItems.forEach((column) => {
-    const placement = placementById.get(column.id)
-    if (!placement) {
-      return
-    }
-
-    const prepared = preparedSkus.find((item) => item.skuId === column.skuId)
-    if (!prepared) {
-      return
-    }
-
-    const remaining = remainingBySku[prepared.skuId] ?? 0
-    if (remaining <= 0) {
-      return
-    }
-
-    const stackCount = Math.min(prepared.stackPerColumn, remaining)
-    if (stackCount <= 0) {
-      return
-    }
-
-    totalBaseAreaUsed += placement.w * placement.h
-    columnsBySku[prepared.skuId] = (columnsBySku[prepared.skuId] ?? 0) + 1
-
-    for (let layerIndex = 0; layerIndex < stackCount; layerIndex += 1) {
+  evaluation.packedColumns.forEach(({ plan, placement }) => {
+    for (let layerIndex = 0; layerIndex < plan.stackCount; layerIndex += 1) {
       const x = -input.pallet.length / 2 + placement.x + placement.w / 2
       const z = -input.pallet.width / 2 + placement.y + placement.h / 2
-      const y = input.pallet.height + layerIndex * prepared.sku.height + prepared.sku.height / 2
+      const y = input.pallet.height + layerIndex * plan.sku.height + plan.sku.height / 2
 
       boxes.push({
         x,
@@ -439,35 +675,35 @@ export function solveMultiHeuristicNoMix(input: MultiPreviewInput): MultiPreview
         z,
         length: placement.w,
         width: placement.h,
-        height: prepared.sku.height,
-        color: prepared.color,
-        typeId: prepared.sku.id,
-        skuId: prepared.skuId,
-        skuName: prepared.skuName,
-        label: prepared.skuId,
+        height: plan.sku.height,
+        color: plan.color,
+        typeId: plan.sku.id,
+        skuId: plan.skuId,
+        skuName: plan.skuName,
+        label: plan.skuId,
         rotated: placement.rotated,
         layer: layerIndex,
       })
 
-      placedBySku[prepared.skuId] = (placedBySku[prepared.skuId] ?? 0) + 1
-      unplacedBySku[prepared.skuId] = Math.max(0, (unplacedBySku[prepared.skuId] ?? 0) - 1)
+      placedBySku[plan.skuId] = (placedBySku[plan.skuId] ?? 0) + 1
       if (placement.rotated) {
-        rotationsBySku[prepared.skuId] = (rotationsBySku[prepared.skuId] ?? 0) + 1
+        rotationsBySku[plan.skuId] = (rotationsBySku[plan.skuId] ?? 0) + 1
       }
-      if (!layersBySku.has(prepared.skuId)) {
-        layersBySku.set(prepared.skuId, new Set<number>())
+      if (!layersBySku.has(plan.skuId)) {
+        layersBySku.set(plan.skuId, new Set<number>())
       }
-      layersBySku.get(prepared.skuId)?.add(layerIndex)
+      layersBySku.get(plan.skuId)?.add(layerIndex)
 
       maxLayerIndex = Math.max(maxLayerIndex, layerIndex)
-      maxTopY = Math.max(maxTopY, y + prepared.sku.height / 2)
+      maxTopY = Math.max(maxTopY, y + plan.sku.height / 2)
     }
-
-    remainingBySku[prepared.skuId] = remaining - stackCount
   })
 
-  Object.keys(remainingBySku).forEach((skuId) => {
-    unplacedBySku[skuId] = remainingBySku[skuId]
+  const columnsBySku = evaluation.columnsBySku
+  const layersUsedBySku: Record<string, number> = {}
+
+  Object.keys(placedBySku).forEach((skuId) => {
+    unplacedBySku[skuId] = Math.max(0, (unplacedBySku[skuId] ?? 0) - (placedBySku[skuId] ?? 0))
     layersUsedBySku[skuId] = layersBySku.get(skuId)?.size ?? 0
   })
 
@@ -476,10 +712,10 @@ export function solveMultiHeuristicNoMix(input: MultiPreviewInput): MultiPreview
   const layersUsed = maxLayerIndex >= 0 ? maxLayerIndex + 1 : 0
   const utilization =
     input.pallet.length > 0 && input.pallet.width > 0
-      ? totalBaseAreaUsed / (input.pallet.length * input.pallet.width)
+      ? evaluation.score.areaUsed / (input.pallet.length * input.pallet.width)
       : 0
 
-  if (unplacedTotal > 0 && !columnsReduced && !limitedByVerticalRules) {
+  if (unplacedTotal > 0 && !evaluation.columnsReduced && !verticalLimitsApplied) {
     warnings.push('Quedaron unidades sin ubicar por restricciones de espacio.')
   }
 
