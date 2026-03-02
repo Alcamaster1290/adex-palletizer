@@ -76,6 +76,10 @@ describe('App input validation', () => {
   it('aplica pallet preset euro y recalcula patron sin romper top view ni escena', () => {
     render(<App />)
 
+    const packingMode = document.getElementById('single-packing-mode') as HTMLSelectElement
+    fireEvent.change(packingMode, { target: { value: 'grid' } })
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
+
     const palletWidthInput = document.getElementById('pallet-width') as HTMLInputElement
     const palletHeightInput = document.getElementById('pallet-height') as HTMLInputElement
     expect(palletWidthInput.value).toBe('1000')
@@ -93,6 +97,10 @@ describe('App input validation', () => {
 
   it('aplica preset de caja maestra y actualiza dimensiones con recalculo', () => {
     render(<App />)
+
+    const packingMode = document.getElementById('single-packing-mode') as HTMLSelectElement
+    fireEvent.change(packingMode, { target: { value: 'grid' } })
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
 
     const boxLengthInput = document.getElementById('box-length') as HTMLInputElement
     const boxWidthInput = document.getElementById('box-width') as HTMLInputElement

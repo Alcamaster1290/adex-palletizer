@@ -648,10 +648,10 @@ function App() {
     () => initialShareState.boxPresetId ?? detectBoxPreset(initialShareState.input.box),
   )
   const [singlePackingModeDraft, setSinglePackingModeDraft] = useState<PackingMode>(
-    () => initialShareState.packingMode ?? 'grid',
+    () => initialShareState.packingMode ?? 'advanced',
   )
   const [singlePackingModeApplied, setSinglePackingModeApplied] = useState<PackingMode>(
-    () => initialShareState.packingMode ?? 'grid',
+    () => initialShareState.packingMode ?? 'advanced',
   )
   const [singleFieldValues, setSingleFieldValues] = useState<SingleFieldValues>(() =>
     buildSingleFieldValues(initialShareState.input),
@@ -934,8 +934,8 @@ function App() {
     setAppliedInput(next)
     setSinglePalletPreset('american')
     setSingleBoxPreset('standard-600-400-200')
-    setSinglePackingModeDraft('grid')
-    setSinglePackingModeApplied('grid')
+    setSinglePackingModeDraft('advanced')
+    setSinglePackingModeApplied('advanced')
     setSingleFieldValues(buildSingleFieldValues(next))
     setSingleFieldErrors({})
     setLastCalculatedAt(new Date())
@@ -1673,7 +1673,7 @@ function App() {
       setActiveTab('single')
       setSinglePalletPreset(detectPalletPreset(nextInput.pallet))
       setSingleBoxPreset(scenario.single.boxPresetId ?? detectBoxPreset(nextInput.box))
-      const nextPackingMode = scenario.single.packingMode ?? 'grid'
+      const nextPackingMode = scenario.single.packingMode ?? 'advanced'
       setSinglePackingModeDraft(nextPackingMode)
       setSinglePackingModeApplied(nextPackingMode)
       setDraftInput(nextInput)

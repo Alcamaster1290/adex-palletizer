@@ -80,14 +80,14 @@ Formula base del solver de contenedor:
 
 ## Grid vs Advanced (Caja unica)
 
-- `Grid` (default): usa una orientacion global por capa (`LxW` o `WxL`) y calcula `nx x ny`.
-- `Advanced`: usa packing mixed-orientation por item (0/90) con `free-rectangles` y heuristic `bestShortSideFit`.
+- `Advanced` (default): usa packing mixed-orientation por item (0/90) con `free-rectangles` y heuristic `bestShortSideFit`.
+- `Grid`: usa una orientacion global por capa (`LxW` o `WxL`) y calcula `nx x ny`.
 - Cuándo usar cada uno:
   - `Grid`: resultados rapidos y comparables con el metodo clasico de capas uniformes.
   - `Advanced`: cuando quieres maximizar aprovechamiento en planta mezclando orientaciones dentro de la misma capa.
 - Share link para `single` agrega `pm`:
-  - `pm=grid`
   - `pm=advanced`
+  - `pm=grid`
 
 ## Deploy en Vercel
 

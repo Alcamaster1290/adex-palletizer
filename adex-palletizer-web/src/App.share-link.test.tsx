@@ -63,7 +63,7 @@ describe('App share link', () => {
     expect(window.location.search).toContain('maxH=1200')
     expect(window.location.search).toContain('rot=1')
     expect(window.location.search).toContain('ov=0')
-    expect(window.location.search).toContain('pm=grid')
+    expect(window.location.search).toContain('pm=advanced')
     expect(window.location.search).toContain('mode=single')
   })
 
