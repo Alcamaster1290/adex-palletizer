@@ -160,11 +160,11 @@ export function ContainerTopView({
 
       <div className="top-view-metrics">
         <p>
-          Huella ocupada: {result.selected.nx * result.selected.palletFootprintL} mm x{' '}
-          {result.selected.ny * result.selected.palletFootprintW} mm
+          Huella ocupada: {result.selected.occupiedLength} mm x {result.selected.occupiedWidth} mm
         </p>
-        <p>Residual eje largo: {result.selected.residualLength} mm</p>
-        <p>Residual eje ancho: {result.selected.residualWidth} mm</p>
+        <p>Margen a pared: {result.selected.marginToWall} mm por lado</p>
+        <p>Residual interno eje largo: {result.selected.trailingResidualLength} mm</p>
+        <p>Residual interno eje ancho: {result.selected.trailingResidualWidth} mm</p>
       </div>
     </section>
   )

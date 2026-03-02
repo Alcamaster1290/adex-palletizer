@@ -145,10 +145,23 @@ describe('App share link', () => {
     expect((document.getElementById('container-pallet-height') as HTMLInputElement).value).toBe(
       '1150',
     )
+    expect((document.getElementById('container-clearance') as HTMLInputElement).value).toBe('50')
     expect((document.getElementById('container-allow-rotation') as HTMLInputElement).checked).toBe(
       true,
     )
     expect(screen.getByTestId('scene-container')).toBeInTheDocument()
+  })
+
+  it('en modo container usa clearance por defecto cuando cClr no viene en la URL', () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/?mode=container&cPr=40gp&cL=12032&cW=2352&cH=2393&ppL=1200&ppW=1000&ppH=1150&cRot=1',
+    )
+
+    render(<App />)
+
+    expect((document.getElementById('container-clearance') as HTMLInputElement).value).toBe('50')
   })
 
   it('inicializa tab multi con noMix=1 desde share link', () => {
@@ -195,6 +208,6 @@ describe('App share link', () => {
     expect(window.location.search).toContain('ppW=1000')
     expect(window.location.search).toContain('ppH=150')
     expect(window.location.search).toContain('cRot=1')
-    expect(window.location.search).toContain('cClr=0')
+    expect(window.location.search).toContain('cClr=50')
   })
 })

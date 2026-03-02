@@ -1,16 +1,15 @@
 import { Edges, OrbitControls } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { InstancedMesh, Object3D } from 'three'
 import { VISUAL_GAP_MM } from '../constants'
 import { groupLoadBoxesForInstancing } from '../containerPalletLoad'
 import type {
-  BoxInstance,
   ContainerInput,
   ContainerResult,
   ExportedPalletLoad,
 } from '../types'
-import { Boxes } from './Boxes'
+import { Pallet, PalletFallback } from './Pallet'
 
 interface SceneContainerProps {
   input: ContainerInput
@@ -42,6 +41,17 @@ interface InstancedBoxGroupProps {
 
 interface LoadInstancedGroup extends InstancedBoxGroupProps {
   key: string
+}
+
+interface PalletModelPlacement {
+  key: string
+  x: number
+  y: number
+  z: number
+  rotationY: number
+  length: number
+  width: number
+  height: number
 }
 
 function InstancedBoxGroup({
@@ -112,34 +122,57 @@ export function SceneContainer({
   const containerHeight = input.container.height
   const sceneScale = Math.max(containerLength, containerWidth, containerHeight)
 
-  const legacyPalletBoxes = useMemo<BoxInstance[]>(
-    () =>
-      result.placements.map((placement) => ({
+  const basePalletModels = useMemo<PalletModelPlacement[]>(() => {
+    return result.placements.map((placement, index) => {
+      const floorY = placement.y - placement.height / 2
+      const length = palletLoad ? palletLoad.palletLengthMm : placement.length
+      const width = palletLoad ? palletLoad.palletWidthMm : placement.width
+      const height = palletLoad ? palletLoad.palletHeightMm : Math.min(170, placement.height)
+      return {
+        key: `container-pallet-${index}`,
         x: placement.x,
-        y: placement.y,
+        y: floorY,
         z: placement.z,
-        length: placement.length,
-        width: placement.width,
-        height: placement.height,
-        color: '#94653a',
-      })),
-    [result.placements],
-  )
+        rotationY: placement.rotated ? Math.PI / 2 : 0,
+        length,
+        width,
+        height,
+      }
+    })
+  }, [palletLoad, result.placements])
 
-  const basePalletInstances = useMemo<InstanceTransform[]>(() => {
-    if (!palletLoad) {
+  const legacyLoadBlocks = useMemo<LoadInstancedGroup[]>(() => {
+    if (palletLoad) {
       return []
     }
 
-    return result.placements.map((placement) => {
-      const floorY = placement.y - placement.height / 2
-      return {
-        x: placement.x,
-        y: floorY + palletLoad.palletHeightMm / 2,
-        z: placement.z,
-        rotationY: placement.rotated ? Math.PI / 2 : 0,
+    const groups: LoadInstancedGroup[] = []
+    result.placements.forEach((placement, index) => {
+      const baseHeight = Math.min(170, placement.height)
+      const remainingHeight = Math.max(0, placement.height - baseHeight)
+      if (remainingHeight <= 0) {
+        return
       }
+
+      groups.push({
+        key: `legacy-load-${index}`,
+        length: placement.length,
+        width: placement.width,
+        height: remainingHeight,
+        color: '#2f8f9d',
+        applyVisualGap: true,
+        instances: [
+          {
+            x: placement.x,
+            y: placement.y - placement.height / 2 + baseHeight + remainingHeight / 2,
+            z: placement.z,
+            rotationY: placement.rotated ? Math.PI / 2 : 0,
+          },
+        ],
+      })
     })
+
+    return groups
   }, [palletLoad, result.placements])
 
   const loadGroups = useMemo<LoadInstancedGroup[]>(() => {
@@ -247,15 +280,29 @@ export function SceneContainer({
 
         {palletLoad ? (
           <>
-            <InstancedBoxGroup
-              length={palletLoad.palletLengthMm}
-              width={palletLoad.palletWidthMm}
-              height={palletLoad.palletHeightMm}
-              color="#94653a"
-              instances={basePalletInstances}
-              applyVisualGap
-              gapMm={8}
-            />
+            {basePalletModels.map((placement) => (
+              <group
+                key={placement.key}
+                position={[placement.x, placement.y, placement.z]}
+                rotation={[0, placement.rotationY, 0]}
+              >
+                <Suspense
+                  fallback={
+                    <PalletFallback
+                      length={placement.length}
+                      width={placement.width}
+                      height={placement.height}
+                    />
+                  }
+                >
+                  <Pallet
+                    length={placement.length}
+                    width={placement.width}
+                    height={placement.height}
+                  />
+                </Suspense>
+              </group>
+            ))}
             {loadGroups.map((group) => (
               <InstancedBoxGroup
                 key={group.key}
@@ -270,7 +317,43 @@ export function SceneContainer({
             ))}
           </>
         ) : (
-          <Boxes boxes={legacyPalletBoxes} />
+          <>
+            {basePalletModels.map((placement) => (
+              <group
+                key={placement.key}
+                position={[placement.x, placement.y, placement.z]}
+                rotation={[0, placement.rotationY, 0]}
+              >
+                <Suspense
+                  fallback={
+                    <PalletFallback
+                      length={placement.length}
+                      width={placement.width}
+                      height={placement.height}
+                    />
+                  }
+                >
+                  <Pallet
+                    length={placement.length}
+                    width={placement.width}
+                    height={placement.height}
+                  />
+                </Suspense>
+              </group>
+            ))}
+            {legacyLoadBlocks.map((group) => (
+              <InstancedBoxGroup
+                key={group.key}
+                length={group.length}
+                width={group.width}
+                height={group.height}
+                color={group.color}
+                instances={group.instances}
+                applyVisualGap={group.applyVisualGap}
+                gapMm={10}
+              />
+            ))}
+          </>
         )}
 
         <gridHelper

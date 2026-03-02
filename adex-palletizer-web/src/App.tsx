@@ -5,7 +5,7 @@ import {
   getBoxPresetDimensions,
   type BoxPresetId,
 } from './boxPresets'
-import { MIN_MASTER_BOX } from './constants'
+import { CONTAINER_CLEARANCE_MM, MIN_MASTER_BOX } from './constants'
 import {
   buildExportedPalletLoadFromMulti,
   buildExportedPalletLoadFromSingle,
@@ -93,7 +93,7 @@ const DEFAULT_CONTAINER_INPUT: ContainerInput = {
   container: { length: 5898, width: 2352, height: 2393 },
   pallet: { length: 1200, width: 1000, height: 150 },
   allowRotation: true,
-  clearance: 0,
+  clearance: CONTAINER_CLEARANCE_MM,
   allowStacking: false,
 }
 
@@ -342,12 +342,13 @@ function cloneMultiPreviewInput(state: MultiDraftState): MultiPreviewInput {
 }
 
 function cloneContainerInput(input: ContainerInput): ContainerInput {
+  const normalizedClearance = Math.max(CONTAINER_CLEARANCE_MM, input.clearance)
   return {
     preset: input.preset,
     container: { ...input.container },
     pallet: { ...input.pallet },
     allowRotation: input.allowRotation,
-    clearance: input.clearance,
+    clearance: normalizedClearance,
     weightPerPalletKg: input.weightPerPalletKg,
     payloadMaxKg: input.payloadMaxKg,
     allowStacking: input.allowStacking,
@@ -1141,7 +1142,7 @@ function App() {
           : field === 'weightPerPalletKg'
             ? 'El peso por pallet'
             : 'El payload maximo',
-      min: field === 'clearance' ? 0 : 1,
+      min: field === 'clearance' ? CONTAINER_CLEARANCE_MM : 1,
     })
     setContainerFieldErrors((current) =>
       upsertFieldError(current, fieldId, validation.error),
@@ -2946,7 +2947,7 @@ function App() {
                 <NumberField
                   id="container-clearance"
                   label="Holgura"
-                  min={0}
+                  min={CONTAINER_CLEARANCE_MM}
                   value={containerFieldValues['container-clearance']}
                   error={containerFieldErrors['container-clearance']}
                   onChange={(value) =>
@@ -3137,12 +3138,12 @@ function App() {
                   <td>{formatInt.format(containerResult.totalPallets)}</td>
                 </tr>
                 <tr>
-                  <th>Residual eje largo (mm)</th>
-                  <td>{formatInt.format(containerResult.selected.residualLength)}</td>
+                  <th>Residual interno eje largo (mm)</th>
+                  <td>{formatInt.format(containerResult.selected.trailingResidualLength)}</td>
                 </tr>
                 <tr>
-                  <th>Residual eje ancho (mm)</th>
-                  <td>{formatInt.format(containerResult.selected.residualWidth)}</td>
+                  <th>Residual interno eje ancho (mm)</th>
+                  <td>{formatInt.format(containerResult.selected.trailingResidualWidth)}</td>
                 </tr>
                 <tr>
                   <th>Altura disponible (mm)</th>

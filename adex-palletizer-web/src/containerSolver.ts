@@ -4,6 +4,7 @@ import type {
   ContainerResult,
   PalletPlacement,
 } from './types'
+import { CONTAINER_CLEARANCE_MM } from './constants'
 
 const isPositive = (value: number) => Number.isFinite(value) && value > 0
 const isNonNegative = (value: number) => Number.isFinite(value) && value >= 0
@@ -12,9 +13,16 @@ const EMPTY_ORIENTATION: ContainerOrientationPlan = {
   orientation: 'LxW',
   palletFootprintL: 0,
   palletFootprintW: 0,
+  pitchLength: 0,
+  pitchWidth: 0,
+  marginToWall: 0,
   nx: 0,
   ny: 0,
   perFloor: 0,
+  occupiedLength: 0,
+  occupiedWidth: 0,
+  trailingResidualLength: 0,
+  trailingResidualWidth: 0,
   utilizationArea: 0,
   residualLength: 0,
   residualWidth: 0,
@@ -28,24 +36,38 @@ function evaluateOrientation(
   palletW: number,
   clearance: number,
 ): ContainerOrientationPlan {
-  const effectiveLength = Math.max(0, containerL - clearance)
-  const effectiveWidth = Math.max(0, containerW - clearance)
-  const nx = Math.max(0, Math.floor(effectiveLength / palletL))
-  const ny = Math.max(0, Math.floor(effectiveWidth / palletW))
+  const marginToWall = clearance
+  const effectiveLength = Math.max(0, containerL - 2 * marginToWall)
+  const effectiveWidth = Math.max(0, containerW - 2 * marginToWall)
+  const pitchLength = palletL + clearance
+  const pitchWidth = palletW + clearance
+  const nx = Math.max(0, Math.floor((effectiveLength + clearance) / pitchLength))
+  const ny = Math.max(0, Math.floor((effectiveWidth + clearance) / pitchWidth))
   const perFloor = nx * ny
+  const occupiedLength = nx > 0 ? nx * palletL + (nx - 1) * clearance : 0
+  const occupiedWidth = ny > 0 ? ny * palletW + (ny - 1) * clearance : 0
+  const trailingResidualLength = Math.max(0, effectiveLength - occupiedLength)
+  const trailingResidualWidth = Math.max(0, effectiveWidth - occupiedWidth)
   const containerArea = containerL * containerW
-  const usedArea = (nx * palletL) * (ny * palletW)
+  const usedArea = occupiedLength * occupiedWidth
   const utilizationArea = containerArea > 0 ? usedArea / containerArea : 0
-  const residualLength = Math.max(0, effectiveLength - nx * palletL)
-  const residualWidth = Math.max(0, effectiveWidth - ny * palletW)
+  const residualLength = Math.max(0, containerL - occupiedLength)
+  const residualWidth = Math.max(0, containerW - occupiedWidth)
 
   return {
     orientation,
     palletFootprintL: palletL,
     palletFootprintW: palletW,
+    pitchLength,
+    pitchWidth,
+    marginToWall,
     nx,
     ny,
     perFloor,
+    occupiedLength,
+    occupiedWidth,
+    trailingResidualLength,
+    trailingResidualWidth,
     utilizationArea,
     residualLength,
     residualWidth,
@@ -114,12 +136,14 @@ function buildPalletPlacements(
 
       const x =
         -input.container.length / 2 +
+        selected.marginToWall +
         selected.palletFootprintL / 2 +
-        ix * selected.palletFootprintL
+        ix * selected.pitchLength
       const z =
         -input.container.width / 2 +
+        selected.marginToWall +
         selected.palletFootprintW / 2 +
-        iy * selected.palletFootprintW
+        iy * selected.pitchWidth
       const y = input.pallet.height / 2
 
       placements.push({
@@ -179,13 +203,15 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     return emptyResult(errors)
   }
 
+  const clearance = Math.max(CONTAINER_CLEARANCE_MM, input.clearance)
+
   const planA = evaluateOrientation(
     'LxW',
     input.container.length,
     input.container.width,
     input.pallet.length,
     input.pallet.width,
-    input.clearance,
+    clearance,
   )
   const planB = input.allowRotation
     ? evaluateOrientation(
@@ -194,19 +220,17 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
         input.container.width,
         input.pallet.width,
         input.pallet.length,
-        input.clearance,
+        clearance,
       )
     : null
 
   const selected = selectBestOrientation(planA, planB)
   const candidates = planB ? [planA, planB] : [planA]
-  const availableHeight = Math.max(0, input.container.height - input.clearance)
+  const availableHeight = input.container.height
   const heightFits = input.pallet.height <= availableHeight
 
   if (!heightFits) {
-    warnings.push(
-      'El pallet de carga no cabe en altura dentro del contenedor con el clearance configurado.',
-    )
+    warnings.push('El pallet de carga no cabe en altura dentro del contenedor.')
   }
 
   const totalPalletsBySpace = selected.perFloor
@@ -238,10 +262,32 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     totalPallets = 0
   }
 
+  const placements = buildPalletPlacements(input, selected, totalPallets)
+  let occupiedLengthForResult = 0
+  let occupiedWidthForResult = 0
+  if (placements.length > 0) {
+    let minLeft = Number.POSITIVE_INFINITY
+    let maxRight = Number.NEGATIVE_INFINITY
+    let minTop = Number.POSITIVE_INFINITY
+    let maxBottom = Number.NEGATIVE_INFINITY
+
+    placements.forEach((placement) => {
+      minLeft = Math.min(minLeft, placement.x - placement.length / 2)
+      maxRight = Math.max(maxRight, placement.x + placement.length / 2)
+      minTop = Math.min(minTop, placement.z - placement.width / 2)
+      maxBottom = Math.max(maxBottom, placement.z + placement.width / 2)
+    })
+
+    occupiedLengthForResult = Math.max(0, maxRight - minLeft)
+    occupiedWidthForResult = Math.max(0, maxBottom - minTop)
+  }
+
   const containerArea = input.container.length * input.container.width
-  const palletFootprintArea = selected.palletFootprintL * selected.palletFootprintW
-  const utilizationArea =
-    containerArea > 0 ? (totalPallets * palletFootprintArea) / containerArea : 0
+  const areaUsedForResult =
+    placements.length > 0
+      ? occupiedLengthForResult * occupiedWidthForResult
+      : 0
+  const utilizationArea = containerArea > 0 ? areaUsedForResult / containerArea : 0
 
   const containerVolume =
     input.container.length * input.container.width * input.container.height
@@ -253,8 +299,6 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     input.weightPerPalletKg !== undefined
       ? input.weightPerPalletKg * totalPallets
       : null
-
-  const placements = buildPalletPlacements(input, selected, totalPallets)
 
   return {
     selected,
