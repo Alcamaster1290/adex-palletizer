@@ -235,9 +235,16 @@ export interface ContainerOrientationPlan {
   orientation: Orientation
   palletFootprintL: number
   palletFootprintW: number
+  pitchLength: number
+  pitchWidth: number
+  marginToWall: number
   nx: number
   ny: number
   perFloor: number
+  occupiedLength: number
+  occupiedWidth: number
+  trailingResidualLength: number
+  trailingResidualWidth: number
   utilizationArea: number
   residualLength: number
   residualWidth: number

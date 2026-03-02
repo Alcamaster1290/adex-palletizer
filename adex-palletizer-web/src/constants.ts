@@ -5,6 +5,7 @@ export const MIN_MASTER_BOX = {
 } as const
 
 export const VISUAL_GAP_MM = 2
+export const CONTAINER_CLEARANCE_MM = 50
 
 export const MULTI_TYPE_COLORS = [
   '#2f8f9d',
