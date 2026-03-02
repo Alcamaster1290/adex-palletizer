@@ -19,6 +19,7 @@ interface StoredSingleScenarioData {
     result: SolverResult
     boxPresetId?: BoxPresetId
     packingMode?: PackingMode
+    labelSkuRefs?: string[]
   }
 }
 
@@ -27,6 +28,7 @@ interface StoredMultiScenarioData {
   multi: {
     input: MultiPreviewInput
     result: MultiPreviewResult
+    labelSkuRefs?: string[]
   }
 }
 
@@ -35,6 +37,7 @@ interface StoredContainerScenarioData {
   container: {
     input: ContainerInput
     result: ContainerResult
+    labelSkuRefs?: string[]
   }
 }
 

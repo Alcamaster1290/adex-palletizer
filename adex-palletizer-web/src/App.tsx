@@ -19,6 +19,18 @@ import {
 import { exportJson } from './export/exportJson'
 import { exportPng } from './export/exportPng'
 import { exportTopViewPng } from './export/exportTopView'
+import { LabelDesignerModal } from './labels/LabelDesignerModal'
+import {
+  normalizeBaseColor,
+  normalizeLabelSkuId,
+  SINGLE_BOX_SKU_ID,
+} from './labels/labelModel'
+import {
+  deleteSkuLabel,
+  loadSkuLabels,
+  saveSkuLabels,
+  upsertSkuLabel,
+} from './labels/labelStorage'
 import { buildMultiPreview } from './multiPreview'
 import {
   SCENARIO_LIMIT,
@@ -42,11 +54,13 @@ import type {
   ContainerPresetKey,
   DimensionsMM,
   ExportedPalletLoad,
-  PackingMode,
   MultiBoxTypeInput,
   MultiPreviewInput,
   MultiPreviewResult,
   MultiSkuInput,
+  PackingMode,
+  SkuLabelConfig,
+  SkuLabelsBySku,
   SolverInput,
 } from './types'
 
@@ -101,6 +115,7 @@ const MIN_SINGLE_BOX_DIMENSION_MM = 50
 
 type BoxSection = 'pallet' | 'box'
 type TabKey = 'single' | 'multi' | 'container'
+type LabelEditorMode = 'single' | 'multi'
 type FieldErrors = Record<string, string>
 type PalletPresetKey = 'american' | 'euro' | 'custom'
 type ContainerPalletSource = 'single' | 'multi'
@@ -295,6 +310,10 @@ function createDefaultMultiSku(
     maxLayers: overrides?.maxLayers,
     noStack: overrides?.noStack ?? false,
   }
+}
+
+function resolveMultiSkuId(sku: MultiSkuInput) {
+  return normalizeLabelSkuId(sku.skuId, `SKU-${sku.id}`)
 }
 
 const DEFAULT_MULTI_STATE: MultiDraftState = {
@@ -693,6 +712,12 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabKey>(initialShareState.mode)
   const [shareWarning] = useState<string | null>(initialShareState.warning)
   const [shareStatus, setShareStatus] = useState<string | null>(null)
+  const [skuLabelsBySku, setSkuLabelsBySku] = useState<SkuLabelsBySku>(() =>
+    loadSkuLabels(),
+  )
+  const [labelEditorOpen, setLabelEditorOpen] = useState(false)
+  const [labelEditorMode, setLabelEditorMode] = useState<LabelEditorMode>('single')
+  const [labelEditorSkuId, setLabelEditorSkuId] = useState<string>(SINGLE_BOX_SKU_ID)
 
   const [draftInput, setDraftInput] = useState<SolverInput>(() =>
     cloneInput(initialShareState.input),
@@ -839,6 +864,47 @@ function App() {
       containerHasValidationErrors ||
       !areContainerInputsEqual(containerDraft, containerApplied),
     [containerDraft, containerApplied, containerHasValidationErrors],
+  )
+
+  const singleLabelRefs = useMemo(() => {
+    return skuLabelsBySku[SINGLE_BOX_SKU_ID] ? [SINGLE_BOX_SKU_ID] : []
+  }, [skuLabelsBySku])
+
+  const multiLabelRefs = useMemo(() => {
+    const refs = new Set<string>()
+    multiApplied.skus.forEach((sku) => {
+      const skuId = resolveMultiSkuId(sku)
+      if (skuLabelsBySku[skuId]) {
+        refs.add(skuId)
+      }
+    })
+    return Array.from(refs)
+  }, [multiApplied.skus, skuLabelsBySku])
+
+  const containerLabelRefs = useMemo(() => {
+    if (!containerPalletLoad) {
+      return []
+    }
+    const refs = new Set<string>()
+    containerPalletLoad.boxesPlacements.forEach((box) => {
+      if (!box.skuId) {
+        return
+      }
+      if (skuLabelsBySku[box.skuId]) {
+        refs.add(box.skuId)
+      }
+    })
+    return Array.from(refs)
+  }, [containerPalletLoad, skuLabelsBySku])
+
+  const multiLabelSkuOptions = useMemo(
+    () =>
+      multiDraft.skus.map((sku) => ({
+        skuId: resolveMultiSkuId(sku),
+        name: sku.name.trim().length > 0 ? sku.name : `SKU ${sku.id}`,
+        color: normalizeBaseColor(sku.color ?? ''),
+      })),
+    [multiDraft.skus],
   )
 
   const setSingleValueAndValidation = (
@@ -1223,6 +1289,41 @@ function App() {
     setContainerShowTechnical(true)
     setLastContainerCalculatedAt(new Date())
     setShareStatus(null)
+  }
+
+  const openSingleLabelEditor = () => {
+    setLabelEditorMode('single')
+    setLabelEditorSkuId(SINGLE_BOX_SKU_ID)
+    setLabelEditorOpen(true)
+  }
+
+  const openMultiLabelEditor = () => {
+    const firstSkuId =
+      multiLabelSkuOptions.length > 0
+        ? multiLabelSkuOptions[0].skuId
+        : SINGLE_BOX_SKU_ID
+    setLabelEditorMode('multi')
+    setLabelEditorSkuId(firstSkuId)
+    setLabelEditorOpen(true)
+  }
+
+  const closeLabelEditor = () => {
+    setLabelEditorOpen(false)
+  }
+
+  const saveLabelConfig = (config: SkuLabelConfig) => {
+    const nextMap = upsertSkuLabel(skuLabelsBySku, config)
+    setSkuLabelsBySku(nextMap)
+    saveSkuLabels(nextMap)
+    setLabelEditorOpen(false)
+    setScenarioNotice(`Etiqueta guardada para SKU ${config.skuId}.`)
+  }
+
+  const resetLabelConfig = (skuId: string) => {
+    const nextMap = deleteSkuLabel(skuLabelsBySku, skuId)
+    setSkuLabelsBySku(nextMap)
+    saveSkuLabels(nextMap)
+    setScenarioNotice(`Etiqueta reiniciada para SKU ${skuId}.`)
   }
 
   const setMultiValueAndValidation = (
@@ -1763,6 +1864,7 @@ function App() {
               result: solvePalletization(cloneInput(appliedInput)),
               boxPresetId: singleBoxPreset,
               packingMode: singlePackingModeApplied,
+              labelSkuRefs: singleLabelRefs,
             },
           }
         : activeTab === 'multi'
@@ -1772,6 +1874,7 @@ function App() {
               multi: {
                 input: cloneMultiPreviewInput(multiApplied),
                 result: multiResult,
+                labelSkuRefs: multiLabelRefs,
               },
             }
           : {
@@ -1780,6 +1883,7 @@ function App() {
               container: {
                 input: cloneContainerInput(containerApplied),
                 result: containerResult,
+                labelSkuRefs: containerLabelRefs,
               },
             }
 
@@ -1939,6 +2043,7 @@ function App() {
     exportContainerPlanJson({
       input: cloneContainerInput(containerApplied),
       result: containerResult,
+      labelsBySku: skuLabelsBySku,
       generatedAt,
     })
   }
@@ -2196,10 +2301,23 @@ function App() {
             </form>
 
             <article className="panel scene-panel">
+              <div className="scene-toolbar">
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={openSingleLabelEditor}
+                  title="Editar caja maestra"
+                  aria-label="Editar caja maestra"
+                >
+                  ✎
+                </button>
+              </div>
               <Scene
                 input={appliedInput}
                 result={result}
                 boxesOverride={singleBoxes}
+                labelsBySku={skuLabelsBySku}
+                defaultSkuId={SINGLE_BOX_SKU_ID}
                 onCanvasReady={setSingleCanvas}
               />
             </article>
@@ -2225,6 +2343,7 @@ function App() {
                     exportJson({
                       input: appliedInput,
                       result,
+                      labelsBySku: skuLabelsBySku,
                       generatedAt: new Date().toISOString(),
                     })
                   }
@@ -2478,6 +2597,9 @@ function App() {
                   <button type="button" className="btn-secondary" onClick={clearMultiSkus}>
                     Limpiar
                   </button>
+                  <button type="button" className="btn-secondary" onClick={openMultiLabelEditor}>
+                    Editar caja (SKU)
+                  </button>
                 </div>
               </div>
 
@@ -2680,6 +2802,7 @@ function App() {
                 pallet={multiApplied.pallet}
                 boxes={multiResult.boxes}
                 showLabels={multiShowLabels}
+                labelsBySku={skuLabelsBySku}
               />
             </article>
           </section>
@@ -3028,6 +3151,7 @@ function App() {
                 input={containerApplied}
                 result={containerResult}
                 palletLoad={containerPalletLoad}
+                labelsBySku={skuLabelsBySku}
               />
             </article>
           </section>
@@ -3277,6 +3401,28 @@ function App() {
           </table>
         )}
       </section>
+
+      <LabelDesignerModal
+        isOpen={labelEditorOpen}
+        mode={labelEditorMode}
+        title={labelEditorMode === 'single' ? 'Editar caja maestra' : 'Editar caja (SKU)'}
+        labelsBySku={skuLabelsBySku}
+        skuOptions={
+          labelEditorMode === 'single'
+            ? [
+                {
+                  skuId: SINGLE_BOX_SKU_ID,
+                  name: 'Caja maestra',
+                  color: normalizeBaseColor(singleBoxes[0]?.color ?? '#2f8f9d'),
+                },
+              ]
+            : multiLabelSkuOptions
+        }
+        initialSkuId={labelEditorSkuId}
+        onClose={closeLabelEditor}
+        onSave={saveLabelConfig}
+        onReset={resetLabelConfig}
+      />
     </main>
   )
 }

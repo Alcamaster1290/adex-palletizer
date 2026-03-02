@@ -1,8 +1,9 @@
-import type { ContainerInput, ContainerResult } from '../types'
+import type { ContainerInput, ContainerResult, SkuLabelsBySku } from '../types'
 
 interface ExportContainerPayload {
   input: ContainerInput
   result: ContainerResult
+  labelsBySku?: SkuLabelsBySku
   generatedAt: string
 }
 

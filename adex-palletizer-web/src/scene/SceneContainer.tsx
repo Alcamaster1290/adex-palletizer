@@ -4,10 +4,12 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { InstancedMesh, Object3D } from 'three'
 import { VISUAL_GAP_MM } from '../constants'
 import { groupLoadBoxesForInstancing } from '../containerPalletLoad'
+import { getTextureForDataUrl, resolveSkuTextureDataUrl } from '../labels/labelTextures'
 import type {
   ContainerInput,
   ContainerResult,
   ExportedPalletLoad,
+  SkuLabelsBySku,
 } from '../types'
 import { Pallet, PalletFallback } from './Pallet'
 
@@ -15,6 +17,7 @@ interface SceneContainerProps {
   input: ContainerInput
   result: ContainerResult
   palletLoad?: ExportedPalletLoad | null
+  labelsBySku?: SkuLabelsBySku
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
 }
 
@@ -34,6 +37,7 @@ interface InstancedBoxGroupProps {
   width: number
   height: number
   color: string
+  textureDataUrl?: string | null
   instances: InstanceTransform[]
   applyVisualGap?: boolean
   gapMm?: number
@@ -59,11 +63,18 @@ function InstancedBoxGroup({
   width,
   height,
   color,
+  textureDataUrl = null,
   instances,
   applyVisualGap = false,
   gapMm = VISUAL_GAP_MM,
 }: InstancedBoxGroupProps) {
   const meshRef = useRef<InstancedMesh>(null)
+  const texture = useMemo(() => {
+    if (!textureDataUrl) {
+      return null
+    }
+    return getTextureForDataUrl(textureDataUrl)
+  }, [textureDataUrl])
 
   useLayoutEffect(() => {
     const mesh = meshRef.current
@@ -94,7 +105,12 @@ function InstancedBoxGroup({
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, instances.length]} castShadow>
       <boxGeometry args={[visualLength, visualHeight, visualWidth]} />
-      <meshStandardMaterial color={color} roughness={0.55} metalness={0.02} />
+      <meshStandardMaterial
+        color={texture ? '#ffffff' : color}
+        map={texture ?? undefined}
+        roughness={0.55}
+        metalness={0.02}
+      />
     </instancedMesh>
   )
 }
@@ -115,6 +131,7 @@ export function SceneContainer({
   input,
   result,
   palletLoad = null,
+  labelsBySku = {},
   onCanvasReady,
 }: SceneContainerProps) {
   const containerLength = input.container.length
@@ -237,11 +254,12 @@ export function SceneContainer({
         width: group.widthMm,
         height: group.heightMm,
         color: group.color,
+        textureDataUrl: resolveSkuTextureDataUrl(labelsBySku, group.skuId),
         applyVisualGap: true,
         instances,
       }
     })
-  }, [palletLoad, result.placements])
+  }, [labelsBySku, palletLoad, result.placements])
 
   return (
     <div className="scene-frame">
@@ -310,6 +328,7 @@ export function SceneContainer({
                 width={group.width}
                 height={group.height}
                 color={group.color}
+                textureDataUrl={group.textureDataUrl}
                 instances={group.instances}
                 applyVisualGap={group.applyVisualGap}
                 gapMm={10}
@@ -348,6 +367,7 @@ export function SceneContainer({
                 width={group.width}
                 height={group.height}
                 color={group.color}
+                textureDataUrl={group.textureDataUrl}
                 instances={group.instances}
                 applyVisualGap={group.applyVisualGap}
                 gapMm={10}

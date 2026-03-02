@@ -1,8 +1,9 @@
-import type { SolverInput, SolverResult } from '../types'
+import type { SkuLabelsBySku, SolverInput, SolverResult } from '../types'
 
 interface ExportPayload {
   input: SolverInput
   result: SolverResult
+  labelsBySku?: SkuLabelsBySku
   generatedAt: string
 }
 

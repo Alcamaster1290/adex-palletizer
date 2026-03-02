@@ -40,6 +40,24 @@ npm run preview
 - Si editas manualmente largo/ancho/alto, el preset cambia automaticamente a `Custom`.
 - Validacion tecnica de dimensiones en caja unica: minimo `50 mm`.
 
+## Label Designer por SKU (MVP)
+
+- Permite crear una etiqueta por SKU con plantilla 2D y aplicarla como textura en 3D.
+- UI:
+  - `Caja unica`: boton lapiz sobre el visor (`Editar caja maestra`).
+  - `Multiples cajas`: boton `Editar caja (SKU)` junto a `Limpiar`.
+- Editor incluye:
+  - Plantilla (`Minimal`, `Export`, `Retail`)
+  - Shipping marks (`CONSIGNEE`, `DESTINATION`, `SKU/PRODUCT`, `LOT`, `CARTON NO`)
+  - Pictogramas ISO 780 base (This Side Up, Fragile, Keep Dry, Keep Away From Heat)
+  - Preview 2D en canvas
+- Persistencia local:
+  - Key: `adexPalletizer.skuLabels.v1`
+- Integracion 3D:
+  - Se aplica una textura por SKU y se mantiene el flujo de instancing en contenedores.
+- Export JSON:
+  - Incluye `labelsBySku` cuando existe.
+
 ## Container loading (Sprint 4)
 
 - Nuevo tab `Container loading` para calcular pallets homogeneos dentro de contenedores.

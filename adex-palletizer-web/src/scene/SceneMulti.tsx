@@ -1,7 +1,7 @@
 import { Suspense, useEffect } from 'react'
 import { OrbitControls } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
-import type { BoxInstance, DimensionsMM } from '../types'
+import type { BoxInstance, DimensionsMM, SkuLabelsBySku } from '../types'
 import { Boxes } from './Boxes'
 import { Pallet, PalletFallback } from './Pallet'
 
@@ -10,6 +10,7 @@ interface SceneMultiProps {
   boxes: BoxInstance[]
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
   showLabels?: boolean
+  labelsBySku?: SkuLabelsBySku
 }
 
 interface CanvasReporterProps {
@@ -33,6 +34,7 @@ export function SceneMulti({
   boxes,
   onCanvasReady,
   showLabels = false,
+  labelsBySku = {},
 }: SceneMultiProps) {
   return (
     <div className="scene-frame">
@@ -63,7 +65,7 @@ export function SceneMulti({
         >
           <Pallet length={pallet.length} width={pallet.width} height={pallet.height} />
         </Suspense>
-        <Boxes boxes={boxes} showLabels={showLabels} />
+        <Boxes boxes={boxes} showLabels={showLabels} labelsBySku={labelsBySku} />
 
         <gridHelper args={[3000, 30, '#ba9f84', '#d8c5b2']} />
         <OrbitControls makeDefault enableDamping dampingFactor={0.08} />

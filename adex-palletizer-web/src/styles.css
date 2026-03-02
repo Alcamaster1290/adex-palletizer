@@ -344,6 +344,7 @@ button:disabled {
 .scene-panel {
   padding: 12px;
   min-height: 560px;
+  position: relative;
 }
 
 .scene-frame {
@@ -353,6 +354,29 @@ button:disabled {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--line-soft);
+}
+
+.scene-toolbar {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+}
+
+.icon-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid #b8dde1;
+  background: #cae9ec;
+  color: var(--accent-strong);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  background: #d9eff1;
 }
 
 .outputs-panel {
@@ -370,6 +394,84 @@ button:disabled {
 
 .button-row {
   display: flex;
+  gap: 8px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(19, 20, 20, 0.38);
+  display: grid;
+  place-items: center;
+  z-index: 1200;
+  padding: 20px;
+}
+
+.label-modal {
+  width: min(1080px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid var(--line-soft);
+  background: #fffdf8;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.label-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.label-modal-header h3 {
+  margin: 0;
+}
+
+.label-modal-content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.label-modal-content .field-group {
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fffcf6;
+}
+
+.label-modal-content .field-group h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--accent-strong);
+}
+
+.field-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.label-preview-canvas {
+  width: 100%;
+  max-width: 380px;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: #ffffff;
+}
+
+.label-modal-actions {
+  display: flex;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -644,5 +746,14 @@ td {
 
   .comparison-block {
     overflow: auto;
+  }
+
+  .label-modal-content {
+    grid-template-columns: 1fr;
+  }
+
+  .checkbox-grid,
+  .field-grid-2 {
+    grid-template-columns: 1fr;
   }
 }

@@ -2,7 +2,12 @@ import { Suspense, useEffect, useMemo } from 'react'
 import { OrbitControls } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
 import { buildBoxInstances } from '../solver'
-import type { BoxInstance, SolverInput, SolverResult } from '../types'
+import type {
+  BoxInstance,
+  SkuLabelsBySku,
+  SolverInput,
+  SolverResult,
+} from '../types'
 import { Boxes } from './Boxes'
 import { Pallet, PalletFallback } from './Pallet'
 
@@ -10,6 +15,8 @@ interface SceneProps {
   input: SolverInput
   result: SolverResult
   boxesOverride?: BoxInstance[]
+  labelsBySku?: SkuLabelsBySku
+  defaultSkuId?: string
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
 }
 
@@ -29,7 +36,14 @@ function CanvasReporter({ onReady }: CanvasReporterProps) {
   return null
 }
 
-export function Scene({ input, result, boxesOverride, onCanvasReady }: SceneProps) {
+export function Scene({
+  input,
+  result,
+  boxesOverride,
+  labelsBySku = {},
+  defaultSkuId,
+  onCanvasReady,
+}: SceneProps) {
   const boxes = useMemo(() => {
     if (boxesOverride) {
       return boxesOverride
@@ -70,7 +84,7 @@ export function Scene({ input, result, boxesOverride, onCanvasReady }: SceneProp
             height={input.pallet.height}
           />
         </Suspense>
-        <Boxes boxes={boxes} />
+        <Boxes boxes={boxes} labelsBySku={labelsBySku} defaultSkuId={defaultSkuId} />
 
         <gridHelper args={[3000, 30, '#ba9f84', '#d8c5b2']} />
         <OrbitControls makeDefault enableDamping dampingFactor={0.08} />

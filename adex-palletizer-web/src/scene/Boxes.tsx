@@ -1,21 +1,32 @@
 import { Edges, Text } from '@react-three/drei'
 import { VISUAL_GAP_MM } from '../constants'
+import { resolveSkuTexture } from '../labels/labelTextures'
 import type { BoxInstance } from '../types'
+import type { SkuLabelsBySku } from '../types'
 
 interface BoxesProps {
   boxes: BoxInstance[]
   showLabels?: boolean
+  labelsBySku?: SkuLabelsBySku
+  defaultSkuId?: string
 }
 
 const DEFAULT_BOX_COLOR = '#2f8f9d'
 
-export function Boxes({ boxes, showLabels = false }: BoxesProps) {
+export function Boxes({
+  boxes,
+  showLabels = false,
+  labelsBySku = {},
+  defaultSkuId,
+}: BoxesProps) {
   return (
     <>
       {boxes.map((box, index) => {
         const visualLength = Math.max(1, box.length - VISUAL_GAP_MM)
         const visualHeight = Math.max(1, box.height - VISUAL_GAP_MM)
         const visualWidth = Math.max(1, box.width - VISUAL_GAP_MM)
+        const texture = resolveSkuTexture(labelsBySku, box.skuId, defaultSkuId)
+        const materialColor = texture ? '#ffffff' : box.color ?? DEFAULT_BOX_COLOR
 
         return (
           <mesh
@@ -25,7 +36,8 @@ export function Boxes({ boxes, showLabels = false }: BoxesProps) {
           >
             <boxGeometry args={[visualLength, visualHeight, visualWidth]} />
             <meshStandardMaterial
-              color={box.color ?? DEFAULT_BOX_COLOR}
+              color={materialColor}
+              map={texture ?? undefined}
               roughness={0.55}
               metalness={0.02}
             />

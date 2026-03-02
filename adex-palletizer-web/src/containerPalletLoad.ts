@@ -1,4 +1,5 @@
 import { buildBoxInstances } from './solver'
+import { SINGLE_BOX_SKU_ID } from './labels/labelModel'
 import type {
   BoxInstance,
   ExportedPalletBoxPlacement,
@@ -49,6 +50,7 @@ export function buildExportedPalletLoadFromSingle(
     lengthMm: box.length,
     widthMm: box.width,
     heightMm: box.height,
+    skuId: box.skuId ?? SINGLE_BOX_SKU_ID,
     color: box.color,
   }))
 

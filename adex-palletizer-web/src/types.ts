@@ -124,6 +124,36 @@ export interface BoxInstance {
   layer?: number
 }
 
+export type LabelTemplateId = 'minimal' | 'export' | 'retail'
+
+export type IsoPictogramId =
+  | 'thisSideUp'
+  | 'fragile'
+  | 'keepDry'
+  | 'keepAwayFromHeat'
+
+export interface ShippingMarks {
+  consignee: string
+  destination: string
+  product: string
+  lot: string
+  cartonNo: string
+}
+
+export interface SkuLabelConfig {
+  skuId: string
+  baseColor: string
+  template: LabelTemplateId
+  shippingMarks: ShippingMarks
+  isoPictograms: IsoPictogramId[]
+  logoDataUrl?: string
+  gs1Text?: string
+  frontTextureDataUrl: string
+  updatedAt: string
+}
+
+export type SkuLabelsBySku = Record<string, SkuLabelConfig>
+
 export interface ExportedPalletBoxPlacement {
   xMm: number
   yMm: number
