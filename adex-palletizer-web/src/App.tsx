@@ -5,7 +5,7 @@ import {
   getBoxPresetDimensions,
   type BoxPresetId,
 } from './boxPresets'
-import { MIN_MASTER_BOX } from './constants'
+import { CONTAINER_CLEARANCE_MM, MIN_MASTER_BOX } from './constants'
 import {
   buildExportedPalletLoadFromMulti,
   buildExportedPalletLoadFromSingle,
@@ -93,7 +93,7 @@ const DEFAULT_CONTAINER_INPUT: ContainerInput = {
   container: { length: 5898, width: 2352, height: 2393 },
   pallet: { length: 1200, width: 1000, height: 150 },
   allowRotation: true,
-  clearance: 0,
+  clearance: CONTAINER_CLEARANCE_MM,
   allowStacking: false,
 }
 
@@ -3137,12 +3137,12 @@ function App() {
                   <td>{formatInt.format(containerResult.totalPallets)}</td>
                 </tr>
                 <tr>
-                  <th>Residual eje largo (mm)</th>
-                  <td>{formatInt.format(containerResult.selected.residualLength)}</td>
+                  <th>Residual interno eje largo (mm)</th>
+                  <td>{formatInt.format(containerResult.selected.trailingResidualLength)}</td>
                 </tr>
                 <tr>
-                  <th>Residual eje ancho (mm)</th>
-                  <td>{formatInt.format(containerResult.selected.residualWidth)}</td>
+                  <th>Residual interno eje ancho (mm)</th>
+                  <td>{formatInt.format(containerResult.selected.trailingResidualWidth)}</td>
                 </tr>
                 <tr>
                   <th>Altura disponible (mm)</th>

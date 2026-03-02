@@ -116,21 +116,20 @@ export function buildContainerTopViewGeometry(
   const offsetX = (FRAME_WIDTH - drawLength) / 2
   const offsetY = (FRAME_HEIGHT - drawWidth) / 2
 
-  const occupiedLength = Math.min(
-    input.container.length,
-    result.selected.nx * result.selected.palletFootprintL,
-  )
-  const occupiedWidth = Math.min(
-    input.container.width,
-    result.selected.ny * result.selected.palletFootprintW,
-  )
+  const marginToWall = result.selected.marginToWall
+  const occupiedLength = Math.min(input.container.length, result.selected.occupiedLength)
+  const occupiedWidth = Math.min(input.container.width, result.selected.occupiedWidth)
 
   const palletLeft = offsetX
   const palletTop = offsetY
   const palletRight = offsetX + drawLength
   const palletBottom = offsetY + drawWidth
-  const occupiedRight = offsetX + occupiedLength * scale
-  const occupiedBottom = offsetY + occupiedWidth * scale
+  const innerLeft = palletLeft + marginToWall * scale
+  const innerTop = palletTop + marginToWall * scale
+  const innerRight = palletRight - marginToWall * scale
+  const innerBottom = palletBottom - marginToWall * scale
+  const occupiedRight = innerLeft + occupiedLength * scale
+  const occupiedBottom = innerTop + occupiedWidth * scale
 
   const dimensionLines: DimensionLine[] = [
     buildHorizontalDimension(
@@ -151,7 +150,7 @@ export function buildContainerTopViewGeometry(
     ),
     buildHorizontalDimension(
       'container-occupied-length',
-      palletLeft,
+      innerLeft,
       occupiedRight,
       palletBottom,
       palletBottom + 24,
@@ -159,7 +158,7 @@ export function buildContainerTopViewGeometry(
     ),
     buildVerticalDimension(
       'container-occupied-width',
-      palletTop,
+      innerTop,
       occupiedBottom,
       palletRight,
       palletRight + 24,
@@ -167,28 +166,95 @@ export function buildContainerTopViewGeometry(
     ),
   ]
 
-  if (result.selected.residualLength > 0) {
+  if (marginToWall > 0) {
     dimensionLines.push(
       buildHorizontalDimension(
-        'container-residual-length',
-        occupiedRight,
+        'container-clearance-left',
+        palletLeft,
+        innerLeft,
+        palletTop,
+        palletTop - 43,
+        formatMm(marginToWall),
+      ),
+      buildHorizontalDimension(
+        'container-clearance-right-wall',
+        innerRight,
         palletRight,
+        palletTop,
+        palletTop - 62,
+        formatMm(marginToWall),
+      ),
+      buildVerticalDimension(
+        'container-clearance-top',
+        palletTop,
+        innerTop,
+        palletLeft,
+        palletLeft - 43,
+        formatMm(marginToWall),
+      ),
+      buildVerticalDimension(
+        'container-clearance-bottom-wall',
+        innerBottom,
         palletBottom,
-        palletBottom + 43,
-        formatMm(result.selected.residualLength),
+        palletLeft,
+        palletLeft - 62,
+        formatMm(marginToWall),
       ),
     )
   }
 
-  if (result.selected.residualWidth > 0) {
+  if (result.selected.trailingResidualLength > 0) {
+    dimensionLines.push(
+      buildHorizontalDimension(
+        'container-residual-length',
+        occupiedRight,
+        innerRight,
+        palletBottom,
+        palletBottom + 43,
+        formatMm(result.selected.trailingResidualLength),
+      ),
+    )
+  }
+
+  if (result.selected.trailingResidualWidth > 0) {
     dimensionLines.push(
       buildVerticalDimension(
         'container-residual-width',
         occupiedBottom,
-        palletBottom,
+        innerBottom,
         palletRight,
         palletRight + 43,
-        formatMm(result.selected.residualWidth),
+        formatMm(result.selected.trailingResidualWidth),
+      ),
+    )
+  }
+
+  if (result.selected.nx > 1 && input.clearance > 0) {
+    const firstGapStart = innerLeft + result.selected.palletFootprintL * scale
+    const firstGapEnd = firstGapStart + input.clearance * scale
+    dimensionLines.push(
+      buildHorizontalDimension(
+        'container-gap-length',
+        firstGapStart,
+        firstGapEnd,
+        innerTop,
+        innerTop - 14,
+        formatMm(input.clearance),
+      ),
+    )
+  }
+
+  if (result.selected.ny > 1 && input.clearance > 0) {
+    const firstGapStart = innerTop + result.selected.palletFootprintW * scale
+    const firstGapEnd = firstGapStart + input.clearance * scale
+    dimensionLines.push(
+      buildVerticalDimension(
+        'container-gap-width',
+        firstGapStart,
+        firstGapEnd,
+        innerLeft,
+        innerLeft - 14,
+        formatMm(input.clearance),
       ),
     )
   }
