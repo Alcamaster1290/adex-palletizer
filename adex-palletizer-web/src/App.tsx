@@ -735,11 +735,17 @@ function App() {
   )
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date>(new Date())
   const [multiShowLabels, setMultiShowLabels] = useState(false)
+  const initialMultiNoMixResult = useMemo(() => {
+    if (!initialMultiState.noMixedSkuStacking) {
+      return null
+    }
+    return solveMultiHeuristicNoMix(cloneMultiPreviewInput(initialMultiState))
+  }, [initialMultiState])
   const [multiAlgorithm, setMultiAlgorithm] = useState<'preview' | 'heuristic'>(
-    'preview',
+    () => (initialMultiState.noMixedSkuStacking ? 'heuristic' : 'preview'),
   )
   const [multiHeuristicResult, setMultiHeuristicResult] =
-    useState<MultiPreviewResult | null>(null)
+    useState<MultiPreviewResult | null>(() => initialMultiNoMixResult)
 
   const [containerDraft, setContainerDraft] = useState<ContainerInput>(() =>
     cloneContainerInput(initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT),
@@ -1715,8 +1721,13 @@ function App() {
     setMultiPalletPreset('american')
     setMultiFieldValues(buildMultiFieldValues(next))
     setMultiFieldErrors({})
-    setMultiAlgorithm('preview')
-    setMultiHeuristicResult(null)
+    if (next.noMixedSkuStacking) {
+      setMultiAlgorithm('heuristic')
+      setMultiHeuristicResult(solveMultiHeuristicNoMix(cloneMultiPreviewInput(next)))
+    } else {
+      setMultiAlgorithm('preview')
+      setMultiHeuristicResult(null)
+    }
     setLastGeneratedAt(new Date())
     setScenarioNotice(null)
     setShareStatus(null)
