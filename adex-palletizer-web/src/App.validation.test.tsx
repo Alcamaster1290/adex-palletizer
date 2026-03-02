@@ -194,4 +194,31 @@ describe('App input validation', () => {
 
     expect(screen.getByText(/heuristica por columnas sku/i)).toBeInTheDocument()
   })
+
+  it('con noMix activo, Generar 3D usa resultado no-mix (no preview)', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
+
+    const noMixCheckbox = document.getElementById('multi-no-mix-stacking') as HTMLInputElement
+    fireEvent.click(noMixCheckbox)
+    expect(noMixCheckbox.checked).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: /generar 3d|regenerar 3d/i }))
+
+    expect(screen.getByText(/heuristica por columnas sku/i)).toBeInTheDocument()
+  })
+
+  it('con noMix desactivado, Generar 3D mantiene preview por grilla', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
+
+    const noMixCheckbox = document.getElementById('multi-no-mix-stacking') as HTMLInputElement
+    expect(noMixCheckbox.checked).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: /generar 3d|regenerar 3d/i }))
+
+    expect(screen.getByText(/vista previa por grilla/i)).toBeInTheDocument()
+  })
 })
