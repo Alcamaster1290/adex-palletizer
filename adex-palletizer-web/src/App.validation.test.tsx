@@ -187,7 +187,6 @@ describe('App input validation', () => {
     fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
 
     const noMixCheckbox = document.getElementById('multi-no-mix-stacking') as HTMLInputElement
-    fireEvent.click(noMixCheckbox)
     expect(noMixCheckbox.checked).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: /resolver \(heuristica\)/i }))
@@ -201,7 +200,6 @@ describe('App input validation', () => {
     fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
 
     const noMixCheckbox = document.getElementById('multi-no-mix-stacking') as HTMLInputElement
-    fireEvent.click(noMixCheckbox)
     expect(noMixCheckbox.checked).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: /generar 3d|regenerar 3d/i }))
@@ -215,10 +213,21 @@ describe('App input validation', () => {
     fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
 
     const noMixCheckbox = document.getElementById('multi-no-mix-stacking') as HTMLInputElement
+    expect(noMixCheckbox.checked).toBe(true)
+    fireEvent.click(noMixCheckbox)
     expect(noMixCheckbox.checked).toBe(false)
 
     fireEvent.click(screen.getByRole('button', { name: /generar 3d|regenerar 3d/i }))
 
     expect(screen.getByText(/vista previa por grilla/i)).toBeInTheDocument()
+  })
+
+  it('en primera carga, Multi inicia con noMix activo por defecto', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
+
+    const noMixCheckbox = document.getElementById('multi-no-mix-stacking') as HTMLInputElement
+    expect(noMixCheckbox.checked).toBe(true)
   })
 })
