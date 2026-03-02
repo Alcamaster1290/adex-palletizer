@@ -57,6 +57,42 @@ describe('solveMultiHeuristic', () => {
     expect(result.unplacedBySku.A).toBeGreaterThan(0)
   })
 
+  it('con 2 SKUs mantiene o mejora baseline de colocacion del heuristico anterior', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 350,
+      overhang: 0,
+      allowRotation: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'A',
+          name: 'SKU A',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 3,
+          allowRotation: true,
+        },
+        {
+          id: 2,
+          skuId: 'B',
+          name: 'SKU B',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 3,
+          allowRotation: true,
+        },
+      ],
+    }
+
+    const previousBaseline = 4
+    const result = solveMultiHeuristic(input)
+
+    expect(result.totalPlaced).toBeGreaterThanOrEqual(previousBaseline)
+  })
+
   it('mantiene contrato de salida esperado', () => {
     const input: MultiPreviewInput = {
       pallet: { length: 1200, width: 1000, height: 150 },
