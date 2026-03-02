@@ -2,13 +2,14 @@ import { Suspense, useEffect, useMemo } from 'react'
 import { OrbitControls } from '@react-three/drei'
 import { Canvas, useThree } from '@react-three/fiber'
 import { buildBoxInstances } from '../solver'
-import type { SolverInput, SolverResult } from '../types'
+import type { BoxInstance, SolverInput, SolverResult } from '../types'
 import { Boxes } from './Boxes'
 import { Pallet, PalletFallback } from './Pallet'
 
 interface SceneProps {
   input: SolverInput
   result: SolverResult
+  boxesOverride?: BoxInstance[]
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
 }
 
@@ -28,8 +29,13 @@ function CanvasReporter({ onReady }: CanvasReporterProps) {
   return null
 }
 
-export function Scene({ input, result, onCanvasReady }: SceneProps) {
-  const boxes = useMemo(() => buildBoxInstances(input, result), [input, result])
+export function Scene({ input, result, boxesOverride, onCanvasReady }: SceneProps) {
+  const boxes = useMemo(() => {
+    if (boxesOverride) {
+      return boxesOverride
+    }
+    return buildBoxInstances(input, result)
+  }, [boxesOverride, input, result])
 
   return (
     <div className="scene-frame">

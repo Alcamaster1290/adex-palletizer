@@ -55,7 +55,10 @@ describe('App scenarios storage', () => {
     render(<App />)
 
     const boxPreset = document.getElementById('single-box-preset') as HTMLSelectElement
+    const packingMode = document.getElementById('single-packing-mode') as HTMLSelectElement
     fireEvent.change(boxPreset, { target: { value: 'compact-360-260-220' } })
+    fireEvent.change(packingMode, { target: { value: 'advanced' } })
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
     fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))
 
     const storedRaw = window.localStorage.getItem(SCENARIOS_STORAGE_KEY)
@@ -63,17 +66,22 @@ describe('App scenarios storage', () => {
     const stored = JSON.parse(storedRaw ?? '[]') as Array<Record<string, unknown>>
     const singleScenario = stored.find((item) => item.mode === 'single') as
       | {
-          single?: { boxPresetId?: string }
+          single?: { boxPresetId?: string; packingMode?: string }
         }
       | undefined
 
     expect(singleScenario?.single?.boxPresetId).toBe('compact-360-260-220')
+    expect(singleScenario?.single?.packingMode).toBe('advanced')
 
     fireEvent.change(boxPreset, { target: { value: 'standard-600-400-200' } })
+    fireEvent.change(packingMode, { target: { value: 'grid' } })
     fireEvent.click(screen.getByRole('button', { name: 'Cargar' }))
 
     expect((document.getElementById('single-box-preset') as HTMLSelectElement).value).toBe(
       'compact-360-260-220',
+    )
+    expect((document.getElementById('single-packing-mode') as HTMLSelectElement).value).toBe(
+      'advanced',
     )
     expect((document.getElementById('box-length') as HTMLInputElement).value).toBe('360')
   })

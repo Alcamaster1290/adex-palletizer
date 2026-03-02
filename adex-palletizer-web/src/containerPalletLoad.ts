@@ -1,5 +1,6 @@
 import { buildBoxInstances } from './solver'
 import type {
+  BoxInstance,
   ExportedPalletBoxPlacement,
   ExportedPalletLoad,
   MultiPreviewInput,
@@ -38,8 +39,10 @@ function normalizeColor(color: string | undefined) {
 export function buildExportedPalletLoadFromSingle(
   input: SolverInput,
   result: SolverResult,
+  boxesOverride?: BoxInstance[],
 ): ExportedPalletLoad {
-  const boxesPlacements = buildBoxInstances(input, result).map((box) => ({
+  const sourceBoxes = boxesOverride ?? buildBoxInstances(input, result)
+  const boxesPlacements = sourceBoxes.map((box) => ({
     xMm: box.x,
     yMm: box.y - input.pallet.height,
     zMm: box.z,

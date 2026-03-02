@@ -26,7 +26,7 @@ npm run preview
 
 - Presets de pallet: `American 1200x1000x150`, `Euro 1200x800x144` y `Custom`.
 - Escenarios: guardado local en `localStorage` con comparativa rapida.
-- Share link: genera URL con query params (`pL,pW,pH,bPr,bL,bW,bH,maxH,rot,ov,mode`) para reproducir el caso.
+- Share link: genera URL con query params (`pL,pW,pH,bPr,bL,bW,bH,maxH,rot,ov,pm,mode`) para reproducir el caso.
 
 ## Presets de Caja Maestra
 
@@ -77,6 +77,17 @@ Formula base del solver de contenedor:
 3. Ejecutar `Generar 3D` para preview base.
 4. Ejecutar `Solve (heuristic)` para intentar mejor aprovechamiento.
 5. Guardar con `Save scenario` para comparar resultados.
+
+## Grid vs Advanced (Caja unica)
+
+- `Grid` (default): usa una orientacion global por capa (`LxW` o `WxL`) y calcula `nx x ny`.
+- `Advanced`: usa packing mixed-orientation por item (0/90) con `free-rectangles` y heuristic `bestShortSideFit`.
+- Cuándo usar cada uno:
+  - `Grid`: resultados rapidos y comparables con el metodo clasico de capas uniformes.
+  - `Advanced`: cuando quieres maximizar aprovechamiento en planta mezclando orientaciones dentro de la misma capa.
+- Share link para `single` agrega `pm`:
+  - `pm=grid`
+  - `pm=advanced`
 
 ## Deploy en Vercel
 

@@ -63,7 +63,30 @@ describe('App share link', () => {
     expect(window.location.search).toContain('maxH=1200')
     expect(window.location.search).toContain('rot=1')
     expect(window.location.search).toContain('ov=0')
+    expect(window.location.search).toContain('pm=grid')
     expect(window.location.search).toContain('mode=single')
+  })
+
+  it('aplica packing mode desde query param pm=advanced', () => {
+    window.history.replaceState({}, '', '/?mode=single&pm=advanced')
+
+    render(<App />)
+
+    expect((document.getElementById('single-packing-mode') as HTMLSelectElement).value).toBe(
+      'advanced',
+    )
+  })
+
+  it('incluye pm=advanced al compartir enlace en modo avanzado', () => {
+    render(<App />)
+
+    fireEvent.change(document.getElementById('single-packing-mode') as HTMLSelectElement, {
+      target: { value: 'advanced' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
+    fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
+
+    expect(window.location.search).toContain('pm=advanced')
   })
 
   it('aplica bPr en la inicializacion del modo single', () => {
