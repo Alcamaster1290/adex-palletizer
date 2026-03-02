@@ -8,8 +8,16 @@ import type {
   RectPackPlacement,
 } from './types'
 
+function normalizeColumnValue(value: number) {
+  return Number(value.toFixed(4))
+}
+
 function buildColumnSignature(box: BoxInstance) {
-  return `${box.x}|${box.z}|${box.length}|${box.width}`
+  const x = normalizeColumnValue(box.x)
+  const z = normalizeColumnValue(box.z)
+  const length = normalizeColumnValue(box.length)
+  const width = normalizeColumnValue(box.width)
+  return `${x}|${z}|${length}|${width}`
 }
 
 interface PreparedSku {
