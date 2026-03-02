@@ -1,4 +1,6 @@
 import { solveMultiHeuristicNoMix } from './multiSolverNoMix'
+import { assertNoMixedColumns } from './multiSolverNoMix'
+import { solveMultiHeuristic } from './multiSolver'
 import type { MultiPreviewInput } from './types'
 
 function columnKey(x: number, z: number) {
@@ -54,6 +56,48 @@ describe('solveMultiHeuristicNoMix', () => {
       }
       expect(box.skuId).toBe(current)
     })
+
+    expect(() => assertNoMixedColumns(result.boxes)).not.toThrow()
+  })
+
+  it('detecta mezcla de columnas en un caso donde el solver FFD por capas reutiliza huella', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 550,
+      overhang: 0,
+      allowRotation: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'A',
+          name: 'SKU A',
+          length: 600,
+          width: 500,
+          height: 200,
+          quantity: 1,
+          allowRotation: true,
+        },
+        {
+          id: 2,
+          skuId: 'B',
+          name: 'SKU B',
+          length: 600,
+          width: 500,
+          height: 200,
+          quantity: 10,
+          allowRotation: true,
+        },
+      ],
+    }
+
+    const ffd = solveMultiHeuristic(input)
+    expect(() => assertNoMixedColumns(ffd.boxes)).toThrow()
+
+    const noMix = solveMultiHeuristicNoMix({
+      ...input,
+      noMixedSkuStacking: true,
+    })
+    expect(() => assertNoMixedColumns(noMix.boxes)).not.toThrow()
   })
 
   it('respeta noStack: el SKU no aparece en capas superiores', () => {

@@ -8,6 +8,10 @@ import type {
   RectPackPlacement,
 } from './types'
 
+function buildColumnSignature(box: BoxInstance) {
+  return `${box.x}|${box.z}|${box.length}|${box.width}`
+}
+
 interface PreparedSku {
   sku: MultiSkuInput
   skuId: string
@@ -205,6 +209,25 @@ function runColumnPacking(
       color: column.color,
     })),
   )
+}
+
+export function assertNoMixedColumns(boxes: BoxInstance[]) {
+  const skuByColumn = new Map<string, string>()
+
+  boxes.forEach((box) => {
+    const skuId = box.skuId ?? ''
+    const key = buildColumnSignature(box)
+    const current = skuByColumn.get(key)
+    if (!current) {
+      skuByColumn.set(key, skuId)
+      return
+    }
+    if (current !== skuId) {
+      throw new Error(
+        `Mezcla de SKU detectada en columna ${key}: ${current} vs ${skuId}`,
+      )
+    }
+  })
 }
 
 export function solveMultiHeuristicNoMix(input: MultiPreviewInput): MultiPreviewResult {
@@ -450,6 +473,22 @@ export function solveMultiHeuristicNoMix(input: MultiPreviewInput): MultiPreview
 
   if (unplacedTotal > 0 && !columnsReduced && !limitedByVerticalRules) {
     warnings.push('Quedaron unidades sin ubicar por restricciones de espacio.')
+  }
+
+  try {
+    assertNoMixedColumns(boxes)
+  } catch (error) {
+    return {
+      ...emptyResult([
+        error instanceof Error
+          ? error.message
+          : 'Se detecto mezcla de SKUs en columnas del solver no-mix.',
+      ]),
+      requestedTotal,
+      unplaceableTotal,
+      availableHeight,
+      warnings,
+    }
   }
 
   return {
