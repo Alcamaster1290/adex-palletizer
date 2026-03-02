@@ -229,9 +229,10 @@ export function buildContainerTopViewGeometry(
     )
   }
 
-  if (result.selected.nx > 1 && input.clearance > 0) {
+  const effectiveGap = Math.max(0, result.selected.pitchLength - result.selected.palletFootprintL)
+  if (result.selected.nx > 1 && effectiveGap > 0) {
     const firstGapStart = innerLeft + result.selected.palletFootprintL * scale
-    const firstGapEnd = firstGapStart + input.clearance * scale
+    const firstGapEnd = firstGapStart + effectiveGap * scale
     dimensionLines.push(
       buildHorizontalDimension(
         'container-gap-length',
@@ -239,14 +240,14 @@ export function buildContainerTopViewGeometry(
         firstGapEnd,
         innerTop,
         innerTop - 14,
-        formatMm(input.clearance),
+        formatMm(effectiveGap),
       ),
     )
   }
 
-  if (result.selected.ny > 1 && input.clearance > 0) {
+  if (result.selected.ny > 1 && effectiveGap > 0) {
     const firstGapStart = innerTop + result.selected.palletFootprintW * scale
-    const firstGapEnd = firstGapStart + input.clearance * scale
+    const firstGapEnd = firstGapStart + effectiveGap * scale
     dimensionLines.push(
       buildVerticalDimension(
         'container-gap-width',
@@ -254,7 +255,7 @@ export function buildContainerTopViewGeometry(
         firstGapEnd,
         innerLeft,
         innerLeft - 14,
-        formatMm(input.clearance),
+        formatMm(effectiveGap),
       ),
     )
   }

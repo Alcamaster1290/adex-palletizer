@@ -145,6 +145,7 @@ describe('App share link', () => {
     expect((document.getElementById('container-pallet-height') as HTMLInputElement).value).toBe(
       '1150',
     )
+    expect((document.getElementById('container-clearance') as HTMLInputElement).value).toBe('50')
     expect((document.getElementById('container-allow-rotation') as HTMLInputElement).checked).toBe(
       true,
     )

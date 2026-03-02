@@ -45,7 +45,7 @@ npm run preview
 - Nuevo tab `Container loading` para calcular pallets homogeneos dentro de contenedores.
 - Presets disponibles: `20' GP`, `40' GP`, `40' HC` y `Custom`.
 - Soporta rotacion 0/90 del pallet de carga, clearance y limite por payload (opcional).
-- `Clearance` por defecto: `50 mm` (editable). Se aplica en planta:
+- `Clearance` por defecto y minimo: `50 mm` (editable hacia arriba). Se aplica en planta:
   - margen minimo a paredes (4 lados)
   - separacion minima pallet-pallet
 - Boton `Use current pallet result` para traer dimensiones desde resultados `single` o `multi`.

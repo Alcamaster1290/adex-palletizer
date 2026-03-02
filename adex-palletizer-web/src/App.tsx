@@ -342,12 +342,13 @@ function cloneMultiPreviewInput(state: MultiDraftState): MultiPreviewInput {
 }
 
 function cloneContainerInput(input: ContainerInput): ContainerInput {
+  const normalizedClearance = Math.max(CONTAINER_CLEARANCE_MM, input.clearance)
   return {
     preset: input.preset,
     container: { ...input.container },
     pallet: { ...input.pallet },
     allowRotation: input.allowRotation,
-    clearance: input.clearance,
+    clearance: normalizedClearance,
     weightPerPalletKg: input.weightPerPalletKg,
     payloadMaxKg: input.payloadMaxKg,
     allowStacking: input.allowStacking,
@@ -1141,7 +1142,7 @@ function App() {
           : field === 'weightPerPalletKg'
             ? 'El peso por pallet'
             : 'El payload maximo',
-      min: field === 'clearance' ? 0 : 1,
+      min: field === 'clearance' ? CONTAINER_CLEARANCE_MM : 1,
     })
     setContainerFieldErrors((current) =>
       upsertFieldError(current, fieldId, validation.error),
@@ -2946,7 +2947,7 @@ function App() {
                 <NumberField
                   id="container-clearance"
                   label="Holgura"
-                  min={0}
+                  min={CONTAINER_CLEARANCE_MM}
                   value={containerFieldValues['container-clearance']}
                   error={containerFieldErrors['container-clearance']}
                   onChange={(value) =>

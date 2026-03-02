@@ -4,6 +4,7 @@ import type {
   ContainerResult,
   PalletPlacement,
 } from './types'
+import { CONTAINER_CLEARANCE_MM } from './constants'
 
 const isPositive = (value: number) => Number.isFinite(value) && value > 0
 const isNonNegative = (value: number) => Number.isFinite(value) && value >= 0
@@ -202,13 +203,15 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     return emptyResult(errors)
   }
 
+  const clearance = Math.max(CONTAINER_CLEARANCE_MM, input.clearance)
+
   const planA = evaluateOrientation(
     'LxW',
     input.container.length,
     input.container.width,
     input.pallet.length,
     input.pallet.width,
-    input.clearance,
+    clearance,
   )
   const planB = input.allowRotation
     ? evaluateOrientation(
@@ -217,7 +220,7 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
         input.container.width,
         input.pallet.width,
         input.pallet.length,
-        input.clearance,
+        clearance,
       )
     : null
 

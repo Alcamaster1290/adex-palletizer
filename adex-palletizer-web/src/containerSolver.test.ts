@@ -88,6 +88,16 @@ describe('solveContainerLoading', () => {
     })
   })
 
+  it('fuerza clearance minimo de 50 mm cuando llega un valor menor', () => {
+    const input = buildInput({ clearance: 0 })
+    const result = solveContainerLoading(input)
+
+    expect(result.errors).toHaveLength(0)
+    expect(result.selected.marginToWall).toBe(CONTAINER_CLEARANCE_MM)
+    expect(result.selected.pitchLength).toBe(1200 + CONTAINER_CLEARANCE_MM)
+    expect(result.selected.pitchWidth).toBe(1000 + CONTAINER_CLEARANCE_MM)
+  })
+
   it('respeta el limite de payload cuando hay peso por pallet', () => {
     const result = solveContainerLoading(
       buildInput({

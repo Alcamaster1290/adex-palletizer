@@ -3,6 +3,7 @@ import {
   getBoxPresetDimensions,
   type BoxPresetId,
 } from './boxPresets'
+import { CONTAINER_CLEARANCE_MM } from './constants'
 import type { ContainerInput, PackingMode, SolverInput } from './types'
 
 export type ShareMode = 'single' | 'multi' | 'container'
@@ -56,12 +57,13 @@ function cloneSolverInput(input: SolverInput): SolverInput {
 }
 
 function cloneContainerInput(input: ContainerInput): ContainerInput {
+  const normalizedClearance = Math.max(CONTAINER_CLEARANCE_MM, input.clearance)
   return {
     preset: input.preset,
     container: { ...input.container },
     pallet: { ...input.pallet },
     allowRotation: input.allowRotation,
-    clearance: input.clearance,
+    clearance: normalizedClearance,
     weightPerPalletKg: input.weightPerPalletKg,
     payloadMaxKg: input.payloadMaxKg,
     allowStacking: input.allowStacking,
@@ -265,7 +267,7 @@ function parseContainerInput(
         height: ppH ?? defaults.pallet.height,
       },
       allowRotation: cRot === null ? defaults.allowRotation : cRot,
-      clearance: cClr ?? defaults.clearance,
+      clearance: Math.max(CONTAINER_CLEARANCE_MM, cClr ?? defaults.clearance),
       weightPerPalletKg: wpp ?? undefined,
       payloadMaxKg: pMax ?? undefined,
       allowStacking: defaults.allowStacking,
