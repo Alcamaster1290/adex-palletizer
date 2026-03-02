@@ -63,6 +63,7 @@ function validateInput(input: MultiPreviewInput): string[] {
 function emptyResult(errors: string[]): MultiPreviewResult {
   return {
     algorithm: 'heuristic',
+    solverVariant: 'heuristic-ffd',
     boxes: [],
     bySku: [],
     placedBySku: {},
@@ -353,6 +354,7 @@ export function solveMultiHeuristic(input: MultiPreviewInput): MultiPreviewResul
 
   return {
     algorithm: 'heuristic',
+    solverVariant: 'heuristic-ffd',
     boxes,
     bySku: buildSummary(
       input,

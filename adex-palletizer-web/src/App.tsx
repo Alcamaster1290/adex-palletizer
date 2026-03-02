@@ -36,6 +36,7 @@ import { buildBoxInstances, solvePalletization } from './solver'
 import { solveSingleAdvancedPacking } from './singleAdvancedPacking'
 import { TopViewLayer } from './top-view/TopViewLayer'
 import { solveMultiHeuristic } from './multiSolver'
+import { solveMultiHeuristicNoMix } from './multiSolverNoMix'
 import type {
   ContainerInput,
   ContainerPresetKey,
@@ -134,6 +135,7 @@ interface MultiDraftState {
   maxTotalHeight: number
   allowRotation: boolean
   overhang: number
+  noMixedSkuStacking: boolean
   skus: MultiSkuInput[]
 }
 
@@ -300,6 +302,7 @@ const DEFAULT_MULTI_STATE: MultiDraftState = {
   maxTotalHeight: 1200,
   allowRotation: true,
   overhang: 0,
+  noMixedSkuStacking: false,
   skus: [
     createDefaultMultiSku(1, { name: 'Caja A', quantity: 8, color: '#2f8f9d' }),
     createDefaultMultiSku(2, { name: 'Caja B', quantity: 10, color: '#e67e22' }),
@@ -322,6 +325,7 @@ function cloneMultiState(state: MultiDraftState): MultiDraftState {
     maxTotalHeight: state.maxTotalHeight,
     allowRotation: state.allowRotation,
     overhang: state.overhang,
+    noMixedSkuStacking: state.noMixedSkuStacking,
     skus: state.skus.map((sku) => ({ ...sku })),
   }
 }
@@ -332,6 +336,7 @@ function cloneMultiPreviewInput(state: MultiDraftState): MultiPreviewInput {
     maxTotalHeight: state.maxTotalHeight,
     overhang: state.overhang,
     allowRotation: state.allowRotation,
+    noMixedSkuStacking: state.noMixedSkuStacking,
     skus: state.skus.map((sku) => ({ ...sku })),
   }
 }
@@ -372,6 +377,10 @@ function normalizeMultiInput(input: MultiPreviewInput | Record<string, unknown>)
     maxTotalHeight: candidate.maxTotalHeight ?? fallback.maxTotalHeight,
     allowRotation: candidate.allowRotation ?? fallback.allowRotation,
     overhang: candidate.overhang ?? fallback.overhang,
+    noMixedSkuStacking:
+      typeof candidate.noMixedSkuStacking === 'boolean'
+        ? candidate.noMixedSkuStacking
+        : fallback.noMixedSkuStacking,
   }
 
   const rawSkus = candidate.skus
@@ -447,6 +456,7 @@ function areMultiStatesEqual(left: MultiDraftState, right: MultiDraftState) {
     left.maxTotalHeight !== right.maxTotalHeight ||
     left.allowRotation !== right.allowRotation ||
     left.overhang !== right.overhang ||
+    left.noMixedSkuStacking !== right.noMixedSkuStacking ||
     left.skus.length !== right.skus.length
   ) {
     return false
@@ -641,6 +651,13 @@ function App() {
       ),
     [],
   )
+  const initialMultiState = useMemo(() => {
+    const next = cloneMultiState(DEFAULT_MULTI_STATE)
+    if (initialShareState.multiNoMixedSkuStacking !== null) {
+      next.noMixedSkuStacking = initialShareState.multiNoMixedSkuStacking
+    }
+    return next
+  }, [initialShareState.multiNoMixedSkuStacking])
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialShareState.mode)
   const [shareWarning] = useState<string | null>(initialShareState.warning)
@@ -674,14 +691,18 @@ function App() {
   const [singleCanvas, setSingleCanvas] = useState<HTMLCanvasElement | null>(null)
   const [lastCalculatedAt, setLastCalculatedAt] = useState<Date>(new Date())
 
-  const [multiDraft, setMultiDraft] = useState<MultiDraftState>(DEFAULT_MULTI_STATE)
+  const [multiDraft, setMultiDraft] = useState<MultiDraftState>(() =>
+    cloneMultiState(initialMultiState),
+  )
   const [multiPalletPreset, setMultiPalletPreset] =
-    useState<PalletPresetKey>('american')
+    useState<PalletPresetKey>(() => detectPalletPreset(initialMultiState.pallet))
   const [multiFieldValues, setMultiFieldValues] = useState<Record<string, string>>(() =>
-    buildMultiFieldValues(DEFAULT_MULTI_STATE),
+    buildMultiFieldValues(initialMultiState),
   )
   const [multiFieldErrors, setMultiFieldErrors] = useState<FieldErrors>({})
-  const [multiApplied, setMultiApplied] = useState<MultiDraftState>(DEFAULT_MULTI_STATE)
+  const [multiApplied, setMultiApplied] = useState<MultiDraftState>(() =>
+    cloneMultiState(initialMultiState),
+  )
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date>(new Date())
   const [multiShowLabels, setMultiShowLabels] = useState(false)
   const [multiAlgorithm, setMultiAlgorithm] = useState<'preview' | 'heuristic'>(
@@ -1577,6 +1598,7 @@ function App() {
     setMultiAlgorithm('preview')
     setMultiHeuristicResult(null)
     setLastGeneratedAt(new Date())
+    setShareStatus(null)
   }
 
   const solveMulti3DHeuristic = () => {
@@ -1592,7 +1614,9 @@ function App() {
 
     try {
       const input = cloneMultiPreviewInput(multiDraft)
-      const result = solveMultiHeuristic(input)
+      const result = multiDraft.noMixedSkuStacking
+        ? solveMultiHeuristicNoMix(input)
+        : solveMultiHeuristic(input)
       if (result.errors.length > 0) {
         setScenarioNotice('La heuristica encontro errores de entrada. Se mantiene la vista previa.')
         return
@@ -1603,6 +1627,7 @@ function App() {
       setMultiHeuristicResult(result)
       setScenarioNotice(null)
       setLastGeneratedAt(new Date())
+      setShareStatus(null)
     } catch {
       setScenarioNotice('No se pudo ejecutar la heuristica. Se mantiene la vista previa multicaja.')
       setMultiAlgorithm('preview')
@@ -1621,6 +1646,7 @@ function App() {
     setMultiHeuristicResult(null)
     setLastGeneratedAt(new Date())
     setScenarioNotice(null)
+    setShareStatus(null)
   }
 
   const persistScenarios = (nextScenarios: StoredScenario[]) => {
@@ -1765,6 +1791,27 @@ function App() {
     const query = buildShareQuery(appliedInput, 'single', {
       boxPresetId: singleBoxPreset,
       packingMode: singlePackingModeApplied,
+    })
+    const relativeUrl = `${window.location.pathname}${query}`
+    const absoluteUrl = `${window.location.origin}${relativeUrl}`
+    window.history.replaceState(window.history.state, '', relativeUrl)
+
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(absoluteUrl)
+        setShareStatus('Enlace copiado al portapapeles.')
+        return
+      } catch {
+        // Si falla el portapapeles, dejamos el enlace en pantalla.
+      }
+    }
+
+    setShareStatus(`Enlace listo: ${absoluteUrl}`)
+  }
+
+  const shareCurrentMulti = async () => {
+    const query = buildShareQuery(appliedInput, 'multi', {
+      noMixedSkuStacking: multiDraft.noMixedSkuStacking,
     })
     const relativeUrl = `${window.location.pathname}${query}`
     const absoluteUrl = `${window.location.origin}${relativeUrl}`
@@ -2312,6 +2359,20 @@ function App() {
                   />
                   <span>Permitir rotacion 90 grados por tipo</span>
                 </label>
+                <label className="checkbox-row" htmlFor="multi-no-mix-stacking">
+                  <input
+                    id="multi-no-mix-stacking"
+                    type="checkbox"
+                    checked={multiDraft.noMixedSkuStacking}
+                    onChange={(event) =>
+                      setMultiDraft((current) => ({
+                        ...current,
+                        noMixedSkuStacking: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>No mezclar SKU en apilado (columnas por SKU)</span>
+                </label>
                 <label className="checkbox-row" htmlFor="multi-show-labels">
                   <input
                     id="multi-show-labels"
@@ -2541,12 +2602,27 @@ function App() {
           <section className="panel outputs-panel">
             <div className="outputs-header">
               <h2>Resultados multicaja</h2>
-              <span className={multiResult.unplacedTotal > 0 ? 'chip pending' : 'chip ready'}>
-                {multiResult.algorithm === 'heuristic'
-                  ? 'Heuristica FFD'
-                  : 'Vista previa por grilla'}
-              </span>
+              <div className="button-row">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    void shareCurrentMulti()
+                  }}
+                >
+                  Compartir enlace
+                </button>
+                <span className={multiResult.unplacedTotal > 0 ? 'chip pending' : 'chip ready'}>
+                  {multiResult.algorithm === 'heuristic'
+                    ? multiResult.solverVariant === 'heuristic-columns'
+                      ? 'Heuristica por columnas SKU'
+                      : 'Heuristica FFD'
+                    : 'Vista previa por grilla'}
+                </span>
+              </div>
             </div>
+
+            {shareStatus && <p className="meta-text">{shareStatus}</p>}
 
             <div className="kpi-grid">
               <article className="kpi">

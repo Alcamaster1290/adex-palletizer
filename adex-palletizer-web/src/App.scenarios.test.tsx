@@ -91,6 +91,7 @@ describe('App scenarios storage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
     fireEvent.click(screen.getByRole('button', { name: /agregar sku/i }))
+    fireEvent.click(document.getElementById('multi-no-mix-stacking') as HTMLInputElement)
 
     fireEvent.click(screen.getByRole('button', { name: /generar 3d|regenerar 3d/i }))
     fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))
@@ -104,10 +105,20 @@ describe('App scenarios storage', () => {
 
     expect(multiScenario).toBeDefined()
     const multi = multiScenario?.multi as
-      | { input?: { skus?: Array<unknown> } }
+      | { input?: { skus?: Array<unknown>; noMixedSkuStacking?: boolean } }
       | undefined
     expect(Array.isArray(multi?.input?.skus)).toBe(true)
     expect((multi?.input?.skus ?? []).length).toBeGreaterThanOrEqual(3)
+    expect(multi?.input?.noMixedSkuStacking).toBe(true)
+
+    fireEvent.click(document.getElementById('multi-no-mix-stacking') as HTMLInputElement)
+    expect((document.getElementById('multi-no-mix-stacking') as HTMLInputElement).checked).toBe(
+      false,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar' }))
+    expect((document.getElementById('multi-no-mix-stacking') as HTMLInputElement).checked).toBe(
+      true,
+    )
   })
 
   it('guarda y carga escenario de container restaurando dimensiones', () => {

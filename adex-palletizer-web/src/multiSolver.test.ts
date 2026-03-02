@@ -127,6 +127,7 @@ describe('solveMultiHeuristic', () => {
 
     expect(result).toMatchObject({
       algorithm: 'heuristic',
+      solverVariant: 'heuristic-ffd',
       totalPlaced: expect.any(Number),
       totalUnplaced: expect.any(Number),
       layersUsed: expect.any(Number),
