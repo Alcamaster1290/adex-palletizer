@@ -91,7 +91,9 @@ describe('App scenarios storage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
     fireEvent.click(screen.getByRole('button', { name: /agregar sku/i }))
-    fireEvent.click(document.getElementById('multi-no-mix-stacking') as HTMLInputElement)
+    expect((document.getElementById('multi-no-mix-stacking') as HTMLInputElement).checked).toBe(
+      true,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /generar 3d|regenerar 3d/i }))
     fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))

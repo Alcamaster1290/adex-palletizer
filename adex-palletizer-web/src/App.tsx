@@ -302,7 +302,7 @@ const DEFAULT_MULTI_STATE: MultiDraftState = {
   maxTotalHeight: 1200,
   allowRotation: true,
   overhang: 0,
-  noMixedSkuStacking: false,
+  noMixedSkuStacking: true,
   skus: [
     createDefaultMultiSku(1, { name: 'Caja A', quantity: 8, color: '#2f8f9d' }),
     createDefaultMultiSku(2, { name: 'Caja B', quantity: 10, color: '#e67e22' }),
