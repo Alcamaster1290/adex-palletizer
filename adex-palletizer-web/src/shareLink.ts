@@ -347,7 +347,7 @@ export function buildShareQuery(
     params.set('maxH', String(input.maxTotalHeight))
     params.set('rot', input.allowRotation ? '1' : '0')
     params.set('ov', String(input.overhang))
-    params.set('pm', options?.packingMode ?? 'grid')
+    params.set('pm', options?.packingMode ?? 'advanced')
     params.set('mode', mode)
     return `?${params.toString()}`
   }
