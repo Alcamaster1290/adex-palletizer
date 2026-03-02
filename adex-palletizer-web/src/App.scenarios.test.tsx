@@ -140,6 +140,6 @@ describe('App scenarios storage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cargar' }))
 
     expect((document.getElementById('container-length') as HTMLInputElement).value).toBe('12032')
-    expect(screen.getByText(/patron: 10 x 2/i)).toBeInTheDocument()
+    expect(screen.getByText(/patron: 9 x 2/i)).toBeInTheDocument()
   })
 })

@@ -148,14 +148,18 @@ describe('App input validation', () => {
 
     const containerLengthInput = document.getElementById('container-length') as HTMLInputElement
     const containerPreset = document.getElementById('container-preset') as HTMLSelectElement
+    const containerClearanceInput = document.getElementById(
+      'container-clearance',
+    ) as HTMLInputElement
 
     expect(containerLengthInput.value).toBe('5898')
+    expect(containerClearanceInput.value).toBe('50')
     expect(screen.getByText(/patron: 4 x 2/i)).toBeInTheDocument()
 
     fireEvent.change(containerPreset, { target: { value: '40gp' } })
 
     expect(containerLengthInput.value).toBe('12032')
-    expect(screen.getByText(/patron: 10 x 2/i)).toBeInTheDocument()
+    expect(screen.getByText(/patron: 9 x 2/i)).toBeInTheDocument()
     expect(screen.getByTestId('scene-container')).toBeInTheDocument()
   })
 

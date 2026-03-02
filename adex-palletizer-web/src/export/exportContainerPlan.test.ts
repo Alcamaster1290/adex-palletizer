@@ -3,6 +3,7 @@ import {
   buildContainerTopViewPngFilename,
   exportContainerPlanJson,
 } from './exportContainerPlan'
+import { CONTAINER_CLEARANCE_MM } from '../constants'
 import type { ContainerInput, ContainerResult } from '../types'
 
 const sampleInput: ContainerInput = {
@@ -10,7 +11,7 @@ const sampleInput: ContainerInput = {
   container: { length: 5898, width: 2352, height: 2393 },
   pallet: { length: 1200, width: 1000, height: 1150 },
   allowRotation: true,
-  clearance: 0,
+  clearance: CONTAINER_CLEARANCE_MM,
 }
 
 const sampleResult: ContainerResult = {
@@ -18,12 +19,19 @@ const sampleResult: ContainerResult = {
     orientation: 'LxW',
     palletFootprintL: 1200,
     palletFootprintW: 1000,
+    pitchLength: 1250,
+    pitchWidth: 1050,
+    marginToWall: 50,
     nx: 4,
     ny: 2,
     perFloor: 8,
+    occupiedLength: 4950,
+    occupiedWidth: 2050,
+    trailingResidualLength: 848,
+    trailingResidualWidth: 202,
     utilizationArea: 0.7,
-    residualLength: 1098,
-    residualWidth: 352,
+    residualLength: 948,
+    residualWidth: 302,
   },
   candidates: [],
   floors: 1,

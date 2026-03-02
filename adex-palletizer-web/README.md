@@ -45,6 +45,9 @@ npm run preview
 - Nuevo tab `Container loading` para calcular pallets homogeneos dentro de contenedores.
 - Presets disponibles: `20' GP`, `40' GP`, `40' HC` y `Custom`.
 - Soporta rotacion 0/90 del pallet de carga, clearance y limite por payload (opcional).
+- `Clearance` por defecto: `50 mm` (editable). Se aplica en planta:
+  - margen minimo a paredes (4 lados)
+  - separacion minima pallet-pallet
 - Boton `Use current pallet result` para traer dimensiones desde resultados `single` o `multi`.
 - Share link en modo contenedor con parametros:
   - `mode=container`
@@ -55,11 +58,15 @@ npm run preview
 
 Formula base del solver de contenedor:
 
-- `nx = floor((containerL - clearance) / palletL)`
-- `ny = floor((containerW - clearance) / palletW)`
+- `effectiveL = containerL - 2*clearance`
+- `effectiveW = containerW - 2*clearance`
+- `pitchL = palletL + clearance`
+- `pitchW = palletW + clearance`
+- `nx = floor((effectiveL + clearance) / pitchL)`
+- `ny = floor((effectiveW + clearance) / pitchW)`
 - `total = nx * ny`
 - desempate por mayor utilizacion de area
-- warning si `palletH > (containerH - clearance)`
+- warning si `palletH > containerH` (clearance no aplica en altura)
 
 ## Modo multi (Sprint 3)
 
