@@ -635,6 +635,36 @@ function buildContainerFieldValues(input: ContainerInput): ContainerFieldValues 
   }
 }
 
+function buildMultiNoMixErrorResult(
+  input: MultiDraftState,
+  message: string,
+): MultiPreviewResult {
+  const availableHeight = Math.max(0, input.maxTotalHeight - input.pallet.height)
+  return {
+    algorithm: 'heuristic',
+    solverVariant: 'heuristic-columns',
+    boxes: [],
+    bySku: [],
+    placedBySku: {},
+    unplacedBySku: {},
+    columnsBySku: {},
+    layersUsedBySku: {},
+    requestedTotal: 0,
+    placedTotal: 0,
+    unplacedTotal: 0,
+    unplaceableTotal: 0,
+    totalPlaced: 0,
+    totalUnplaced: 0,
+    layersUsed: 0,
+    utilization: 0,
+    availableHeight,
+    heightUsed: 0,
+    heightFree: availableHeight,
+    errors: [message],
+    warnings: [],
+  }
+}
+
 const formatInt = new Intl.NumberFormat('es-ES')
 const percentFormatter = new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 2,
@@ -1594,6 +1624,23 @@ function App() {
       delete next['multi-skus-empty']
       return next
     })
+
+    if (multiDraft.noMixedSkuStacking) {
+      const input = cloneMultiPreviewInput(multiDraft)
+      const result = solveMultiHeuristicNoMix(input)
+      setMultiApplied(cloneMultiState(multiDraft))
+      setMultiAlgorithm('heuristic')
+      setMultiHeuristicResult(result)
+      setLastGeneratedAt(new Date())
+      setShareStatus(null)
+      setScenarioNotice(
+        result.errors.length > 0
+          ? 'La heuristica no-mix encontro errores. No se aplico vista previa.'
+          : null,
+      )
+      return
+    }
+
     setMultiApplied(cloneMultiState(multiDraft))
     setMultiAlgorithm('preview')
     setMultiHeuristicResult(null)
@@ -1614,9 +1661,22 @@ function App() {
 
     try {
       const input = cloneMultiPreviewInput(multiDraft)
-      const result = multiDraft.noMixedSkuStacking
-        ? solveMultiHeuristicNoMix(input)
-        : solveMultiHeuristic(input)
+      if (multiDraft.noMixedSkuStacking) {
+        const result = solveMultiHeuristicNoMix(input)
+        setMultiApplied(cloneMultiState(multiDraft))
+        setMultiAlgorithm('heuristic')
+        setMultiHeuristicResult(result)
+        setLastGeneratedAt(new Date())
+        setShareStatus(null)
+        setScenarioNotice(
+          result.errors.length > 0
+            ? 'La heuristica no-mix encontro errores. Se mantiene el resultado no-mix para revision.'
+            : null,
+        )
+        return
+      }
+
+      const result = solveMultiHeuristic(input)
       if (result.errors.length > 0) {
         setScenarioNotice('La heuristica encontro errores de entrada. Se mantiene la vista previa.')
         return
@@ -1629,6 +1689,19 @@ function App() {
       setLastGeneratedAt(new Date())
       setShareStatus(null)
     } catch {
+      if (multiDraft.noMixedSkuStacking) {
+        setMultiApplied(cloneMultiState(multiDraft))
+        setMultiAlgorithm('heuristic')
+        setMultiHeuristicResult(
+          buildMultiNoMixErrorResult(
+            multiDraft,
+            'No se pudo ejecutar la heuristica no-mix.',
+          ),
+        )
+        setScenarioNotice('No se pudo ejecutar la heuristica no-mix.')
+        return
+      }
+
       setScenarioNotice('No se pudo ejecutar la heuristica. Se mantiene la vista previa multicaja.')
       setMultiAlgorithm('preview')
       setMultiHeuristicResult(null)
