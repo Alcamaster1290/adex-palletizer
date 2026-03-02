@@ -56,9 +56,9 @@ interface EvaluationResult {
 }
 
 interface HeightCandidate {
-  skuId: string
   heights: Record<string, number>
   evaluation: EvaluationResult
+  key: string
 }
 
 const isPositive = (value: number) => Number.isFinite(value) && value > 0
@@ -232,16 +232,22 @@ function compareScores(left: EvaluationScore, right: EvaluationScore) {
   return 0
 }
 
-function nextLowerHeight(current: number, candidates: number[]) {
-  const index = candidates.indexOf(current)
-  if (index < 0 || index >= candidates.length - 1) {
-    return current
-  }
-  return candidates[index + 1]
-}
-
 function clampHeight(height: number, maxStack: number) {
   return Math.max(1, Math.min(maxStack, height))
+}
+
+function buildHeightsKey(
+  contexts: PreparedSkuContext[],
+  heightsBySku: Record<string, number>,
+) {
+  const segments = contexts.map((context) => {
+    const resolved = clampHeight(
+      heightsBySku[context.skuId] ?? context.maxStack,
+      context.maxStack,
+    )
+    return `${context.skuId}:${resolved}`
+  })
+  return segments.join('|')
 }
 
 function buildColumnPlansForHeights(
@@ -443,71 +449,127 @@ function optimizeHeights(
   palletLength: number,
   palletWidth: number,
 ) {
-  const heights: Record<string, number> = {}
-  contexts.forEach((context) => {
+  const searchableContexts = [...contexts].sort((left, right) =>
+    left.skuId.localeCompare(right.skuId),
+  )
+  const heightsBySku: Record<string, number> = {}
+  searchableContexts.forEach((context) => {
     if (context.maxStack > 0) {
-      heights[context.skuId] = context.maxStack
+      heightsBySku[context.skuId] = context.maxStack
     }
   })
 
-  let best = evaluateHeights(contexts, heights, palletLength, palletWidth)
+  const evaluationCache = new Map<string, EvaluationResult>()
+  const evaluateCached = (candidateHeights: Record<string, number>) => {
+    const key = buildHeightsKey(searchableContexts, candidateHeights)
+    const cached = evaluationCache.get(key)
+    if (cached) {
+      return { key, evaluation: cached }
+    }
+
+    const evaluation = evaluateHeights(
+      searchableContexts,
+      candidateHeights,
+      palletLength,
+      palletWidth,
+    )
+    evaluationCache.set(key, evaluation)
+    return { key, evaluation }
+  }
+
+  let best = evaluateCached(heightsBySku)
 
   while (true) {
     let bestCandidate: HeightCandidate | null = null
 
-    for (const context of contexts) {
+    const applyCandidate = (
+      currentBest: HeightCandidate | null,
+      trialHeights: Record<string, number>,
+    ) => {
+      const trial = evaluateCached(trialHeights)
+
+      if (compareScores(trial.evaluation.score, best.evaluation.score) <= 0) {
+        return currentBest
+      }
+
+      if (!currentBest) {
+        return {
+          heights: trialHeights,
+          evaluation: trial.evaluation,
+          key: trial.key,
+        }
+      }
+
+      const candidateComparison = compareScores(
+        trial.evaluation.score,
+        currentBest.evaluation.score,
+      )
+      if (candidateComparison > 0) {
+        return {
+          heights: trialHeights,
+          evaluation: trial.evaluation,
+          key: trial.key,
+        }
+      }
+
+      if (candidateComparison === 0 && trial.key.localeCompare(currentBest.key) < 0) {
+        return {
+          heights: trialHeights,
+          evaluation: trial.evaluation,
+          key: trial.key,
+        }
+      }
+
+      return currentBest
+    }
+
+    for (const context of searchableContexts) {
       if (context.maxStack <= 1 || context.candidateHeights.length <= 1) {
         continue
       }
 
-      const current = heights[context.skuId] ?? context.maxStack
-      const next = nextLowerHeight(current, context.candidateHeights)
-      if (next === current) {
-        continue
-      }
-
-      const trialHeights = {
-        ...heights,
-        [context.skuId]: next,
-      }
-      const trialEvaluation = evaluateHeights(
-        contexts,
-        trialHeights,
-        palletLength,
-        palletWidth,
-      )
-
-      if (compareScores(trialEvaluation.score, best.score) <= 0) {
-        continue
-      }
-
-      if (!bestCandidate) {
-        bestCandidate = {
-          skuId: context.skuId,
-          heights: trialHeights,
-          evaluation: trialEvaluation,
+      const current = heightsBySku[context.skuId] ?? context.maxStack
+      for (const candidateHeight of context.candidateHeights) {
+        if (candidateHeight === current) {
+          continue
         }
-        continue
-      }
-
-      const candidateComparison = compareScores(
-        trialEvaluation.score,
-        bestCandidate.evaluation.score,
-      )
-      if (candidateComparison > 0) {
-        bestCandidate = {
-          skuId: context.skuId,
-          heights: trialHeights,
-          evaluation: trialEvaluation,
+        const trialHeights = {
+          ...heightsBySku,
+          [context.skuId]: candidateHeight,
         }
+        bestCandidate = applyCandidate(bestCandidate, trialHeights)
+      }
+    }
+
+    for (let leftIndex = 0; leftIndex < searchableContexts.length; leftIndex += 1) {
+      const leftContext = searchableContexts[leftIndex]
+      const currentLeft = heightsBySku[leftContext.skuId] ?? leftContext.maxStack
+      if (leftContext.maxStack <= 1 || leftContext.candidateHeights.length <= 1) {
         continue
       }
 
-      if (candidateComparison === 0 && context.skuId.localeCompare(bestCandidate.skuId) < 0) {
-        bestCandidate = {
-          skuId: context.skuId,
-          heights: trialHeights,
-          evaluation: trialEvaluation,
+      for (let rightIndex = leftIndex + 1; rightIndex < searchableContexts.length; rightIndex += 1) {
+        const rightContext = searchableContexts[rightIndex]
+        const currentRight = heightsBySku[rightContext.skuId] ?? rightContext.maxStack
+        if (rightContext.maxStack <= 1 || rightContext.candidateHeights.length <= 1) {
+          continue
+        }
+
+        for (const leftHeight of leftContext.candidateHeights) {
+          if (leftHeight === currentLeft) {
+            continue
+          }
+          for (const rightHeight of rightContext.candidateHeights) {
+            if (rightHeight === currentRight) {
+              continue
+            }
+            const trialHeights = {
+              ...heightsBySku,
+              [leftContext.skuId]: leftHeight,
+              [rightContext.skuId]: rightHeight,
+            }
+            bestCandidate = applyCandidate(bestCandidate, trialHeights)
+          }
         }
       }
     }
@@ -517,13 +579,16 @@ function optimizeHeights(
       break
     }
 
-    Object.assign(heights, chosenCandidate.heights)
-    best = chosenCandidate.evaluation
+    Object.assign(heightsBySku, chosenCandidate.heights)
+    best = {
+      key: chosenCandidate.key,
+      evaluation: chosenCandidate.evaluation,
+    }
   }
 
   return {
-    heightsBySku: heights,
-    evaluation: best,
+    heightsBySku,
+    evaluation: best.evaluation,
   }
 }
 
