@@ -3,6 +3,7 @@ import type {
   ContainerResult,
   MultiPreviewInput,
   MultiPreviewResult,
+  PackingMode,
   SolverInput,
   SolverResult,
 } from './types'
@@ -17,6 +18,7 @@ interface StoredSingleScenarioData {
     input: SolverInput
     result: SolverResult
     boxPresetId?: BoxPresetId
+    packingMode?: PackingMode
   }
 }
 

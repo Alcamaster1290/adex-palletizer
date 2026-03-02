@@ -32,7 +32,8 @@ import { Scene } from './scene/Scene'
 import { SceneContainer } from './scene/SceneContainer'
 import { SceneMulti } from './scene/SceneMulti'
 import { buildShareQuery, parseShareLinkInput } from './shareLink'
-import { solvePalletization } from './solver'
+import { buildBoxInstances, solvePalletization } from './solver'
+import { solveSingleAdvancedPacking } from './singleAdvancedPacking'
 import { TopViewLayer } from './top-view/TopViewLayer'
 import { solveMultiHeuristic } from './multiSolver'
 import type {
@@ -40,6 +41,7 @@ import type {
   ContainerPresetKey,
   DimensionsMM,
   ExportedPalletLoad,
+  PackingMode,
   MultiBoxTypeInput,
   MultiPreviewInput,
   MultiPreviewResult,
@@ -645,6 +647,12 @@ function App() {
   const [singleBoxPreset, setSingleBoxPreset] = useState<BoxPresetId>(
     () => initialShareState.boxPresetId ?? detectBoxPreset(initialShareState.input.box),
   )
+  const [singlePackingModeDraft, setSinglePackingModeDraft] = useState<PackingMode>(
+    () => initialShareState.packingMode ?? 'grid',
+  )
+  const [singlePackingModeApplied, setSinglePackingModeApplied] = useState<PackingMode>(
+    () => initialShareState.packingMode ?? 'grid',
+  )
   const [singleFieldValues, setSingleFieldValues] = useState<SingleFieldValues>(() =>
     buildSingleFieldValues(initialShareState.input),
   )
@@ -702,6 +710,29 @@ function App() {
   const [scenarioNotice, setScenarioNotice] = useState<string | null>(null)
 
   const result = useMemo(() => solvePalletization(appliedInput), [appliedInput])
+  const singleAdvancedResult = useMemo(
+    () => solveSingleAdvancedPacking(appliedInput),
+    [appliedInput],
+  )
+  const singleIsAdvanced = singlePackingModeApplied === 'advanced'
+  const singleBoxes = useMemo(() => {
+    if (singleIsAdvanced) {
+      return singleAdvancedResult.boxes
+    }
+    return buildBoxInstances(appliedInput, result)
+  }, [singleIsAdvanced, singleAdvancedResult.boxes, appliedInput, result])
+  const singlePerLayer = singleIsAdvanced ? singleAdvancedResult.perLayer : result.selected.perLayer
+  const singleTotalBoxes = singleIsAdvanced ? singleAdvancedResult.totalBoxes : result.totalBoxes
+  const singleTotalHeight = singleIsAdvanced ? singleAdvancedResult.totalHeight : result.totalHeight
+  const singleUsedArea = singleIsAdvanced ? singleAdvancedResult.usedAreaPerLayer : result.usedArea
+  const singleFreeArea = singleIsAdvanced ? singleAdvancedResult.freeAreaPerLayer : result.freeArea
+  const singleAreaUtilization = singleIsAdvanced
+    ? singleAdvancedResult.utilizationPerLayer
+    : result.selected.utilization
+  const singleTotalBoxVolume =
+    singleTotalBoxes * appliedInput.box.length * appliedInput.box.width * appliedInput.box.height
+  const singleVolumeUtilization =
+    result.maxLoadVolume > 0 ? singleTotalBoxVolume / result.maxLoadVolume : 0
   const multiAppliedInput = useMemo(
     () => cloneMultiPreviewInput(multiApplied),
     [multiApplied],
@@ -724,8 +755,11 @@ function App() {
   const containerHasValidationErrors = Object.keys(containerFieldErrors).length > 0
 
   const hasPendingSingle = useMemo(
-    () => singleHasValidationErrors || !areInputsEqual(draftInput, appliedInput),
-    [draftInput, appliedInput, singleHasValidationErrors],
+    () =>
+      singleHasValidationErrors ||
+      !areInputsEqual(draftInput, appliedInput) ||
+      singlePackingModeDraft !== singlePackingModeApplied,
+    [draftInput, appliedInput, singleHasValidationErrors, singlePackingModeDraft, singlePackingModeApplied],
   )
   const hasPendingMulti = useMemo(
     () => multiHasValidationErrors || !areMultiStatesEqual(multiDraft, multiApplied),
@@ -889,6 +923,7 @@ function App() {
     }
 
     setAppliedInput(cloneInput(draftInput))
+    setSinglePackingModeApplied(singlePackingModeDraft)
     setLastCalculatedAt(new Date())
     setShareStatus(null)
   }
@@ -899,6 +934,8 @@ function App() {
     setAppliedInput(next)
     setSinglePalletPreset('american')
     setSingleBoxPreset('standard-600-400-200')
+    setSinglePackingModeDraft('grid')
+    setSinglePackingModeApplied('grid')
     setSingleFieldValues(buildSingleFieldValues(next))
     setSingleFieldErrors({})
     setLastCalculatedAt(new Date())
@@ -1068,7 +1105,7 @@ function App() {
       return buildExportedPalletLoadFromMulti(multiAppliedInput, multiResult)
     }
 
-    return buildExportedPalletLoadFromSingle(appliedInput, result)
+    return buildExportedPalletLoadFromSingle(appliedInput, result, singleBoxes)
   }
 
   const useCurrentPalletResult = () => {
@@ -1602,6 +1639,7 @@ function App() {
               input: cloneInput(appliedInput),
               result: solvePalletization(cloneInput(appliedInput)),
               boxPresetId: singleBoxPreset,
+              packingMode: singlePackingModeApplied,
             },
           }
         : activeTab === 'multi'
@@ -1635,6 +1673,9 @@ function App() {
       setActiveTab('single')
       setSinglePalletPreset(detectPalletPreset(nextInput.pallet))
       setSingleBoxPreset(scenario.single.boxPresetId ?? detectBoxPreset(nextInput.box))
+      const nextPackingMode = scenario.single.packingMode ?? 'grid'
+      setSinglePackingModeDraft(nextPackingMode)
+      setSinglePackingModeApplied(nextPackingMode)
       setDraftInput(nextInput)
       setAppliedInput(nextInput)
       setSingleFieldValues(buildSingleFieldValues(nextInput))
@@ -1704,12 +1745,13 @@ function App() {
     setScenarioNotice('Escenario eliminado.')
   }
 
-  const areaUtilizationText = formatPercent(result.selected.utilization)
-  const volumeUtilizationText = formatPercent(result.volumeUtilization)
+  const areaUtilizationText = formatPercent(singleAreaUtilization)
+  const volumeUtilizationText = formatPercent(singleVolumeUtilization)
 
   const shareCurrentSingle = async () => {
     const query = buildShareQuery(appliedInput, 'single', {
       boxPresetId: singleBoxPreset,
+      packingMode: singlePackingModeApplied,
     })
     const relativeUrl = `${window.location.pathname}${query}`
     const absoluteUrl = `${window.location.origin}${relativeUrl}`
@@ -1929,6 +1971,26 @@ function App() {
               </div>
 
               <div className="field-group">
+                <h3>Modo de empaque</h3>
+                <label className="field" htmlFor="single-packing-mode">
+                  <span>
+                    Modo de empaque
+                    <strong>modo</strong>
+                  </span>
+                  <select
+                    id="single-packing-mode"
+                    value={singlePackingModeDraft}
+                    onChange={(event) =>
+                      setSinglePackingModeDraft(event.target.value as PackingMode)
+                    }
+                  >
+                    <option value="grid">Grid</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="field-group">
                 <h3>Restricciones</h3>
                 <NumberField
                   id="max-total-height"
@@ -1989,7 +2051,12 @@ function App() {
             </form>
 
             <article className="panel scene-panel">
-              <Scene input={appliedInput} result={result} onCanvasReady={setSingleCanvas} />
+              <Scene
+                input={appliedInput}
+                result={result}
+                boxesOverride={singleBoxes}
+                onCanvasReady={setSingleCanvas}
+              />
             </article>
           </section>
 
@@ -2035,11 +2102,11 @@ function App() {
             <div className="kpi-grid">
               <article className="kpi">
                 <span>Total cajas</span>
-                <strong>{formatInt.format(result.totalBoxes)}</strong>
+                <strong>{formatInt.format(singleTotalBoxes)}</strong>
               </article>
               <article className="kpi">
                 <span>Cajas por capa</span>
-                <strong>{formatInt.format(result.selected.perLayer)}</strong>
+                <strong>{formatInt.format(singlePerLayer)}</strong>
               </article>
               <article className="kpi">
                 <span>Capas</span>
@@ -2047,7 +2114,7 @@ function App() {
               </article>
               <article className="kpi">
                 <span>Altura total</span>
-                <strong>{formatInt.format(result.totalHeight)} mm</strong>
+                <strong>{formatInt.format(singleTotalHeight)} mm</strong>
               </article>
             </div>
 
@@ -2056,6 +2123,9 @@ function App() {
               palletWidth={appliedInput.pallet.width}
               selected={result.selected}
               layers={result.layers}
+              placements2D={
+                singleIsAdvanced ? singleAdvancedResult.layerPlacements2D : undefined
+              }
             />
 
             {result.errors.length > 0 && (
@@ -2071,21 +2141,22 @@ function App() {
                 <tr>
                   <th>Orientacion elegida</th>
                   <td>
-                    {result.selected.orientation} ({result.selected.boxFootprintL} x{' '}
-                    {result.selected.boxFootprintW})
+                    {singleIsAdvanced
+                      ? 'Mixta por item (0/90 grados)'
+                      : `${result.selected.orientation} (${result.selected.boxFootprintL} x ${result.selected.boxFootprintW})`}
                   </td>
                 </tr>
                 <tr>
                   <th>nx</th>
-                  <td>{formatInt.format(result.selected.nx)}</td>
+                  <td>{singleIsAdvanced ? '-' : formatInt.format(result.selected.nx)}</td>
                 </tr>
                 <tr>
                   <th>ny</th>
-                  <td>{formatInt.format(result.selected.ny)}</td>
+                  <td>{singleIsAdvanced ? '-' : formatInt.format(result.selected.ny)}</td>
                 </tr>
                 <tr>
                   <th>Cajas por capa</th>
-                  <td>{formatInt.format(result.selected.perLayer)}</td>
+                  <td>{formatInt.format(singlePerLayer)}</td>
                 </tr>
                 <tr>
                   <th>Capas</th>
@@ -2093,11 +2164,11 @@ function App() {
                 </tr>
                 <tr>
                   <th>Total cajas</th>
-                  <td>{formatInt.format(result.totalBoxes)}</td>
+                  <td>{formatInt.format(singleTotalBoxes)}</td>
                 </tr>
                 <tr>
                   <th>Altura total (mm)</th>
-                  <td>{formatInt.format(result.totalHeight)}</td>
+                  <td>{formatInt.format(singleTotalHeight)}</td>
                 </tr>
                 <tr>
                   <th>Utilizacion de area (%)</th>
@@ -2113,11 +2184,11 @@ function App() {
                 </tr>
                 <tr>
                   <th>Area ocupada por capa (mm2)</th>
-                  <td>{formatInt.format(result.usedArea)}</td>
+                  <td>{formatInt.format(singleUsedArea)}</td>
                 </tr>
                 <tr>
                   <th>Area libre por capa (mm2)</th>
-                  <td>{formatInt.format(result.freeArea)}</td>
+                  <td>{formatInt.format(singleFreeArea)}</td>
                 </tr>
                 <tr>
                   <th>Altura disponible (mm)</th>
@@ -2129,7 +2200,7 @@ function App() {
                 </tr>
                 <tr>
                   <th>Volumen total de cajas (mm3)</th>
-                  <td>{formatInt.format(result.totalBoxVolume)}</td>
+                  <td>{formatInt.format(singleTotalBoxVolume)}</td>
                 </tr>
               </tbody>
             </table>

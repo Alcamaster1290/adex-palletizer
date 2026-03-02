@@ -108,6 +108,18 @@ describe('App input validation', () => {
     expect(screen.getByTestId('scene-single')).toBeInTheDocument()
   })
 
+  it('cambiar packing mode a advanced mantiene TopView y escena sin crash', () => {
+    render(<App />)
+
+    const packingMode = document.getElementById('single-packing-mode') as HTMLSelectElement
+    fireEvent.change(packingMode, { target: { value: 'advanced' } })
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
+
+    expect(packingMode.value).toBe('advanced')
+    expect(screen.getByTestId('single-top-view-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('scene-single')).toBeInTheDocument()
+  })
+
   it('cambia preset de caja a custom cuando se edita manualmente una dimension', () => {
     render(<App />)
 

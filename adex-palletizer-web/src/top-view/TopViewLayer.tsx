@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import type { OrientationPlan } from '../types'
+import type { OrientationPlan, SingleAdvancedLayerPlacement2D } from '../types'
 
 interface TopViewLayerProps {
   palletLength: number
   palletWidth: number
   selected: OrientationPlan
   layers: number
+  placements2D?: SingleAdvancedLayerPlacement2D[]
   technical?: boolean
   onTechnicalChange?: (next: boolean) => void
 }
@@ -235,6 +236,7 @@ export function TopViewLayer({
   palletWidth,
   selected,
   layers,
+  placements2D = [],
   technical,
   onTechnicalChange,
 }: TopViewLayerProps) {
@@ -249,7 +251,8 @@ export function TopViewLayer({
     setLocalTechnical(next)
   }
 
-  if (layers === 0 || selected.perLayer === 0) {
+  const hasAdvancedPlacements = placements2D.length > 0
+  if (layers === 0 || (!hasAdvancedPlacements && selected.perLayer === 0)) {
     return (
       <section className="top-view-panel">
         <div className="top-view-title-row">
@@ -263,9 +266,23 @@ export function TopViewLayer({
   }
 
   const geometry = buildTopViewGeometry(palletLength, palletWidth)
-  const cells = buildTopViewCells(selected.nx, selected.ny)
-  const occupiedLength = Math.min(palletLength, selected.nx * selected.boxFootprintL)
-  const occupiedWidth = Math.min(palletWidth, selected.ny * selected.boxFootprintW)
+  const topViewPlacements = hasAdvancedPlacements
+    ? placements2D
+    : buildTopViewCells(selected.nx, selected.ny).map((cell) => ({
+        x: cell.ix * selected.boxFootprintL,
+        y: cell.iy * selected.boxFootprintW,
+        w: selected.boxFootprintL,
+        h: selected.boxFootprintW,
+        rotated: false,
+      }))
+  const occupiedLength = Math.min(
+    palletLength,
+    topViewPlacements.reduce((maxValue, placement) => Math.max(maxValue, placement.x + placement.w), 0),
+  )
+  const occupiedWidth = Math.min(
+    palletWidth,
+    topViewPlacements.reduce((maxValue, placement) => Math.max(maxValue, placement.y + placement.h), 0),
+  )
   const residualLength = Math.max(0, palletLength - occupiedLength)
   const residualWidth = Math.max(0, palletWidth - occupiedWidth)
   const dimensions = buildTopViewDimensionLines(
@@ -286,7 +303,9 @@ export function TopViewLayer({
       <div className="top-view-title-row">
         <h3>Vista superior por capa</h3>
         <span>
-          Patron: {selected.nx} x {selected.ny}
+          {hasAdvancedPlacements
+            ? `Patron: ${topViewPlacements.length} cajas`
+            : `Patron: ${selected.nx} x ${selected.ny}`}
         </span>
       </div>
 
@@ -338,13 +357,13 @@ export function TopViewLayer({
           height={geometry.drawWidth}
           className="top-view-pallet"
         />
-        {cells.map((cell) => (
+        {topViewPlacements.map((placement, index) => (
           <rect
-            key={`top-cell-${cell.ix}-${cell.iy}`}
-            x={geometry.offsetX + cell.ix * selected.boxFootprintL * geometry.scale}
-            y={geometry.offsetY + cell.iy * selected.boxFootprintW * geometry.scale}
-            width={selected.boxFootprintL * geometry.scale}
-            height={selected.boxFootprintW * geometry.scale}
+            key={`top-placement-${index}`}
+            x={geometry.offsetX + placement.x * geometry.scale}
+            y={geometry.offsetY + placement.y * geometry.scale}
+            width={placement.w * geometry.scale}
+            height={placement.h * geometry.scale}
             className="top-view-box"
           />
         ))}

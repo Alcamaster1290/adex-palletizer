@@ -3,7 +3,7 @@ import {
   getBoxPresetDimensions,
   type BoxPresetId,
 } from './boxPresets'
-import type { ContainerInput, SolverInput } from './types'
+import type { ContainerInput, PackingMode, SolverInput } from './types'
 
 export type ShareMode = 'single' | 'multi' | 'container'
 
@@ -13,6 +13,7 @@ interface ParseShareResult {
   mode: ShareMode
   warning: string | null
   boxPresetId: BoxPresetId | null
+  packingMode: PackingMode | null
 }
 
 const SINGLE_SHARE_KEYS = [
@@ -26,6 +27,7 @@ const SINGLE_SHARE_KEYS = [
   'maxH',
   'rot',
   'ov',
+  'pm',
 ] as const
 const CONTAINER_SHARE_KEYS = [
   'cPr',
@@ -93,15 +95,25 @@ function parseOptionalPositiveInteger(value: string | null): number | null {
 function parseSingleInput(
   params: URLSearchParams,
   defaults: SolverInput,
-): { input: SolverInput; warning: string | null; boxPresetId: BoxPresetId | null } {
+): {
+  input: SolverInput
+  warning: string | null
+  boxPresetId: BoxPresetId | null
+  packingMode: PackingMode | null
+} {
   const hasShareParams = SINGLE_SHARE_KEYS.some((key) => params.has(key))
   if (!hasShareParams) {
     return {
       input: cloneSolverInput(defaults),
       warning: null,
       boxPresetId: null,
+      packingMode: null,
     }
   }
+
+  const modeParam = params.get('pm')
+  const packingMode: PackingMode | null =
+    modeParam === 'advanced' ? 'advanced' : modeParam === 'grid' ? 'grid' : null
 
   const presetRaw = params.get('bPr')
   const requestedBoxPresetId: BoxPresetId | null =
@@ -151,6 +163,7 @@ function parseSingleInput(
       input: cloneSolverInput(defaults),
       warning: 'Parametros de enlace invalidos. Se usaron valores por defecto.',
       boxPresetId: null,
+      packingMode: null,
     }
   }
 
@@ -182,6 +195,7 @@ function parseSingleInput(
     input,
     warning: null,
     boxPresetId: resolvedPresetId,
+    packingMode,
   }
 }
 
@@ -282,6 +296,7 @@ export function parseShareLinkInput(
     mode,
     warning,
     boxPresetId: parsedSingle.boxPresetId,
+    packingMode: parsedSingle.packingMode,
   }
 }
 
@@ -297,7 +312,7 @@ function isContainerShareInput(input: SolverInput | ContainerInput): input is Co
 export function buildShareQuery(
   input: SolverInput | ContainerInput,
   mode: ShareMode,
-  options?: { boxPresetId?: BoxPresetId },
+  options?: { boxPresetId?: BoxPresetId; packingMode?: PackingMode },
 ) {
   const params = new URLSearchParams()
 
@@ -332,6 +347,7 @@ export function buildShareQuery(
     params.set('maxH', String(input.maxTotalHeight))
     params.set('rot', input.allowRotation ? '1' : '0')
     params.set('ov', String(input.overhang))
+    params.set('pm', options?.packingMode ?? 'grid')
     params.set('mode', mode)
     return `?${params.toString()}`
   }
