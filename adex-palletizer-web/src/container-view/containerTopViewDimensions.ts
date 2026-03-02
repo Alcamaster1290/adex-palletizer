@@ -116,20 +116,49 @@ export function buildContainerTopViewGeometry(
   const offsetX = (FRAME_WIDTH - drawLength) / 2
   const offsetY = (FRAME_HEIGHT - drawWidth) / 2
 
-  const marginToWall = result.selected.marginToWall
-  const occupiedLength = Math.min(input.container.length, result.selected.occupiedLength)
-  const occupiedWidth = Math.min(input.container.width, result.selected.occupiedWidth)
+  let occupiedStartLengthMm = result.selected.marginToWall
+  let occupiedEndLengthMm = result.selected.marginToWall + result.selected.occupiedLength
+  let occupiedStartWidthMm = result.selected.marginToWall
+  let occupiedEndWidthMm = result.selected.marginToWall + result.selected.occupiedWidth
+
+  if (result.placements.length > 0) {
+    let minLeft = Number.POSITIVE_INFINITY
+    let maxRight = Number.NEGATIVE_INFINITY
+    let minTop = Number.POSITIVE_INFINITY
+    let maxBottom = Number.NEGATIVE_INFINITY
+
+    result.placements.forEach((placement) => {
+      const left = placement.x - placement.length / 2 + input.container.length / 2
+      const right = placement.x + placement.length / 2 + input.container.length / 2
+      const top = placement.z - placement.width / 2 + input.container.width / 2
+      const bottom = placement.z + placement.width / 2 + input.container.width / 2
+      minLeft = Math.min(minLeft, left)
+      maxRight = Math.max(maxRight, right)
+      minTop = Math.min(minTop, top)
+      maxBottom = Math.max(maxBottom, bottom)
+    })
+
+    occupiedStartLengthMm = minLeft
+    occupiedEndLengthMm = maxRight
+    occupiedStartWidthMm = minTop
+    occupiedEndWidthMm = maxBottom
+  }
+
+  const occupiedLength = Math.max(0, occupiedEndLengthMm - occupiedStartLengthMm)
+  const occupiedWidth = Math.max(0, occupiedEndWidthMm - occupiedStartWidthMm)
+  const leadingResidualLength = Math.max(0, occupiedStartLengthMm)
+  const trailingResidualLength = Math.max(0, input.container.length - occupiedEndLengthMm)
+  const leadingResidualWidth = Math.max(0, occupiedStartWidthMm)
+  const trailingResidualWidth = Math.max(0, input.container.width - occupiedEndWidthMm)
 
   const palletLeft = offsetX
   const palletTop = offsetY
   const palletRight = offsetX + drawLength
   const palletBottom = offsetY + drawWidth
-  const innerLeft = palletLeft + marginToWall * scale
-  const innerTop = palletTop + marginToWall * scale
-  const innerRight = palletRight - marginToWall * scale
-  const innerBottom = palletBottom - marginToWall * scale
-  const occupiedRight = innerLeft + occupiedLength * scale
-  const occupiedBottom = innerTop + occupiedWidth * scale
+  const occupiedLeft = offsetX + occupiedStartLengthMm * scale
+  const occupiedTop = offsetY + occupiedStartWidthMm * scale
+  const occupiedRight = offsetX + occupiedEndLengthMm * scale
+  const occupiedBottom = offsetY + occupiedEndWidthMm * scale
 
   const dimensionLines: DimensionLine[] = [
     buildHorizontalDimension(
@@ -150,7 +179,7 @@ export function buildContainerTopViewGeometry(
     ),
     buildHorizontalDimension(
       'container-occupied-length',
-      innerLeft,
+      occupiedLeft,
       occupiedRight,
       palletBottom,
       palletBottom + 24,
@@ -158,7 +187,7 @@ export function buildContainerTopViewGeometry(
     ),
     buildVerticalDimension(
       'container-occupied-width',
-      innerTop,
+      occupiedTop,
       occupiedBottom,
       palletRight,
       palletRight + 24,
@@ -166,44 +195,60 @@ export function buildContainerTopViewGeometry(
     ),
   ]
 
-  if (marginToWall > 0) {
+  if (leadingResidualLength > 0) {
     dimensionLines.push(
       buildHorizontalDimension(
         'container-clearance-left',
         palletLeft,
-        innerLeft,
+        occupiedLeft,
         palletTop,
         palletTop - 43,
-        formatMm(marginToWall),
+        formatMm(leadingResidualLength),
       ),
+    )
+  }
+
+  if (trailingResidualLength > 0) {
+    dimensionLines.push(
       buildHorizontalDimension(
         'container-clearance-right-wall',
-        innerRight,
+        occupiedRight,
         palletRight,
         palletTop,
         palletTop - 62,
-        formatMm(marginToWall),
+        formatMm(trailingResidualLength),
       ),
+    )
+  }
+
+  if (leadingResidualWidth > 0) {
+    dimensionLines.push(
       buildVerticalDimension(
         'container-clearance-top',
         palletTop,
-        innerTop,
+        occupiedTop,
         palletLeft,
         palletLeft - 43,
-        formatMm(marginToWall),
+        formatMm(leadingResidualWidth),
       ),
+    )
+  }
+
+  if (trailingResidualWidth > 0) {
+    dimensionLines.push(
       buildVerticalDimension(
         'container-clearance-bottom-wall',
-        innerBottom,
+        occupiedBottom,
         palletBottom,
         palletLeft,
         palletLeft - 62,
-        formatMm(marginToWall),
+        formatMm(trailingResidualWidth),
       ),
     )
   }
 
   if (result.selected.trailingResidualLength > 0) {
+    const innerRight = palletRight - result.selected.marginToWall * scale
     dimensionLines.push(
       buildHorizontalDimension(
         'container-residual-length',
@@ -217,6 +262,7 @@ export function buildContainerTopViewGeometry(
   }
 
   if (result.selected.trailingResidualWidth > 0) {
+    const innerBottom = palletBottom - result.selected.marginToWall * scale
     dimensionLines.push(
       buildVerticalDimension(
         'container-residual-width',
@@ -231,30 +277,30 @@ export function buildContainerTopViewGeometry(
 
   const effectiveGap = Math.max(0, result.selected.pitchLength - result.selected.palletFootprintL)
   if (result.selected.nx > 1 && effectiveGap > 0) {
-    const firstGapStart = innerLeft + result.selected.palletFootprintL * scale
+    const firstGapStart = occupiedLeft + result.selected.palletFootprintL * scale
     const firstGapEnd = firstGapStart + effectiveGap * scale
     dimensionLines.push(
       buildHorizontalDimension(
         'container-gap-length',
         firstGapStart,
         firstGapEnd,
-        innerTop,
-        innerTop - 14,
+        occupiedTop,
+        occupiedTop - 14,
         formatMm(effectiveGap),
       ),
     )
   }
 
   if (result.selected.ny > 1 && effectiveGap > 0) {
-    const firstGapStart = innerTop + result.selected.palletFootprintW * scale
+    const firstGapStart = occupiedTop + result.selected.palletFootprintW * scale
     const firstGapEnd = firstGapStart + effectiveGap * scale
     dimensionLines.push(
       buildVerticalDimension(
         'container-gap-width',
         firstGapStart,
         firstGapEnd,
-        innerLeft,
-        innerLeft - 14,
+        occupiedLeft,
+        occupiedLeft - 14,
         formatMm(effectiveGap),
       ),
     )

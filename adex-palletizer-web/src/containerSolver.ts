@@ -127,6 +127,8 @@ function buildPalletPlacements(
   const placements: PalletPlacement[] = []
   const maxToPlace = Math.min(totalPallets, selected.perFloor)
   let placed = 0
+  const startX = selected.marginToWall
+  const startZ = selected.marginToWall + selected.trailingResidualWidth / 2
 
   for (let iy = 0; iy < selected.ny; iy += 1) {
     for (let ix = 0; ix < selected.nx; ix += 1) {
@@ -136,12 +138,12 @@ function buildPalletPlacements(
 
       const x =
         -input.container.length / 2 +
-        selected.marginToWall +
+        startX +
         selected.palletFootprintL / 2 +
         ix * selected.pitchLength
       const z =
         -input.container.width / 2 +
-        selected.marginToWall +
+        startZ +
         selected.palletFootprintW / 2 +
         iy * selected.pitchWidth
       const y = input.pallet.height / 2

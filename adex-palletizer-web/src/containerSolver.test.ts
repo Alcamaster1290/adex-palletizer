@@ -88,6 +88,28 @@ describe('solveContainerLoading', () => {
     })
   })
 
+  it('centra pallets en el eje Y (ancho) manteniendo separacion minima', () => {
+    const input = buildInput()
+    const result = solveContainerLoading(input)
+
+    expect(result.placements.length).toBeGreaterThan(0)
+    let minTop = Number.POSITIVE_INFINITY
+    let maxBottom = Number.NEGATIVE_INFINITY
+
+    result.placements.forEach((placement) => {
+      const top = placement.z - placement.width / 2 + input.container.width / 2
+      const bottom = placement.z + placement.width / 2 + input.container.width / 2
+      minTop = Math.min(minTop, top)
+      maxBottom = Math.max(maxBottom, bottom)
+    })
+
+    const topGap = minTop
+    const bottomGap = input.container.width - maxBottom
+    expect(Math.abs(topGap - bottomGap)).toBeLessThanOrEqual(1)
+    expect(topGap).toBeGreaterThanOrEqual(input.clearance)
+    expect(bottomGap).toBeGreaterThanOrEqual(input.clearance)
+  })
+
   it('fuerza clearance minimo de 50 mm cuando llega un valor menor', () => {
     const input = buildInput({ clearance: 0 })
     const result = solveContainerLoading(input)
