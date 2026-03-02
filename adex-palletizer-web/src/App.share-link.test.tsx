@@ -151,6 +151,27 @@ describe('App share link', () => {
     expect(screen.getByTestId('scene-container')).toBeInTheDocument()
   })
 
+  it('inicializa tab multi con noMix=1 desde share link', () => {
+    window.history.replaceState({}, '', '/?mode=multi&noMix=1')
+
+    render(<App />)
+
+    const noMixCheckbox = document.getElementById('multi-no-mix-stacking') as HTMLInputElement
+    expect(noMixCheckbox.checked).toBe(true)
+    expect(screen.getByTestId('scene-multi')).toBeInTheDocument()
+  })
+
+  it('genera URL compartible en modo multi con noMix', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
+    fireEvent.click(document.getElementById('multi-no-mix-stacking') as HTMLInputElement)
+    fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
+
+    expect(window.location.search).toContain('mode=multi')
+    expect(window.location.search).toContain('noMix=1')
+  })
+
   it('genera URL compartible en modo container', () => {
     render(<App />)
 

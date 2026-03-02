@@ -180,4 +180,18 @@ describe('App input validation', () => {
     expect(loadHeight).toBeGreaterThan(palletHeight)
     expect(loadBoxes).toBeGreaterThan(0)
   })
+
+  it('usa solver por columnas SKU al activar no mix stacking en multi', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
+
+    const noMixCheckbox = document.getElementById('multi-no-mix-stacking') as HTMLInputElement
+    fireEvent.click(noMixCheckbox)
+    expect(noMixCheckbox.checked).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: /resolver \(heuristica\)/i }))
+
+    expect(screen.getByText(/heuristica por columnas sku/i)).toBeInTheDocument()
+  })
 })

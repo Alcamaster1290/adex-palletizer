@@ -14,6 +14,7 @@ interface ParseShareResult {
   warning: string | null
   boxPresetId: BoxPresetId | null
   packingMode: PackingMode | null
+  multiNoMixedSkuStacking: boolean | null
 }
 
 const SINGLE_SHARE_KEYS = [
@@ -29,6 +30,7 @@ const SINGLE_SHARE_KEYS = [
   'ov',
   'pm',
 ] as const
+const MULTI_SHARE_KEYS = ['noMix'] as const
 const CONTAINER_SHARE_KEYS = [
   'cPr',
   'cL',
@@ -272,6 +274,33 @@ function parseContainerInput(
   }
 }
 
+function parseMultiOptions(params: URLSearchParams): {
+  noMixedSkuStacking: boolean | null
+} {
+  const hasMultiParams = MULTI_SHARE_KEYS.some((key) => params.has(key))
+  if (!hasMultiParams) {
+    return {
+      noMixedSkuStacking: null,
+    }
+  }
+
+  const noMixRaw = params.get('noMix')
+  if (noMixRaw === '1') {
+    return {
+      noMixedSkuStacking: true,
+    }
+  }
+  if (noMixRaw === '0') {
+    return {
+      noMixedSkuStacking: false,
+    }
+  }
+
+  return {
+    noMixedSkuStacking: null,
+  }
+}
+
 export function parseShareLinkInput(
   search: string,
   defaults: SolverInput,
@@ -283,6 +312,7 @@ export function parseShareLinkInput(
     modeParam === 'multi' ? 'multi' : modeParam === 'container' ? 'container' : 'single'
 
   const parsedSingle = parseSingleInput(params, defaults)
+  const parsedMulti = parseMultiOptions(params)
   const parsedContainer =
     containerDefaults !== undefined
       ? parseContainerInput(params, containerDefaults)
@@ -297,6 +327,7 @@ export function parseShareLinkInput(
     warning,
     boxPresetId: parsedSingle.boxPresetId,
     packingMode: parsedSingle.packingMode,
+    multiNoMixedSkuStacking: parsedMulti.noMixedSkuStacking,
   }
 }
 
@@ -312,9 +343,19 @@ function isContainerShareInput(input: SolverInput | ContainerInput): input is Co
 export function buildShareQuery(
   input: SolverInput | ContainerInput,
   mode: ShareMode,
-  options?: { boxPresetId?: BoxPresetId; packingMode?: PackingMode },
+  options?: {
+    boxPresetId?: BoxPresetId
+    packingMode?: PackingMode
+    noMixedSkuStacking?: boolean
+  },
 ) {
   const params = new URLSearchParams()
+
+  if (mode === 'multi') {
+    params.set('mode', 'multi')
+    params.set('noMix', options?.noMixedSkuStacking ? '1' : '0')
+    return `?${params.toString()}`
+  }
 
   if (mode === 'container' && isContainerShareInput(input)) {
     params.set('mode', 'container')

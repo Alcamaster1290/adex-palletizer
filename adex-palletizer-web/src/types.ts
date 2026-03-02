@@ -177,6 +177,7 @@ export interface MultiPreviewInput {
   maxTotalHeight: number
   allowRotation: boolean
   overhang: number
+  noMixedSkuStacking?: boolean
   skus: MultiSkuInput[]
 }
 
@@ -195,10 +196,13 @@ export interface MultiTypePlacementSummary {
 
 export interface MultiPreviewResult {
   algorithm: 'preview' | 'heuristic'
+  solverVariant?: 'heuristic-ffd' | 'heuristic-columns'
   boxes: BoxInstance[]
   bySku: MultiTypePlacementSummary[]
   placedBySku: Record<string, number>
   unplacedBySku: Record<string, number>
+  columnsBySku?: Record<string, number>
+  layersUsedBySku?: Record<string, number>
   requestedTotal: number
   placedTotal: number
   unplacedTotal: number
