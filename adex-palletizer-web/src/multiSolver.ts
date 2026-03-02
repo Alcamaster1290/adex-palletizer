@@ -5,28 +5,17 @@ import type {
   MultiSkuInput,
   MultiTypePlacementSummary,
 } from './types'
-
-interface FreeRect {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+import { rectPack2d } from './rectPack2d'
 
 interface UnitItem {
+  unitId: string
+  unitIndex: number
   sku: MultiSkuInput
   skuId: string
   skuName: string
   color: string
   volume: number
   footprint: number
-}
-
-interface PlacementChoice {
-  rectIndex: number
-  length: number
-  width: number
-  rotated: boolean
 }
 
 const isPositive = (value: number) => Number.isFinite(value) && value > 0
@@ -137,71 +126,6 @@ function isLayerAllowed(sku: MultiSkuInput, layerIndex: number) {
   return true
 }
 
-function buildGuillotineSplit(rect: FreeRect, length: number, width: number) {
-  const right: FreeRect = {
-    x: rect.x + length,
-    y: rect.y,
-    width: rect.width - length,
-    height: rect.height,
-  }
-  const bottom: FreeRect = {
-    x: rect.x,
-    y: rect.y + width,
-    width: length,
-    height: rect.height - width,
-  }
-
-  return [right, bottom].filter((candidate) => candidate.width > 0 && candidate.height > 0)
-}
-
-function pruneFreeRects(freeRects: FreeRect[]) {
-  return freeRects.filter((rect, index) => {
-    for (let otherIndex = 0; otherIndex < freeRects.length; otherIndex += 1) {
-      if (index === otherIndex) {
-        continue
-      }
-
-      const other = freeRects[otherIndex]
-      const contained =
-        rect.x >= other.x &&
-        rect.y >= other.y &&
-        rect.x + rect.width <= other.x + other.width &&
-        rect.y + rect.height <= other.y + other.height
-
-      if (contained) {
-        return false
-      }
-    }
-
-    return true
-  })
-}
-
-function findFirstFit(
-  unit: UnitItem,
-  freeRects: FreeRect[],
-  globalAllowRotation: boolean,
-): PlacementChoice | null {
-  const options = getOrientationOptions(unit.sku, globalAllowRotation)
-
-  for (let rectIndex = 0; rectIndex < freeRects.length; rectIndex += 1) {
-    const rect = freeRects[rectIndex]
-
-    for (const option of options) {
-      if (option.length <= rect.width && option.width <= rect.height) {
-        return {
-          rectIndex,
-          length: option.length,
-          width: option.width,
-          rotated: option.rotated,
-        }
-      }
-    }
-  }
-
-  return null
-}
-
 function buildSummary(
   input: MultiPreviewInput,
   placedBySku: Record<string, number>,
@@ -259,6 +183,7 @@ export function solveMultiHeuristic(input: MultiPreviewInput): MultiPreviewResul
   let requestedTotal = 0
   let unplaceableTotal = 0
 
+  let unitCounter = 0
   input.skus.forEach((sku, index) => {
     const skuId = sanitize(sku.skuId, `SKU-${sku.id}`)
     const skuName = sanitize(sku.name, `SKU ${index + 1}`)
@@ -282,7 +207,10 @@ export function solveMultiHeuristic(input: MultiPreviewInput): MultiPreviewResul
     }
 
     for (let count = 0; count < quantity; count += 1) {
+      unitCounter += 1
       pendingUnits.push({
+        unitId: `${skuId}-${unitCounter}`,
+        unitIndex: unitCounter,
         sku,
         skuId,
         skuName,
@@ -304,7 +232,13 @@ export function solveMultiHeuristic(input: MultiPreviewInput): MultiPreviewResul
     if (right.sku.height !== left.sku.height) {
       return right.sku.height - left.sku.height
     }
-    return right.volume - left.volume
+    if (right.volume !== left.volume) {
+      return right.volume - left.volume
+    }
+    if (left.skuId !== right.skuId) {
+      return left.skuId.localeCompare(right.skuId)
+    }
+    return left.unitIndex - right.unitIndex
   })
 
   const boxes: BoxInstance[] = []
@@ -315,48 +249,60 @@ export function solveMultiHeuristic(input: MultiPreviewInput): MultiPreviewResul
       break
     }
 
-    let freeRects: FreeRect[] = [
-      { x: 0, y: 0, width: palletLength, height: palletWidth },
-    ]
-    let placedInLayer = 0
+    const eligibleUnits = pendingUnits.filter((unit) => isLayerAllowed(unit.sku, layerIndex))
+    if (eligibleUnits.length === 0) {
+      break
+    }
 
-    for (let unitIndex = 0; unitIndex < pendingUnits.length; ) {
-      const unit = pendingUnits[unitIndex]
-      if (!isLayerAllowed(unit.sku, layerIndex)) {
-        unitIndex += 1
-        continue
+    const unitById = new Map(eligibleUnits.map((unit) => [unit.unitId, unit]))
+    const packResult = rectPack2d(
+      palletLength,
+      palletWidth,
+      eligibleUnits.map((unit) => ({
+        id: unit.unitId,
+        w: unit.sku.length,
+        h: unit.sku.width,
+        canRotate: input.allowRotation && unit.sku.allowRotation,
+        skuId: unit.skuId,
+        color: unit.color,
+      })),
+    )
+
+    if (packResult.placements.length === 0) {
+      break
+    }
+
+    const placedIds = new Set<string>()
+
+    packResult.placements.forEach((placement) => {
+      const unit = unitById.get(placement.itemId)
+      if (!unit) {
+        return
       }
 
-      const fit = findFirstFit(unit, freeRects, input.allowRotation)
-      if (!fit) {
-        unitIndex += 1
-        continue
-      }
-
-      const targetRect = freeRects[fit.rectIndex]
-      const x = -input.pallet.length / 2 + fit.length / 2 + targetRect.x
-      const z = -input.pallet.width / 2 + fit.width / 2 + targetRect.y
+      const x = -input.pallet.length / 2 + placement.x + placement.w / 2
+      const z = -input.pallet.width / 2 + placement.y + placement.h / 2
       const y = input.pallet.height + layerIndex * layerStep + unit.sku.height / 2
 
       boxes.push({
         x,
         y,
         z,
-        length: fit.length,
-        width: fit.width,
+        length: placement.w,
+        width: placement.h,
         height: unit.sku.height,
         color: unit.color,
         typeId: unit.sku.id,
         skuId: unit.skuId,
         skuName: unit.skuName,
         label: unit.skuId,
-        rotated: fit.rotated,
+        rotated: placement.rotated,
         layer: layerIndex,
       })
 
       placedBySku[unit.skuId] = (placedBySku[unit.skuId] ?? 0) + 1
       unplacedBySku[unit.skuId] = Math.max(0, (unplacedBySku[unit.skuId] ?? 0) - 1)
-      if (fit.rotated) {
+      if (placement.rotated) {
         rotationsBySku[unit.skuId] = (rotationsBySku[unit.skuId] ?? 0) + 1
       }
       if (!layersBySku.has(unit.skuId)) {
@@ -364,18 +310,18 @@ export function solveMultiHeuristic(input: MultiPreviewInput): MultiPreviewResul
       }
       layersBySku.get(unit.skuId)?.add(layerIndex)
 
-      totalAreaUsed += fit.length * fit.width
-      placedInLayer += 1
+      totalAreaUsed += placement.w * placement.h
+      placedIds.add(unit.unitId)
+    })
 
-      const nextFree = buildGuillotineSplit(targetRect, fit.length, fit.width)
-      freeRects.splice(fit.rectIndex, 1, ...nextFree)
-      freeRects = pruneFreeRects(freeRects)
-
-      pendingUnits.splice(unitIndex, 1)
+    if (placedIds.size === 0) {
+      break
     }
 
-    if (placedInLayer === 0) {
-      break
+    for (let index = pendingUnits.length - 1; index >= 0; index -= 1) {
+      if (placedIds.has(pendingUnits[index].unitId)) {
+        pendingUnits.splice(index, 1)
+      }
     }
   }
 

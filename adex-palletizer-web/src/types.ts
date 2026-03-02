@@ -48,6 +48,66 @@ export interface SolverResult {
   errors: string[]
 }
 
+export type PackingMode = 'grid' | 'advanced'
+
+export interface RectPackItemInput {
+  id: string
+  w: number
+  h: number
+  canRotate: boolean
+  skuId?: string
+  color?: string
+}
+
+export interface RectPackPlacement {
+  itemId: string
+  skuId?: string
+  color?: string
+  x: number
+  y: number
+  w: number
+  h: number
+  rotated: boolean
+}
+
+export interface RectPackConfig {
+  heuristic?: 'bestShortSideFit'
+  allowRotatePerItem?: boolean
+}
+
+export interface RectPackResult {
+  placements: RectPackPlacement[]
+  unplaced: RectPackItemInput[]
+  stats: {
+    usedArea: number
+    utilization: number
+    freeRectCount: number
+  }
+}
+
+export interface SingleAdvancedLayerPlacement2D {
+  x: number
+  y: number
+  w: number
+  h: number
+  rotated: boolean
+}
+
+export interface SingleAdvancedResult {
+  perLayer: number
+  layers: number
+  totalBoxes: number
+  totalHeight: number
+  utilizationPerLayer: number
+  utilizationGlobal: number
+  usedAreaPerLayer: number
+  freeAreaPerLayer: number
+  residualLength: number
+  residualWidth: number
+  layerPlacements2D: SingleAdvancedLayerPlacement2D[]
+  boxes: BoxInstance[]
+}
+
 export interface BoxInstance {
   x: number
   y: number
