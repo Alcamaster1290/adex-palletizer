@@ -238,6 +238,51 @@ describe('solveMultiHeuristicNoMix', () => {
     expect(() => assertNoMixedColumns(result.boxes)).not.toThrow()
   })
 
+  it('en el caso default multi noMix evita quedarse en 4 huellas y llena mejor el pallet', () => {
+    const input: MultiPreviewInput = {
+      pallet: { length: 1200, width: 1000, height: 150 },
+      maxTotalHeight: 1200,
+      overhang: 0,
+      allowRotation: true,
+      noMixedSkuStacking: true,
+      skus: [
+        {
+          id: 1,
+          skuId: 'SKU-1',
+          name: 'Caja A',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 8,
+          allowRotation: true,
+        },
+        {
+          id: 2,
+          skuId: 'SKU-2',
+          name: 'Caja B',
+          length: 600,
+          width: 400,
+          height: 200,
+          quantity: 10,
+          allowRotation: true,
+        },
+      ],
+    }
+
+    const result = solveMultiHeuristicNoMix(input)
+    const columnsTotal = Object.values(result.columnsBySku ?? {}).reduce(
+      (sum, value) => sum + value,
+      0,
+    )
+
+    expect(result.errors).toHaveLength(0)
+    expect(result.placedTotal).toBe(18)
+    expect(columnsTotal).toBeGreaterThanOrEqual(5)
+    expect(result.columnsBySku?.['SKU-2'] ?? 0).toBeGreaterThanOrEqual(3)
+    expect(result.utilization).toBeGreaterThanOrEqual(0.99)
+    expect(() => assertNoMixedColumns(result.boxes)).not.toThrow()
+  })
+
   it('en caso de 2 SKUs mejora huellas del SKU de mayor qty sin mezclar columnas', () => {
     const input: MultiPreviewInput = {
       pallet: { length: 1200, width: 1000, height: 150 },
