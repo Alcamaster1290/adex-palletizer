@@ -222,12 +222,13 @@ describe('App input validation', () => {
     expect(screen.getByText(/vista previa por grilla/i)).toBeInTheDocument()
   })
 
-  it('en primera carga, Multi inicia con noMix activo por defecto', () => {
+  it('en primera carga, Multi inicia con noMix activo y 3D heuristico generado', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
 
     const noMixCheckbox = document.getElementById('multi-no-mix-stacking') as HTMLInputElement
     expect(noMixCheckbox.checked).toBe(true)
+    expect(screen.getByText(/heuristica por columnas sku/i)).toBeInTheDocument()
   })
 })
