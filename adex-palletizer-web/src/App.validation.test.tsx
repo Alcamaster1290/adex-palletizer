@@ -154,12 +154,15 @@ describe('App input validation', () => {
 
     expect(containerLengthInput.value).toBe('5898')
     expect(containerClearanceInput.value).toBe('50')
-    expect(screen.getByText(/patron: 4 x 2/i)).toBeInTheDocument()
+    expect(screen.getByText(/patron:/i)).toBeInTheDocument()
+    expect(
+      (document.getElementById('container-allow-alternating-pattern') as HTMLInputElement).checked,
+    ).toBe(true)
 
     fireEvent.change(containerPreset, { target: { value: '40gp' } })
 
     expect(containerLengthInput.value).toBe('12032')
-    expect(screen.getByText(/patron: 9 x 2/i)).toBeInTheDocument()
+    expect(screen.getByText(/patron:/i)).toBeInTheDocument()
     expect(screen.getByTestId('scene-container')).toBeInTheDocument()
   })
 

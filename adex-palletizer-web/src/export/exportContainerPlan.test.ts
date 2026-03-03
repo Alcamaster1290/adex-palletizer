@@ -12,6 +12,8 @@ const sampleInput: ContainerInput = {
   pallet: { length: 1200, width: 1000, height: 1150 },
   allowRotation: true,
   clearance: CONTAINER_CLEARANCE_MM,
+  rearClearance: CONTAINER_CLEARANCE_MM,
+  allowAlternatingPattern: true,
 }
 
 const sampleResult: ContainerResult = {
@@ -34,6 +36,12 @@ const sampleResult: ContainerResult = {
     residualWidth: 302,
   },
   candidates: [],
+  solverVariant: 'homogeneous',
+  patternLabel: 'Homogeneo LxW',
+  rowPattern: ['LxW'],
+  wallClearanceMm: 50,
+  rearClearanceMm: 50,
+  palletGapMm: 50,
   floors: 1,
   totalPalletsBySpace: 8,
   totalPalletsByWeight: null,

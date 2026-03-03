@@ -58,33 +58,49 @@ npm run preview
 - Export JSON:
   - Incluye `labelsBySku` cuando existe.
 
-## Container loading (Sprint 4)
+## Contenedores (Sprint 4 + ADEX-29)
 
-- Nuevo tab `Container loading` para calcular pallets homogeneos dentro de contenedores.
+- Tab `Contenedores` para calcular carga palletizada dentro de contenedores.
 - Presets disponibles: `20' GP`, `40' GP`, `40' HC` y `Custom`.
-- Soporta rotacion 0/90 del pallet de carga, clearance y limite por payload (opcional).
-- `Clearance` por defecto y minimo: `50 mm` (editable hacia arriba). Se aplica en planta:
-  - margen minimo a paredes (4 lados)
-  - separacion minima pallet-pallet
+- Soporta rotacion 0/90 del pallet de carga, limite por payload (opcional) y dos holguras:
+  - `Holgura` (lateral + frontal + gap pallet-pallet)
+  - `Holgura puerta` (lado puerta/rear)
+- Defaults:
+  - `Holgura = 50 mm`
+  - `Holgura puerta = 50 mm`
+- Puede ejecutarse en:
+  - `Homogeneo` (una sola orientacion para todos los pallets)
+  - `Alternado por filas` (mezcla 0/90 por fila)
+- El objetivo del solver es:
+  1. maximizar cantidad de pallets
+  2. desempatar por utilizacion de area
 - Boton `Use current pallet result` para traer dimensiones desde resultados `single` o `multi`.
 - Share link en modo contenedor con parametros:
   - `mode=container`
-  - `cPr,cL,cW,cH,ppL,ppW,ppH,cRot,cClr,wpp,pMax`
+  - `cPr,cL,cW,cH,ppL,ppW,ppH,cRot,alt,cClr,cRear,wpp,pMax`
 - Exports del plan:
   - `Export Plan JSON` (inputs + outputs + placements)
   - `Export Plan PNG` (TopView del contenedor)
 
-Formula base del solver de contenedor:
+Formula base del solver de contenedor (fila homogenea):
 
-- `effectiveL = containerL - 2*clearance`
-- `effectiveW = containerW - 2*clearance`
-- `pitchL = palletL + clearance`
-- `pitchW = palletW + clearance`
-- `nx = floor((effectiveL + clearance) / pitchL)`
-- `ny = floor((effectiveW + clearance) / pitchW)`
+- `effectiveL = containerL - frontClearance - rearClearance`
+- `effectiveW = containerW - 2*wallClearance`
+- `pitchL = palletL + palletGap`
+- `pitchW = palletW + palletGap`
+- `nx = floor((effectiveL + palletGap) / pitchL)`
+- `ny = floor((effectiveW + palletGap) / pitchW)`
 - `total = nx * ny`
-- desempate por mayor utilizacion de area
 - warning si `palletH > containerH` (clearance no aplica en altura)
+
+En modo alternado por filas (MVP):
+
+- Se construyen filas `A` (`LxW`) y `B` (`WxL`).
+- Se exploran combinaciones deterministas de filas (`A...B...`, `B...A...`, `ABAB...`, `BABA...`).
+- Se elige la mejor por:
+  1. mayor total de pallets
+  2. mayor utilizacion de area
+  3. menor residual interno en ancho
 
 ## Modo multi (Sprint 3)
 

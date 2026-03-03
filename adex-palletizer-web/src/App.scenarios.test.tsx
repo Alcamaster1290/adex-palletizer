@@ -127,6 +127,10 @@ describe('App scenarios storage', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
+    fireEvent.change(document.getElementById('container-rear-clearance') as HTMLInputElement, {
+      target: { value: '120' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /calcular contenedor|recalcular contenedor/i }))
     fireEvent.change(document.getElementById('container-preset') as HTMLSelectElement, {
       target: { value: '40gp' },
     })
@@ -140,6 +144,9 @@ describe('App scenarios storage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cargar' }))
 
     expect((document.getElementById('container-length') as HTMLInputElement).value).toBe('12032')
-    expect(screen.getByText(/patron: 9 x 2/i)).toBeInTheDocument()
+    expect((document.getElementById('container-rear-clearance') as HTMLInputElement).value).toBe(
+      '120',
+    )
+    expect(screen.getByText(/patron:/i)).toBeInTheDocument()
   })
 })

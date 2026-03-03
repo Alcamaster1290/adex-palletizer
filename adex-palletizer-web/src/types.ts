@@ -256,6 +256,8 @@ export interface ContainerInput {
   pallet: DimensionsMM
   allowRotation: boolean
   clearance: number
+  rearClearance?: number
+  allowAlternatingPattern?: boolean
   weightPerPalletKg?: number
   payloadMaxKg?: number
   allowStacking?: boolean
@@ -295,6 +297,12 @@ export interface PalletPlacement {
 export interface ContainerResult {
   selected: ContainerOrientationPlan
   candidates: ContainerOrientationPlan[]
+  solverVariant: 'homogeneous' | 'alternating'
+  patternLabel: string
+  rowPattern?: Orientation[]
+  wallClearanceMm: number
+  rearClearanceMm: number
+  palletGapMm: number
   floors: number
   totalPalletsBySpace: number
   totalPalletsByWeight: number | null

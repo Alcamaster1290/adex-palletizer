@@ -135,7 +135,7 @@ describe('App share link', () => {
     window.history.replaceState(
       {},
       '',
-      '/?mode=container&cPr=40gp&cL=12032&cW=2352&cH=2393&ppL=1200&ppW=1000&ppH=1150&cRot=1&cClr=0&wpp=800&pMax=20000',
+      '/?mode=container&cPr=40gp&cL=12032&cW=2352&cH=2393&ppL=1200&ppW=1000&ppH=1150&cRot=1&alt=0&cClr=0&cRear=125&wpp=800&pMax=20000',
     )
 
     render(<App />)
@@ -145,10 +145,16 @@ describe('App share link', () => {
     expect((document.getElementById('container-pallet-height') as HTMLInputElement).value).toBe(
       '1150',
     )
-    expect((document.getElementById('container-clearance') as HTMLInputElement).value).toBe('50')
+    expect((document.getElementById('container-clearance') as HTMLInputElement).value).toBe('0')
+    expect((document.getElementById('container-rear-clearance') as HTMLInputElement).value).toBe(
+      '125',
+    )
     expect((document.getElementById('container-allow-rotation') as HTMLInputElement).checked).toBe(
       true,
     )
+    expect(
+      (document.getElementById('container-allow-alternating-pattern') as HTMLInputElement).checked,
+    ).toBe(false)
     expect(screen.getByTestId('scene-container')).toBeInTheDocument()
   })
 
@@ -162,6 +168,9 @@ describe('App share link', () => {
     render(<App />)
 
     expect((document.getElementById('container-clearance') as HTMLInputElement).value).toBe('50')
+    expect((document.getElementById('container-rear-clearance') as HTMLInputElement).value).toBe(
+      '50',
+    )
   })
 
   it('inicializa tab multi con noMix=1 desde share link', () => {
@@ -208,6 +217,8 @@ describe('App share link', () => {
     expect(window.location.search).toContain('ppW=1000')
     expect(window.location.search).toContain('ppH=150')
     expect(window.location.search).toContain('cRot=1')
+    expect(window.location.search).toContain('alt=1')
     expect(window.location.search).toContain('cClr=50')
+    expect(window.location.search).toContain('cRear=50')
   })
 })

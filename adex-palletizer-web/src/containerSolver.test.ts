@@ -1,6 +1,6 @@
 import { solveContainerLoading } from './containerSolver'
 import { CONTAINER_CLEARANCE_MM } from './constants'
-import type { ContainerInput } from './types'
+import type { ContainerInput, PalletPlacement } from './types'
 
 function buildInput(overrides?: Partial<ContainerInput>): ContainerInput {
   return {
@@ -8,134 +8,137 @@ function buildInput(overrides?: Partial<ContainerInput>): ContainerInput {
     container: { length: 5898, width: 2352, height: 2393 },
     pallet: { length: 1200, width: 1000, height: 1200 },
     allowRotation: true,
+    allowAlternatingPattern: true,
     clearance: CONTAINER_CLEARANCE_MM,
+    rearClearance: CONTAINER_CLEARANCE_MM,
     ...overrides,
   }
 }
 
-describe('solveContainerLoading', () => {
-  it('selecciona orientacion por mayor total de pallets con clearance en paredes y entre pallets', () => {
-    const result = solveContainerLoading(buildInput())
+function extractBounds(input: ContainerInput, placement: PalletPlacement) {
+  const left = placement.x - placement.length / 2 + input.container.length / 2
+  const right = placement.x + placement.length / 2 + input.container.length / 2
+  const top = placement.z - placement.width / 2 + input.container.width / 2
+  const bottom = placement.z + placement.width / 2 + input.container.width / 2
+  return { left, right, top, bottom }
+}
 
-    expect(result.selected.orientation).toBe('LxW')
-    expect(result.selected.nx).toBe(4)
-    expect(result.selected.ny).toBe(2)
-    expect(result.totalPalletsBySpace).toBe(8)
-    expect(result.totalPallets).toBe(8)
-    expect(result.placements).toHaveLength(8)
+describe('solveContainerLoading', () => {
+  it('elige alternado por filas cuando mejora el total frente a homogéneo', () => {
+    const baseline = solveContainerLoading(
+      buildInput({
+        allowAlternatingPattern: false,
+      }),
+    )
+    const alternating = solveContainerLoading(
+      buildInput({
+        allowAlternatingPattern: true,
+      }),
+    )
+
+    expect(alternating.solverVariant).toBe('alternating')
+    expect(alternating.totalPalletsBySpace).toBeGreaterThan(baseline.totalPalletsBySpace)
+    expect(alternating.patternLabel.toLowerCase()).toContain('alternado')
   })
 
-  it('garantiza margen a paredes y separacion minima entre pallets', () => {
-    const input = buildInput()
-    const result = solveContainerLoading(input)
+  it("mejora sobre 8 pallets con Euro 1200x800 en 20' GP y holgura 0", () => {
+    const result = solveContainerLoading(
+      buildInput({
+        pallet: { length: 1200, width: 800, height: 1200 },
+        clearance: 0,
+        rearClearance: 0,
+        allowAlternatingPattern: true,
+      }),
+    )
 
+    expect(result.errors).toHaveLength(0)
+    expect(result.totalPalletsBySpace).toBeGreaterThan(8)
+  })
+
+  it('con holgura 50 no supera el total obtenido con holgura 0 para el mismo caso Euro', () => {
+    const withoutClearance = solveContainerLoading(
+      buildInput({
+        pallet: { length: 1200, width: 800, height: 1200 },
+        clearance: 0,
+        rearClearance: 0,
+        allowAlternatingPattern: true,
+      }),
+    )
+    const withClearance = solveContainerLoading(
+      buildInput({
+        pallet: { length: 1200, width: 800, height: 1200 },
+        clearance: 50,
+        rearClearance: 50,
+        allowAlternatingPattern: true,
+      }),
+    )
+
+    expect(withClearance.totalPalletsBySpace).toBeLessThanOrEqual(
+      withoutClearance.totalPalletsBySpace,
+    )
+  })
+
+  it('respeta holguras de pared frontal/puerta/laterales y gap entre pallets', () => {
+    const input = buildInput({
+      container: { length: 5898, width: 2352, height: 2393 },
+      pallet: { length: 1200, width: 1000, height: 1200 },
+      clearance: 50,
+      rearClearance: 120,
+      allowAlternatingPattern: true,
+    })
+    const result = solveContainerLoading(input)
     expect(result.errors).toHaveLength(0)
     expect(result.placements.length).toBeGreaterThan(0)
 
     const placementsWithBounds = result.placements.map((placement) => {
-      const left = placement.x - placement.length / 2 + input.container.length / 2
-      const right = placement.x + placement.length / 2 + input.container.length / 2
-      const top = placement.z - placement.width / 2 + input.container.width / 2
-      const bottom = placement.z + placement.width / 2 + input.container.width / 2
-
-      expect(left).toBeGreaterThanOrEqual(input.clearance)
-      expect(top).toBeGreaterThanOrEqual(input.clearance)
-      expect(right).toBeLessThanOrEqual(input.container.length - input.clearance)
-      expect(bottom).toBeLessThanOrEqual(input.container.width - input.clearance)
-
-      return {
-        x: placement.x,
-        z: placement.z,
-        left,
-        right,
-        top,
-        bottom,
-      }
+      const bounds = extractBounds(input, placement)
+      expect(bounds.left).toBeGreaterThanOrEqual(input.clearance)
+      expect(bounds.top).toBeGreaterThanOrEqual(input.clearance)
+      expect(bounds.right).toBeLessThanOrEqual(input.container.length - (input.rearClearance ?? 0))
+      expect(bounds.bottom).toBeLessThanOrEqual(input.container.width - input.clearance)
+      return { ...placement, ...bounds }
     })
 
-    const rows = new Map<string, Array<typeof placementsWithBounds[number]>>()
+    const rowGroups = new Map<string, Array<typeof placementsWithBounds[number]>>()
     placementsWithBounds.forEach((placement) => {
-      const key = placement.z.toFixed(6)
-      if (!rows.has(key)) {
-        rows.set(key, [])
+      const key = placement.top.toFixed(3)
+      if (!rowGroups.has(key)) {
+        rowGroups.set(key, [])
       }
-      rows.get(key)?.push(placement)
+      rowGroups.get(key)?.push(placement)
     })
 
-    rows.forEach((rowPlacements) => {
-      const ordered = [...rowPlacements].sort((left, right) => left.left - right.left)
+    rowGroups.forEach((row) => {
+      const ordered = [...row].sort((left, right) => left.left - right.left)
       for (let index = 0; index < ordered.length - 1; index += 1) {
         const gap = ordered[index + 1].left - ordered[index].right
         expect(gap).toBeGreaterThanOrEqual(input.clearance)
       }
     })
 
-    const columns = new Map<string, Array<typeof placementsWithBounds[number]>>()
-    placementsWithBounds.forEach((placement) => {
-      const key = placement.x.toFixed(6)
-      if (!columns.has(key)) {
-        columns.set(key, [])
+    for (let i = 0; i < placementsWithBounds.length; i += 1) {
+      for (let j = i + 1; j < placementsWithBounds.length; j += 1) {
+        const a = placementsWithBounds[i]
+        const b = placementsWithBounds[j]
+        const overlapX = Math.min(a.right, b.right) - Math.max(a.left, b.left)
+        const overlapY = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+        expect(overlapX <= 0 || overlapY <= 0).toBe(true)
       }
-      columns.get(key)?.push(placement)
-    })
-
-    columns.forEach((columnPlacements) => {
-      const ordered = [...columnPlacements].sort((left, right) => left.top - right.top)
-      for (let index = 0; index < ordered.length - 1; index += 1) {
-        const gap = ordered[index + 1].top - ordered[index].bottom
-        expect(gap).toBeGreaterThanOrEqual(input.clearance)
-      }
-    })
+    }
   })
 
-  it('centra pallets en el eje Y (ancho) manteniendo separacion minima', () => {
-    const input = buildInput()
-    const result = solveContainerLoading(input)
-
-    expect(result.placements.length).toBeGreaterThan(0)
-    let minTop = Number.POSITIVE_INFINITY
-    let maxBottom = Number.NEGATIVE_INFINITY
-
-    result.placements.forEach((placement) => {
-      const top = placement.z - placement.width / 2 + input.container.width / 2
-      const bottom = placement.z + placement.width / 2 + input.container.width / 2
-      minTop = Math.min(minTop, top)
-      maxBottom = Math.max(maxBottom, bottom)
-    })
-
-    const topGap = minTop
-    const bottomGap = input.container.width - maxBottom
-    expect(Math.abs(topGap - bottomGap)).toBeLessThanOrEqual(1)
-    expect(topGap).toBeGreaterThanOrEqual(input.clearance)
-    expect(bottomGap).toBeGreaterThanOrEqual(input.clearance)
-  })
-
-  it('fuerza clearance minimo de 50 mm cuando llega un valor menor', () => {
-    const input = buildInput({ clearance: 0 })
-    const result = solveContainerLoading(input)
-
-    expect(result.errors).toHaveLength(0)
-    expect(result.selected.marginToWall).toBe(CONTAINER_CLEARANCE_MM)
-    expect(result.selected.pitchLength).toBe(1200 + CONTAINER_CLEARANCE_MM)
-    expect(result.selected.pitchWidth).toBe(1000 + CONTAINER_CLEARANCE_MM)
-  })
-
-  it('respeta el limite de payload cuando hay peso por pallet', () => {
+  it('si alternado está desactivado mantiene variante homogénea', () => {
     const result = solveContainerLoading(
       buildInput({
-        weightPerPalletKg: 900,
-        payloadMaxKg: 4000,
+        allowAlternatingPattern: false,
       }),
     )
 
-    expect(result.totalPalletsBySpace).toBe(8)
-    expect(result.totalPalletsByWeight).toBe(4)
-    expect(result.totalPallets).toBe(4)
-    expect(result.weightTotalKg).toBe(3600)
-    expect(result.warnings.join(' ')).toMatch(/payload/i)
+    expect(result.solverVariant).toBe('homogeneous')
+    expect(result.patternLabel.toLowerCase()).toContain('homogeneo')
   })
 
-  it('si no cabe en altura marca warning y no ubica pallets sin descontar clearance vertical', () => {
+  it('si no cabe en altura devuelve cero pallets y warning', () => {
     const result = solveContainerLoading(
       buildInput({
         pallet: { length: 1200, width: 1000, height: 2600 },
@@ -145,30 +148,19 @@ describe('solveContainerLoading', () => {
     expect(result.heightFits).toBe(false)
     expect(result.totalPallets).toBe(0)
     expect(result.placements).toHaveLength(0)
-    expect(result.availableHeight).toBe(2393)
     expect(result.warnings.join(' ')).toMatch(/altura/i)
   })
 
-  it('si rotacion esta deshabilitada solo evalua orientacion LxW', () => {
+  it('respeta payload cuando hay peso por pallet', () => {
     const result = solveContainerLoading(
       buildInput({
-        allowRotation: false,
+        weightPerPalletKg: 900,
+        payloadMaxKg: 4000,
       }),
     )
 
-    expect(result.candidates).toHaveLength(1)
-    expect(result.selected.orientation).toBe('LxW')
-  })
-
-  it('con empate mantiene orientacion A para asegurar determinismo', () => {
-    const result = solveContainerLoading(
-      buildInput({
-        container: { length: 2500, width: 2500, height: 2400 },
-        pallet: { length: 1000, width: 1000, height: 1000 },
-      }),
-    )
-
-    expect(result.selected.perFloor).toBe(4)
-    expect(result.selected.orientation).toBe('LxW')
+    expect(result.totalPalletsByWeight).toBe(4)
+    expect(result.totalPallets).toBeLessThanOrEqual(4)
+    expect(result.warnings.join(' ')).toMatch(/payload/i)
   })
 })

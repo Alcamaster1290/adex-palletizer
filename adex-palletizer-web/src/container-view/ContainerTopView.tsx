@@ -25,7 +25,7 @@ export function ContainerTopView({
     }
   }, [onSvgReady, input, result, technical])
 
-  if (result.totalPalletsBySpace === 0) {
+  if (result.totalPallets === 0) {
     return (
       <section className="top-view-panel">
         <div className="top-view-title-row">
@@ -47,7 +47,7 @@ export function ContainerTopView({
       <div className="top-view-title-row">
         <h3>Vista superior del contenedor</h3>
         <span>
-          Patron: {result.selected.nx} x {result.selected.ny}
+          Patron: {result.patternLabel}
         </span>
       </div>
 
@@ -162,7 +162,9 @@ export function ContainerTopView({
         <p>
           Huella ocupada: {result.selected.occupiedLength} mm x {result.selected.occupiedWidth} mm
         </p>
-        <p>Margen a pared: {result.selected.marginToWall} mm por lado</p>
+        <p>Holgura lateral/frontal: {result.wallClearanceMm} mm</p>
+        <p>Holgura puerta: {result.rearClearanceMm} mm</p>
+        <p>Gap entre pallets: {result.palletGapMm} mm</p>
         <p>Residual interno eje largo: {result.selected.trailingResidualLength} mm</p>
         <p>Residual interno eje ancho: {result.selected.trailingResidualWidth} mm</p>
       </div>

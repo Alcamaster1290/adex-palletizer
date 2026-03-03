@@ -3,7 +3,6 @@ import {
   getBoxPresetDimensions,
   type BoxPresetId,
 } from './boxPresets'
-import { CONTAINER_CLEARANCE_MM } from './constants'
 import type { ContainerInput, PackingMode, SolverInput } from './types'
 
 export type ShareMode = 'single' | 'multi' | 'container'
@@ -41,7 +40,9 @@ const CONTAINER_SHARE_KEYS = [
   'ppW',
   'ppH',
   'cRot',
+  'alt',
   'cClr',
+  'cRear',
   'wpp',
   'pMax',
 ] as const
@@ -57,13 +58,14 @@ function cloneSolverInput(input: SolverInput): SolverInput {
 }
 
 function cloneContainerInput(input: ContainerInput): ContainerInput {
-  const normalizedClearance = Math.max(CONTAINER_CLEARANCE_MM, input.clearance)
   return {
     preset: input.preset,
     container: { ...input.container },
     pallet: { ...input.pallet },
     allowRotation: input.allowRotation,
-    clearance: normalizedClearance,
+    allowAlternatingPattern: input.allowAlternatingPattern ?? true,
+    clearance: input.clearance,
+    rearClearance: input.rearClearance ?? input.clearance,
     weightPerPalletKg: input.weightPerPalletKg,
     payloadMaxKg: input.payloadMaxKg,
     allowStacking: input.allowStacking,
@@ -228,6 +230,7 @@ function parseContainerInput(
   const ppW = parseIntegerParam(params.get('ppW'), 1)
   const ppH = parseIntegerParam(params.get('ppH'), 1)
   const cClr = parseIntegerParam(params.get('cClr'), 0)
+  const cRear = parseIntegerParam(params.get('cRear'), 0)
   const wpp = parseOptionalPositiveInteger(params.get('wpp'))
   const pMax = parseOptionalPositiveInteger(params.get('pMax'))
 
@@ -241,10 +244,23 @@ function parseContainerInput(
   } else if (cRotRaw !== null) {
     cRotInvalid = true
   }
+  const altRaw = params.get('alt')
+  let allowAlternatingPattern: boolean | null = null
+  let altInvalid = false
+  if (altRaw === '1') {
+    allowAlternatingPattern = true
+  } else if (altRaw === '0') {
+    allowAlternatingPattern = false
+  } else if (altRaw !== null) {
+    altInvalid = true
+  }
 
   const hasInvalidValue =
-    [cL, cW, cH, ppL, ppW, ppH, cClr, wpp, pMax].some((value) => Number.isNaN(value)) ||
-    cRotInvalid
+    [cL, cW, cH, ppL, ppW, ppH, cClr, cRear, wpp, pMax].some((value) =>
+      Number.isNaN(value),
+    ) ||
+    cRotInvalid ||
+    altInvalid
 
   if (hasInvalidValue) {
     return {
@@ -267,7 +283,12 @@ function parseContainerInput(
         height: ppH ?? defaults.pallet.height,
       },
       allowRotation: cRot === null ? defaults.allowRotation : cRot,
-      clearance: Math.max(CONTAINER_CLEARANCE_MM, cClr ?? defaults.clearance),
+      allowAlternatingPattern:
+        allowAlternatingPattern === null
+          ? (defaults.allowAlternatingPattern ?? true)
+          : allowAlternatingPattern,
+      clearance: cClr ?? defaults.clearance,
+      rearClearance: cRear ?? cClr ?? defaults.rearClearance ?? defaults.clearance,
       weightPerPalletKg: wpp ?? undefined,
       payloadMaxKg: pMax ?? undefined,
       allowStacking: defaults.allowStacking,
@@ -369,7 +390,9 @@ export function buildShareQuery(
     params.set('ppW', String(input.pallet.width))
     params.set('ppH', String(input.pallet.height))
     params.set('cRot', input.allowRotation ? '1' : '0')
+    params.set('alt', input.allowAlternatingPattern === false ? '0' : '1')
     params.set('cClr', String(input.clearance))
+    params.set('cRear', String(input.rearClearance ?? input.clearance))
     if (input.weightPerPalletKg !== undefined) {
       params.set('wpp', String(input.weightPerPalletKg))
     }

@@ -108,6 +108,8 @@ const DEFAULT_CONTAINER_INPUT: ContainerInput = {
   pallet: { length: 1200, width: 1000, height: 150 },
   allowRotation: true,
   clearance: CONTAINER_CLEARANCE_MM,
+  rearClearance: CONTAINER_CLEARANCE_MM,
+  allowAlternatingPattern: true,
   allowStacking: false,
 }
 
@@ -140,6 +142,7 @@ type ContainerFieldId =
   | 'container-pallet-width'
   | 'container-pallet-height'
   | 'container-clearance'
+  | 'container-rear-clearance'
   | 'container-weight-per-pallet'
   | 'container-payload-max'
 
@@ -361,13 +364,19 @@ function cloneMultiPreviewInput(state: MultiDraftState): MultiPreviewInput {
 }
 
 function cloneContainerInput(input: ContainerInput): ContainerInput {
-  const normalizedClearance = Math.max(CONTAINER_CLEARANCE_MM, input.clearance)
+  const normalizedClearance = Math.max(0, input.clearance)
+  const normalizedRearClearance = Math.max(
+    0,
+    input.rearClearance ?? input.clearance,
+  )
   return {
     preset: input.preset,
     container: { ...input.container },
     pallet: { ...input.pallet },
     allowRotation: input.allowRotation,
     clearance: normalizedClearance,
+    rearClearance: normalizedRearClearance,
+    allowAlternatingPattern: input.allowAlternatingPattern ?? true,
     weightPerPalletKg: input.weightPerPalletKg,
     payloadMaxKg: input.payloadMaxKg,
     allowStacking: input.allowStacking,
@@ -516,6 +525,10 @@ function areContainerInputsEqual(left: ContainerInput, right: ContainerInput) {
     left.pallet.height === right.pallet.height &&
     left.allowRotation === right.allowRotation &&
     left.clearance === right.clearance &&
+    (left.rearClearance ?? left.clearance) ===
+      (right.rearClearance ?? right.clearance) &&
+    (left.allowAlternatingPattern ?? true) ===
+      (right.allowAlternatingPattern ?? true) &&
     left.weightPerPalletKg === right.weightPerPalletKg &&
     left.payloadMaxKg === right.payloadMaxKg
   )
@@ -648,6 +661,7 @@ function buildContainerFieldValues(input: ContainerInput): ContainerFieldValues 
     'container-pallet-width': String(input.pallet.width),
     'container-pallet-height': String(input.pallet.height),
     'container-clearance': String(input.clearance),
+    'container-rear-clearance': String(input.rearClearance ?? input.clearance),
     'container-weight-per-pallet':
       input.weightPerPalletKg !== undefined ? String(input.weightPerPalletKg) : '',
     'container-payload-max':
@@ -1184,7 +1198,11 @@ function App() {
 
   const updateContainerCommonField = (
     fieldId: ContainerFieldId,
-    field: 'clearance' | 'weightPerPalletKg' | 'payloadMaxKg',
+    field:
+      | 'clearance'
+      | 'rearClearance'
+      | 'weightPerPalletKg'
+      | 'payloadMaxKg',
     value: string,
   ) => {
     setContainerFieldValues((current) => ({
@@ -1192,7 +1210,7 @@ function App() {
       [fieldId]: value,
     }))
 
-    if (field !== 'clearance' && value.trim().length === 0) {
+    if (field !== 'clearance' && field !== 'rearClearance' && value.trim().length === 0) {
       setContainerFieldErrors((current) => upsertFieldError(current, fieldId, null))
       setContainerDraft((current) => ({
         ...current,
@@ -1204,11 +1222,13 @@ function App() {
     const validation = validateIntegerInput(value, {
       label:
         field === 'clearance'
-          ? 'El clearance'
+          ? 'La holgura lateral/frontal'
+          : field === 'rearClearance'
+            ? 'La holgura de puerta'
           : field === 'weightPerPalletKg'
             ? 'El peso por pallet'
             : 'El payload maximo',
-      min: field === 'clearance' ? CONTAINER_CLEARANCE_MM : 1,
+      min: field === 'clearance' || field === 'rearClearance' ? 0 : 1,
     })
     setContainerFieldErrors((current) =>
       upsertFieldError(current, fieldId, validation.error),
@@ -3070,11 +3090,25 @@ function App() {
                 <NumberField
                   id="container-clearance"
                   label="Holgura"
-                  min={CONTAINER_CLEARANCE_MM}
+                  min={0}
                   value={containerFieldValues['container-clearance']}
                   error={containerFieldErrors['container-clearance']}
                   onChange={(value) =>
                     updateContainerCommonField('container-clearance', 'clearance', value)
+                  }
+                />
+                <NumberField
+                  id="container-rear-clearance"
+                  label="Holgura puerta"
+                  min={0}
+                  value={containerFieldValues['container-rear-clearance']}
+                  error={containerFieldErrors['container-rear-clearance']}
+                  onChange={(value) =>
+                    updateContainerCommonField(
+                      'container-rear-clearance',
+                      'rearClearance',
+                      value,
+                    )
                   }
                 />
                 <NumberField
@@ -3116,6 +3150,20 @@ function App() {
                     }
                   />
                   <span>Permitir rotacion 90 grados</span>
+                </label>
+                <label className="checkbox-row" htmlFor="container-allow-alternating-pattern">
+                  <input
+                    id="container-allow-alternating-pattern"
+                    type="checkbox"
+                    checked={containerDraft.allowAlternatingPattern ?? true}
+                    onChange={(event) =>
+                      setContainerDraft((current) => ({
+                        ...current,
+                        allowAlternatingPattern: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>Permitir patron alternado</span>
                 </label>
               </div>
 
@@ -3234,7 +3282,27 @@ function App() {
             <table>
               <tbody>
                 <tr>
-                  <th>Orientacion elegida</th>
+                  <th>Patron seleccionado</th>
+                  <td>{containerResult.patternLabel}</td>
+                </tr>
+                <tr>
+                  <th>Variante solver</th>
+                  <td>
+                    {containerResult.solverVariant === 'alternating'
+                      ? 'Alternado por filas'
+                      : 'Homogeneo'}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Plan de filas</th>
+                  <td>
+                    {(containerResult.rowPattern ?? [])
+                      .map((orientation) => (orientation === 'LxW' ? 'A' : 'B'))
+                      .join('-') || '-'}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Orientacion base</th>
                   <td>{containerResult.selected.orientation}</td>
                 </tr>
                 <tr>
@@ -3268,6 +3336,18 @@ function App() {
                 <tr>
                   <th>Residual interno eje ancho (mm)</th>
                   <td>{formatInt.format(containerResult.selected.trailingResidualWidth)}</td>
+                </tr>
+                <tr>
+                  <th>Holgura lateral/frontal (mm)</th>
+                  <td>{formatInt.format(containerResult.wallClearanceMm)}</td>
+                </tr>
+                <tr>
+                  <th>Holgura puerta (mm)</th>
+                  <td>{formatInt.format(containerResult.rearClearanceMm)}</td>
+                </tr>
+                <tr>
+                  <th>Gap entre pallets (mm)</th>
+                  <td>{formatInt.format(containerResult.palletGapMm)}</td>
                 </tr>
                 <tr>
                   <th>Altura disponible (mm)</th>
@@ -3313,7 +3393,7 @@ function App() {
               <tr>
                 <th>Nombre</th>
                 <th>Modo</th>
-                <th>nx x ny</th>
+                <th>Patron / nx x ny</th>
                 <th>Capas/Niveles</th>
                 <th>Total unidades</th>
                 <th>Utilizacion</th>
@@ -3327,7 +3407,7 @@ function App() {
                   scenario.mode === 'single'
                     ? `${scenario.single.result.selected.nx} x ${scenario.single.result.selected.ny}`
                     : scenario.mode === 'container'
-                      ? `${scenario.container.result.selected.nx} x ${scenario.container.result.selected.ny}`
+                      ? scenario.container.result.patternLabel
                       : '-'
                 const layers =
                   scenario.mode === 'single'

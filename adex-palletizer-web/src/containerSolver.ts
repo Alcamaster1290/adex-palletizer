@@ -1,10 +1,10 @@
+import { solveAlternatingByRows } from './containerSolverAlternating'
 import type {
   ContainerInput,
   ContainerOrientationPlan,
   ContainerResult,
   PalletPlacement,
 } from './types'
-import { CONTAINER_CLEARANCE_MM } from './constants'
 
 const isPositive = (value: number) => Number.isFinite(value) && value > 0
 const isNonNegative = (value: number) => Number.isFinite(value) && value >= 0
@@ -28,24 +28,26 @@ const EMPTY_ORIENTATION: ContainerOrientationPlan = {
   residualWidth: 0,
 }
 
-function evaluateOrientation(
+function evaluateHomogeneousOrientation(
   orientation: ContainerOrientationPlan['orientation'],
   containerL: number,
   containerW: number,
   palletL: number,
   palletW: number,
-  clearance: number,
+  frontClearance: number,
+  rearClearance: number,
+  sideClearance: number,
+  gap: number,
 ): ContainerOrientationPlan {
-  const marginToWall = clearance
-  const effectiveLength = Math.max(0, containerL - 2 * marginToWall)
-  const effectiveWidth = Math.max(0, containerW - 2 * marginToWall)
-  const pitchLength = palletL + clearance
-  const pitchWidth = palletW + clearance
-  const nx = Math.max(0, Math.floor((effectiveLength + clearance) / pitchLength))
-  const ny = Math.max(0, Math.floor((effectiveWidth + clearance) / pitchWidth))
+  const effectiveLength = Math.max(0, containerL - frontClearance - rearClearance)
+  const effectiveWidth = Math.max(0, containerW - 2 * sideClearance)
+  const pitchLength = palletL + gap
+  const pitchWidth = palletW + gap
+  const nx = Math.max(0, Math.floor((effectiveLength + gap) / pitchLength))
+  const ny = Math.max(0, Math.floor((effectiveWidth + gap) / pitchWidth))
   const perFloor = nx * ny
-  const occupiedLength = nx > 0 ? nx * palletL + (nx - 1) * clearance : 0
-  const occupiedWidth = ny > 0 ? ny * palletW + (ny - 1) * clearance : 0
+  const occupiedLength = nx > 0 ? nx * palletL + (nx - 1) * gap : 0
+  const occupiedWidth = ny > 0 ? ny * palletW + (ny - 1) * gap : 0
   const trailingResidualLength = Math.max(0, effectiveLength - occupiedLength)
   const trailingResidualWidth = Math.max(0, effectiveWidth - occupiedWidth)
   const containerArea = containerL * containerW
@@ -60,7 +62,7 @@ function evaluateOrientation(
     palletFootprintW: palletW,
     pitchLength,
     pitchWidth,
-    marginToWall,
+    marginToWall: sideClearance,
     nx,
     ny,
     perFloor,
@@ -93,32 +95,12 @@ function selectBestOrientation(
   return planA
 }
 
-function emptyResult(errors: string[]): ContainerResult {
-  return {
-    selected: { ...EMPTY_ORIENTATION },
-    candidates: [{ ...EMPTY_ORIENTATION }],
-    floors: 1,
-    totalPalletsBySpace: 0,
-    totalPalletsByWeight: null,
-    totalPallets: 0,
-    utilizationArea: 0,
-    utilizationVolume: 0,
-    heightFits: false,
-    availableHeight: 0,
-    freeHeight: 0,
-    weightTotalKg: null,
-    containerVolume: 0,
-    loadVolume: 0,
-    placements: [],
-    errors,
-    warnings: [],
-  }
-}
-
-function buildPalletPlacements(
+function buildHomogeneousPlacements(
   input: ContainerInput,
   selected: ContainerOrientationPlan,
   totalPallets: number,
+  frontClearance: number,
+  sideClearance: number,
 ): PalletPlacement[] {
   if (totalPallets <= 0 || selected.perFloor <= 0) {
     return []
@@ -126,9 +108,9 @@ function buildPalletPlacements(
 
   const placements: PalletPlacement[] = []
   const maxToPlace = Math.min(totalPallets, selected.perFloor)
+  const startX = frontClearance
+  const startZ = sideClearance + selected.trailingResidualWidth / 2
   let placed = 0
-  const startX = selected.marginToWall
-  const startZ = selected.marginToWall + selected.trailingResidualWidth / 2
 
   for (let iy = 0; iy < selected.ny; iy += 1) {
     for (let ix = 0; ix < selected.nx; ix += 1) {
@@ -166,6 +148,79 @@ function buildPalletPlacements(
   return placements
 }
 
+function trimPlacements(placements: PalletPlacement[], count: number): PalletPlacement[] {
+  return placements.slice(0, Math.max(0, count)).map((placement, index) => ({
+    ...placement,
+    index,
+  }))
+}
+
+function getPlacementSpan(
+  placements: PalletPlacement[],
+  containerLength: number,
+  containerWidth: number,
+) {
+  if (placements.length === 0) {
+    return {
+      occupiedLength: 0,
+      occupiedWidth: 0,
+      minLeft: 0,
+      maxRight: 0,
+      minTop: 0,
+      maxBottom: 0,
+    }
+  }
+
+  let minLeft = Number.POSITIVE_INFINITY
+  let maxRight = Number.NEGATIVE_INFINITY
+  let minTop = Number.POSITIVE_INFINITY
+  let maxBottom = Number.NEGATIVE_INFINITY
+
+  placements.forEach((placement) => {
+    minLeft = Math.min(minLeft, placement.x - placement.length / 2 + containerLength / 2)
+    maxRight = Math.max(maxRight, placement.x + placement.length / 2 + containerLength / 2)
+    minTop = Math.min(minTop, placement.z - placement.width / 2 + containerWidth / 2)
+    maxBottom = Math.max(maxBottom, placement.z + placement.width / 2 + containerWidth / 2)
+  })
+
+  return {
+    occupiedLength: Math.max(0, maxRight - minLeft),
+    occupiedWidth: Math.max(0, maxBottom - minTop),
+    minLeft,
+    maxRight,
+    minTop,
+    maxBottom,
+  }
+}
+
+function emptyResult(errors: string[]): ContainerResult {
+  return {
+    selected: { ...EMPTY_ORIENTATION },
+    candidates: [{ ...EMPTY_ORIENTATION }],
+    solverVariant: 'homogeneous',
+    patternLabel: 'Sin patron',
+    rowPattern: [],
+    wallClearanceMm: 0,
+    rearClearanceMm: 0,
+    palletGapMm: 0,
+    floors: 1,
+    totalPalletsBySpace: 0,
+    totalPalletsByWeight: null,
+    totalPallets: 0,
+    utilizationArea: 0,
+    utilizationVolume: 0,
+    heightFits: false,
+    availableHeight: 0,
+    freeHeight: 0,
+    weightTotalKg: null,
+    containerVolume: 0,
+    loadVolume: 0,
+    placements: [],
+    errors,
+    warnings: [],
+  }
+}
+
 export function solveContainerLoading(input: ContainerInput): ContainerResult {
   const errors: string[] = []
   const warnings: string[] = []
@@ -189,12 +244,15 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     errors.push('El alto del pallet de carga debe ser mayor a 0.')
   }
   if (!isNonNegative(input.clearance)) {
-    errors.push('El clearance debe ser mayor o igual a 0.')
+    errors.push('La holgura lateral/frontal debe ser mayor o igual a 0.')
   }
-  if (
-    input.weightPerPalletKg !== undefined &&
-    !isPositive(input.weightPerPalletKg)
-  ) {
+
+  const rearClearanceRaw = input.rearClearance ?? input.clearance
+  if (!isNonNegative(rearClearanceRaw)) {
+    errors.push('La holgura de puerta debe ser mayor o igual a 0.')
+  }
+
+  if (input.weightPerPalletKg !== undefined && !isPositive(input.weightPerPalletKg)) {
     errors.push('El peso por pallet debe ser mayor a 0.')
   }
   if (input.payloadMaxKg !== undefined && !isPositive(input.payloadMaxKg)) {
@@ -205,39 +263,85 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     return emptyResult(errors)
   }
 
-  const clearance = Math.max(CONTAINER_CLEARANCE_MM, input.clearance)
+  const wallClearance = Math.max(0, input.clearance)
+  const rearClearance = Math.max(0, rearClearanceRaw)
+  const palletGap = wallClearance
+  const frontClearance = wallClearance
+  const sideClearance = wallClearance
+  const allowAlternating = input.allowAlternatingPattern !== false
 
-  const planA = evaluateOrientation(
+  const planA = evaluateHomogeneousOrientation(
     'LxW',
     input.container.length,
     input.container.width,
     input.pallet.length,
     input.pallet.width,
-    clearance,
+    frontClearance,
+    rearClearance,
+    sideClearance,
+    palletGap,
   )
   const planB = input.allowRotation
-    ? evaluateOrientation(
+    ? evaluateHomogeneousOrientation(
         'WxL',
         input.container.length,
         input.container.width,
         input.pallet.width,
         input.pallet.length,
-        clearance,
+        frontClearance,
+        rearClearance,
+        sideClearance,
+        palletGap,
       )
     : null
 
-  const selected = selectBestOrientation(planA, planB)
+  const selectedHomogeneous = selectBestOrientation(planA, planB)
   const candidates = planB ? [planA, planB] : [planA]
-  const availableHeight = input.container.height
-  const heightFits = input.pallet.height <= availableHeight
 
-  if (!heightFits) {
-    warnings.push('El pallet de carga no cabe en altura dentro del contenedor.')
-  }
+  const homogeneousPlacements = buildHomogeneousPlacements(
+    input,
+    selectedHomogeneous,
+    selectedHomogeneous.perFloor,
+    frontClearance,
+    sideClearance,
+  )
 
-  const totalPalletsBySpace = selected.perFloor
+  const alternating = allowAlternating
+    ? solveAlternatingByRows(
+        input,
+        frontClearance,
+        rearClearance,
+        sideClearance,
+        palletGap,
+      )
+    : null
+
+  const useAlternating =
+    alternating !== null &&
+    (alternating.totalPalletsBySpace > selectedHomogeneous.perFloor ||
+      (alternating.totalPalletsBySpace === selectedHomogeneous.perFloor &&
+        alternating.utilizationArea > selectedHomogeneous.utilizationArea))
+
+  const selected = useAlternating ? alternating.selected : selectedHomogeneous
+  const solverVariant: ContainerResult['solverVariant'] = useAlternating
+    ? 'alternating'
+    : 'homogeneous'
+  const patternLabel = useAlternating
+    ? alternating.patternLabel
+    : `Homogeneo ${selectedHomogeneous.orientation}`
+  const rowPattern = useAlternating ? alternating.rowPattern : [selectedHomogeneous.orientation]
+  const totalPalletsBySpace = useAlternating
+    ? alternating.totalPalletsBySpace
+    : selectedHomogeneous.perFloor
+
   if (totalPalletsBySpace === 0) {
     warnings.push('No hay espacio util en planta para ubicar pallets.')
+  }
+
+  const availableHeight = input.container.height
+  const heightFits = input.pallet.height <= availableHeight
+  if (!heightFits) {
+    warnings.push('El pallet de carga no cabe en altura dentro del contenedor.')
   }
 
   let totalPalletsByWeight: number | null = null
@@ -246,10 +350,7 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     input.payloadMaxKg !== undefined &&
     input.weightPerPalletKg > 0
   ) {
-    totalPalletsByWeight = Math.max(
-      0,
-      Math.floor(input.payloadMaxKg / input.weightPerPalletKg),
-    )
+    totalPalletsByWeight = Math.max(0, Math.floor(input.payloadMaxKg / input.weightPerPalletKg))
   }
 
   let totalPallets = totalPalletsBySpace
@@ -259,52 +360,47 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     }
     totalPallets = Math.min(totalPalletsBySpace, totalPalletsByWeight)
   }
-
   if (!heightFits) {
     totalPallets = 0
   }
 
-  const placements = buildPalletPlacements(input, selected, totalPallets)
-  let occupiedLengthForResult = 0
-  let occupiedWidthForResult = 0
-  if (placements.length > 0) {
-    let minLeft = Number.POSITIVE_INFINITY
-    let maxRight = Number.NEGATIVE_INFINITY
-    let minTop = Number.POSITIVE_INFINITY
-    let maxBottom = Number.NEGATIVE_INFINITY
-
-    placements.forEach((placement) => {
-      minLeft = Math.min(minLeft, placement.x - placement.length / 2)
-      maxRight = Math.max(maxRight, placement.x + placement.length / 2)
-      minTop = Math.min(minTop, placement.z - placement.width / 2)
-      maxBottom = Math.max(maxBottom, placement.z + placement.width / 2)
-    })
-
-    occupiedLengthForResult = Math.max(0, maxRight - minLeft)
-    occupiedWidthForResult = Math.max(0, maxBottom - minTop)
-  }
+  const placementsBySpace = useAlternating
+    ? (alternating?.placements ?? [])
+    : homogeneousPlacements
+  const placements = trimPlacements(placementsBySpace, totalPallets)
+  const span = getPlacementSpan(placements, input.container.length, input.container.width)
+  const hasPlaced = placements.length > 0
 
   const containerArea = input.container.length * input.container.width
-  const areaUsedForResult =
-    placements.length > 0
-      ? occupiedLengthForResult * occupiedWidthForResult
-      : 0
+  const areaUsedForResult = span.occupiedLength * span.occupiedWidth
   const utilizationArea = containerArea > 0 ? areaUsedForResult / containerArea : 0
 
-  const containerVolume =
-    input.container.length * input.container.width * input.container.height
-  const loadVolume =
-    totalPallets * input.pallet.length * input.pallet.width * input.pallet.height
+  const containerVolume = containerArea * input.container.height
+  const loadVolume = totalPallets * input.pallet.length * input.pallet.width * input.pallet.height
   const utilizationVolume = containerVolume > 0 ? loadVolume / containerVolume : 0
-
   const weightTotalKg =
-    input.weightPerPalletKg !== undefined
-      ? input.weightPerPalletKg * totalPallets
-      : null
+    input.weightPerPalletKg !== undefined ? input.weightPerPalletKg * totalPallets : null
 
   return {
-    selected,
+    selected: {
+      ...selected,
+      occupiedLength: hasPlaced ? span.occupiedLength : selected.occupiedLength,
+      occupiedWidth: hasPlaced ? span.occupiedWidth : selected.occupiedWidth,
+      trailingResidualLength: hasPlaced
+        ? Math.max(0, input.container.length - rearClearance - span.maxRight)
+        : selected.trailingResidualLength,
+      trailingResidualWidth: hasPlaced
+        ? Math.max(0, input.container.width - sideClearance - span.maxBottom)
+        : selected.trailingResidualWidth,
+      utilizationArea,
+    },
     candidates,
+    solverVariant,
+    patternLabel,
+    rowPattern,
+    wallClearanceMm: wallClearance,
+    rearClearanceMm: rearClearance,
+    palletGapMm: palletGap,
     floors: 1,
     totalPalletsBySpace,
     totalPalletsByWeight,
