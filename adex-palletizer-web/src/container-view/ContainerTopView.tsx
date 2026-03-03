@@ -162,8 +162,7 @@ export function ContainerTopView({
         <p>
           Huella ocupada: {result.selected.occupiedLength} mm x {result.selected.occupiedWidth} mm
         </p>
-        <p>Holgura lateral/frontal: {result.wallClearanceMm} mm</p>
-        <p>Holgura puerta: {result.rearClearanceMm} mm</p>
+        <p>Margen a pared: {result.wallClearanceMm} mm</p>
         <p>Gap entre pallets: {result.palletGapMm} mm</p>
         <p>Residual interno eje largo: {result.selected.trailingResidualLength} mm</p>
         <p>Residual interno eje ancho: {result.selected.trailingResidualWidth} mm</p>

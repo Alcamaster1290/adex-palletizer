@@ -244,7 +244,7 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     errors.push('El alto del pallet de carga debe ser mayor a 0.')
   }
   if (!isNonNegative(input.clearance)) {
-    errors.push('La holgura lateral/frontal debe ser mayor o igual a 0.')
+    errors.push('La separacion entre pallets debe ser mayor o igual a 0.')
   }
 
   const rearClearanceRaw = input.rearClearance ?? input.clearance
@@ -263,11 +263,11 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
     return emptyResult(errors)
   }
 
-  const wallClearance = Math.max(0, input.clearance)
-  const rearClearance = Math.max(0, rearClearanceRaw)
-  const palletGap = wallClearance
-  const frontClearance = wallClearance
-  const sideClearance = wallClearance
+  const wallClearance = 0
+  const rearClearance = 0
+  const palletGap = Math.max(0, input.clearance)
+  const frontClearance = 0
+  const sideClearance = 0
   const allowAlternating = input.allowAlternatingPattern !== false
 
   const planA = evaluateHomogeneousOrientation(
@@ -387,10 +387,10 @@ export function solveContainerLoading(input: ContainerInput): ContainerResult {
       occupiedLength: hasPlaced ? span.occupiedLength : selected.occupiedLength,
       occupiedWidth: hasPlaced ? span.occupiedWidth : selected.occupiedWidth,
       trailingResidualLength: hasPlaced
-        ? Math.max(0, input.container.length - rearClearance - span.maxRight)
+        ? Math.max(0, input.container.length - span.maxRight)
         : selected.trailingResidualLength,
       trailingResidualWidth: hasPlaced
-        ? Math.max(0, input.container.width - sideClearance - span.maxBottom)
+        ? Math.max(0, input.container.width - span.maxBottom)
         : selected.trailingResidualWidth,
       utilizationArea,
     },

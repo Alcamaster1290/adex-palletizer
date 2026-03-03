@@ -10,7 +10,7 @@ function buildInput(overrides?: Partial<ContainerInput>): ContainerInput {
     allowRotation: true,
     allowAlternatingPattern: true,
     clearance: CONTAINER_CLEARANCE_MM,
-    rearClearance: CONTAINER_CLEARANCE_MM,
+    rearClearance: 0,
     ...overrides,
   }
 }
@@ -83,7 +83,6 @@ describe('solveContainerLoading', () => {
       container: { length: 5898, width: 2352, height: 2393 },
       pallet: { length: 1200, width: 1000, height: 1200 },
       clearance: 50,
-      rearClearance: 120,
       allowAlternatingPattern: true,
     })
     const result = solveContainerLoading(input)
@@ -92,10 +91,10 @@ describe('solveContainerLoading', () => {
 
     const placementsWithBounds = result.placements.map((placement) => {
       const bounds = extractBounds(input, placement)
-      expect(bounds.left).toBeGreaterThanOrEqual(input.clearance)
-      expect(bounds.top).toBeGreaterThanOrEqual(input.clearance)
-      expect(bounds.right).toBeLessThanOrEqual(input.container.length - (input.rearClearance ?? 0))
-      expect(bounds.bottom).toBeLessThanOrEqual(input.container.width - input.clearance)
+      expect(bounds.left).toBeGreaterThanOrEqual(0)
+      expect(bounds.top).toBeGreaterThanOrEqual(0)
+      expect(bounds.right).toBeLessThanOrEqual(input.container.length)
+      expect(bounds.bottom).toBeLessThanOrEqual(input.container.width)
       return { ...placement, ...bounds }
     })
 

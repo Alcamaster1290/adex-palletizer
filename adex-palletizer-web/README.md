@@ -62,12 +62,10 @@ npm run preview
 
 - Tab `Contenedores` para calcular carga palletizada dentro de contenedores.
 - Presets disponibles: `20' GP`, `40' GP`, `40' HC` y `Custom`.
-- Soporta rotacion 0/90 del pallet de carga, limite por payload (opcional) y dos holguras:
-  - `Holgura` (lateral + frontal + gap pallet-pallet)
-  - `Holgura puerta` (lado puerta/rear)
+- Soporta rotacion 0/90 del pallet de carga, limite por payload (opcional) y holgura de separacion:
+  - `Holgura` (solo gap pallet-pallet)
 - Defaults:
   - `Holgura = 50 mm`
-  - `Holgura puerta = 50 mm`
 - Puede ejecutarse en:
   - `Homogeneo` (una sola orientacion para todos los pallets)
   - `Alternado por filas` (mezcla 0/90 por fila)
@@ -78,14 +76,15 @@ npm run preview
 - Share link en modo contenedor con parametros:
   - `mode=container`
   - `cPr,cL,cW,cH,ppL,ppW,ppH,cRot,alt,cClr,cRear,wpp,pMax`
+  - `cRear` se conserva por compatibilidad historica de links, pero no afecta el solver actual.
 - Exports del plan:
   - `Export Plan JSON` (inputs + outputs + placements)
   - `Export Plan PNG` (TopView del contenedor)
 
 Formula base del solver de contenedor (fila homogenea):
 
-- `effectiveL = containerL - frontClearance - rearClearance`
-- `effectiveW = containerW - 2*wallClearance`
+- `effectiveL = containerL`
+- `effectiveW = containerW`
 - `pitchL = palletL + palletGap`
 - `pitchW = palletW + palletGap`
 - `nx = floor((effectiveL + palletGap) / pitchL)`

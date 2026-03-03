@@ -108,7 +108,7 @@ const DEFAULT_CONTAINER_INPUT: ContainerInput = {
   pallet: { length: 1200, width: 1000, height: 150 },
   allowRotation: true,
   clearance: CONTAINER_CLEARANCE_MM,
-  rearClearance: CONTAINER_CLEARANCE_MM,
+  rearClearance: 0,
   allowAlternatingPattern: true,
   allowStacking: false,
 }
@@ -142,7 +142,6 @@ type ContainerFieldId =
   | 'container-pallet-width'
   | 'container-pallet-height'
   | 'container-clearance'
-  | 'container-rear-clearance'
   | 'container-weight-per-pallet'
   | 'container-payload-max'
 
@@ -661,7 +660,6 @@ function buildContainerFieldValues(input: ContainerInput): ContainerFieldValues 
     'container-pallet-width': String(input.pallet.width),
     'container-pallet-height': String(input.pallet.height),
     'container-clearance': String(input.clearance),
-    'container-rear-clearance': String(input.rearClearance ?? input.clearance),
     'container-weight-per-pallet':
       input.weightPerPalletKg !== undefined ? String(input.weightPerPalletKg) : '',
     'container-payload-max':
@@ -1198,11 +1196,7 @@ function App() {
 
   const updateContainerCommonField = (
     fieldId: ContainerFieldId,
-    field:
-      | 'clearance'
-      | 'rearClearance'
-      | 'weightPerPalletKg'
-      | 'payloadMaxKg',
+    field: 'clearance' | 'weightPerPalletKg' | 'payloadMaxKg',
     value: string,
   ) => {
     setContainerFieldValues((current) => ({
@@ -1210,7 +1204,7 @@ function App() {
       [fieldId]: value,
     }))
 
-    if (field !== 'clearance' && field !== 'rearClearance' && value.trim().length === 0) {
+    if (field !== 'clearance' && value.trim().length === 0) {
       setContainerFieldErrors((current) => upsertFieldError(current, fieldId, null))
       setContainerDraft((current) => ({
         ...current,
@@ -1222,13 +1216,11 @@ function App() {
     const validation = validateIntegerInput(value, {
       label:
         field === 'clearance'
-          ? 'La holgura lateral/frontal'
-          : field === 'rearClearance'
-            ? 'La holgura de puerta'
+          ? 'La separacion entre pallets'
           : field === 'weightPerPalletKg'
             ? 'El peso por pallet'
             : 'El payload maximo',
-      min: field === 'clearance' || field === 'rearClearance' ? 0 : 1,
+      min: field === 'clearance' ? 0 : 1,
     })
     setContainerFieldErrors((current) =>
       upsertFieldError(current, fieldId, validation.error),
@@ -3089,26 +3081,12 @@ function App() {
                 <h3>Reglas operativas</h3>
                 <NumberField
                   id="container-clearance"
-                  label="Holgura"
+                  label="Separacion entre pallets"
                   min={0}
                   value={containerFieldValues['container-clearance']}
                   error={containerFieldErrors['container-clearance']}
                   onChange={(value) =>
                     updateContainerCommonField('container-clearance', 'clearance', value)
-                  }
-                />
-                <NumberField
-                  id="container-rear-clearance"
-                  label="Holgura puerta"
-                  min={0}
-                  value={containerFieldValues['container-rear-clearance']}
-                  error={containerFieldErrors['container-rear-clearance']}
-                  onChange={(value) =>
-                    updateContainerCommonField(
-                      'container-rear-clearance',
-                      'rearClearance',
-                      value,
-                    )
                   }
                 />
                 <NumberField
@@ -3336,14 +3314,6 @@ function App() {
                 <tr>
                   <th>Residual interno eje ancho (mm)</th>
                   <td>{formatInt.format(containerResult.selected.trailingResidualWidth)}</td>
-                </tr>
-                <tr>
-                  <th>Holgura lateral/frontal (mm)</th>
-                  <td>{formatInt.format(containerResult.wallClearanceMm)}</td>
-                </tr>
-                <tr>
-                  <th>Holgura puerta (mm)</th>
-                  <td>{formatInt.format(containerResult.rearClearanceMm)}</td>
                 </tr>
                 <tr>
                   <th>Gap entre pallets (mm)</th>

@@ -146,9 +146,6 @@ describe('App share link', () => {
       '1150',
     )
     expect((document.getElementById('container-clearance') as HTMLInputElement).value).toBe('0')
-    expect((document.getElementById('container-rear-clearance') as HTMLInputElement).value).toBe(
-      '125',
-    )
     expect((document.getElementById('container-allow-rotation') as HTMLInputElement).checked).toBe(
       true,
     )
@@ -168,9 +165,6 @@ describe('App share link', () => {
     render(<App />)
 
     expect((document.getElementById('container-clearance') as HTMLInputElement).value).toBe('50')
-    expect((document.getElementById('container-rear-clearance') as HTMLInputElement).value).toBe(
-      '50',
-    )
   })
 
   it('inicializa tab multi con noMix=1 desde share link', () => {
@@ -219,6 +213,6 @@ describe('App share link', () => {
     expect(window.location.search).toContain('cRot=1')
     expect(window.location.search).toContain('alt=1')
     expect(window.location.search).toContain('cClr=50')
-    expect(window.location.search).toContain('cRear=50')
+    expect(window.location.search).toContain('cRear=0')
   })
 })
