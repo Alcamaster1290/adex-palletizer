@@ -177,7 +177,7 @@ export function SceneContainer({
         width: placement.width,
         height: remainingHeight,
         color: '#2f8f9d',
-        applyVisualGap: true,
+        applyVisualGap: false,
         instances: [
           {
             x: placement.x,
@@ -213,7 +213,7 @@ export function SceneContainer({
           width: palletLoad.palletWidthMm,
           height: fallbackHeight,
           color: '#2f8f9d',
-          applyVisualGap: true,
+          applyVisualGap: false,
           instances: result.placements.map((placement) => {
             const floorY = placement.y - placement.height / 2
             return {
@@ -255,7 +255,7 @@ export function SceneContainer({
         height: group.heightMm,
         color: group.color,
         textureDataUrl: resolveSkuTextureDataUrl(labelsBySku, group.skuId),
-        applyVisualGap: true,
+        applyVisualGap: false,
         instances,
       }
     })
@@ -331,7 +331,6 @@ export function SceneContainer({
                 textureDataUrl={group.textureDataUrl}
                 instances={group.instances}
                 applyVisualGap={group.applyVisualGap}
-                gapMm={10}
               />
             ))}
           </>
@@ -370,7 +369,6 @@ export function SceneContainer({
                 textureDataUrl={group.textureDataUrl}
                 instances={group.instances}
                 applyVisualGap={group.applyVisualGap}
-                gapMm={10}
               />
             ))}
           </>
