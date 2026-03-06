@@ -1,5 +1,6 @@
 import { exportJson } from './exportJson'
 import type { SolverInput, SolverResult, SkuLabelsBySku } from '../types'
+import type { SingleDerivedMetrics } from '../metrics/units'
 
 const sampleInput: SolverInput = {
   pallet: { length: 1200, width: 1000, height: 150 },
@@ -39,7 +40,7 @@ const sampleResult: SolverResult = {
 }
 
 describe('exportJson', () => {
-  it('admite labelsBySku en payload exportado', () => {
+  it('admite labelsBySku y derivedMetrics en payload exportado', async () => {
     const labelsBySku: SkuLabelsBySku = {
       'SINGLE-BOX': {
         skuId: 'SINGLE-BOX',
@@ -57,14 +58,24 @@ describe('exportJson', () => {
         updatedAt: '2026-03-02T00:00:00.000Z',
       },
     }
+    const derivedMetrics: SingleDerivedMetrics = {
+      palletAreaMm2: 1200000,
+      usedAreaPerLayerMm2: 960000,
+      freeAreaPerLayerMm2: 240000,
+      palletBaseVolumeMm3: 180000000,
+      totalBoxesVolumeMm3: 3840000000,
+      totalUnitizedVolumeMm3: 4020000000,
+    }
 
     const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')
     const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const stringifySpy = vi.spyOn(JSON, 'stringify')
 
     exportJson({
       input: sampleInput,
       result: sampleResult,
+      derivedMetrics,
       labelsBySku,
       generatedAt: '2026-03-02T00:00:00.000Z',
     })
@@ -72,9 +83,23 @@ describe('exportJson', () => {
     expect(createObjectURLSpy).toHaveBeenCalledTimes(1)
     expect(clickSpy).toHaveBeenCalledTimes(1)
     expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:test')
+    expect(stringifySpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        derivedMetrics: expect.objectContaining({
+          palletAreaMm2: 1200000,
+          totalUnitizedVolumeMm3: 4020000000,
+        }),
+        labelsBySku: expect.objectContaining({
+          'SINGLE-BOX': expect.any(Object),
+        }),
+      }),
+      null,
+      2,
+    )
 
     createObjectURLSpy.mockRestore()
     revokeObjectURLSpy.mockRestore()
     clickSpy.mockRestore()
+    stringifySpy.mockRestore()
   })
 })

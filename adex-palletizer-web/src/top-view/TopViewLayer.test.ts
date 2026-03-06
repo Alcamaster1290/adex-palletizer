@@ -2,7 +2,7 @@ import {
   buildTopViewCells,
   buildTopViewDimensionLines,
   buildTopViewGeometry,
-} from './TopViewLayer'
+} from './topViewHelpers'
 
 describe('TopViewLayer helpers', () => {
   it('construye la grilla de celdas en orden determinista', () => {

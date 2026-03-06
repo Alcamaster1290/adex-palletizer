@@ -1,8 +1,10 @@
 import type { SkuLabelsBySku, SolverInput, SolverResult } from '../types'
+import type { SingleDerivedMetrics } from '../metrics/units'
 
 interface ExportPayload {
   input: SolverInput
   result: SolverResult
+  derivedMetrics?: SingleDerivedMetrics
   labelsBySku?: SkuLabelsBySku
   generatedAt: string
 }

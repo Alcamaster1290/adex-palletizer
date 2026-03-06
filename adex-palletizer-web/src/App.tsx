@@ -31,6 +31,14 @@ import {
   saveSkuLabels,
   upsertSkuLabel,
 } from './labels/labelStorage'
+import {
+  buildContainerDerivedMetrics,
+  buildSingleDerivedMetrics,
+  formatAreaDualFromMm2,
+  formatAreaM2FromMm2,
+  formatVolumeDualFromMm3,
+  formatVolumeM3FromMm3,
+} from './metrics/units'
 import { buildMultiPreview } from './multiPreview'
 import {
   SCENARIO_LIMIT,
@@ -839,6 +847,16 @@ function App() {
     singleTotalBoxes * appliedInput.box.length * appliedInput.box.width * appliedInput.box.height
   const singleVolumeUtilization =
     result.maxLoadVolume > 0 ? singleTotalBoxVolume / result.maxLoadVolume : 0
+  const singleDerivedMetrics = useMemo(
+    () =>
+      buildSingleDerivedMetrics(
+        appliedInput,
+        singleUsedArea,
+        singleFreeArea,
+        singleTotalBoxVolume,
+      ),
+    [appliedInput, singleUsedArea, singleFreeArea, singleTotalBoxVolume],
+  )
   const multiAppliedInput = useMemo(
     () => cloneMultiPreviewInput(multiApplied),
     [multiApplied],
@@ -854,6 +872,10 @@ function App() {
   const containerResult = useMemo(
     () => solveContainerLoading(containerApplied),
     [containerApplied],
+  )
+  const containerDerivedMetrics = useMemo(
+    () => buildContainerDerivedMetrics(containerApplied, containerResult),
+    [containerApplied, containerResult],
   )
 
   const singleHasValidationErrors = Object.keys(singleFieldErrors).length > 0
@@ -2055,6 +2077,7 @@ function App() {
     exportContainerPlanJson({
       input: cloneContainerInput(containerApplied),
       result: containerResult,
+      derivedMetrics: containerDerivedMetrics,
       labelsBySku: skuLabelsBySku,
       generatedAt,
     })
@@ -2355,6 +2378,7 @@ function App() {
                     exportJson({
                       input: appliedInput,
                       result,
+                      derivedMetrics: singleDerivedMetrics,
                       labelsBySku: skuLabelsBySku,
                       generatedAt: new Date().toISOString(),
                     })
@@ -2391,6 +2415,14 @@ function App() {
               <article className="kpi">
                 <span>Altura total</span>
                 <strong>{formatInt.format(singleTotalHeight)} mm</strong>
+              </article>
+              <article className="kpi">
+                <span>Area ocupada por capa</span>
+                <strong>{formatAreaM2FromMm2(singleDerivedMetrics.usedAreaPerLayerMm2)}</strong>
+              </article>
+              <article className="kpi">
+                <span>Volumen de cajas</span>
+                <strong>{formatVolumeM3FromMm3(singleDerivedMetrics.totalBoxesVolumeMm3)}</strong>
               </article>
             </div>
 
@@ -2455,16 +2487,16 @@ function App() {
                   <td>{volumeUtilizationText}</td>
                 </tr>
                 <tr>
-                  <th>Area pallet (mm2)</th>
-                  <td>{formatInt.format(result.palletArea)}</td>
+                  <th>Area pallet (m² / mm²)</th>
+                  <td>{formatAreaDualFromMm2(singleDerivedMetrics.palletAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area ocupada por capa (mm2)</th>
-                  <td>{formatInt.format(singleUsedArea)}</td>
+                  <th>Area ocupada por capa (m² / mm²)</th>
+                  <td>{formatAreaDualFromMm2(singleDerivedMetrics.usedAreaPerLayerMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area libre por capa (mm2)</th>
-                  <td>{formatInt.format(singleFreeArea)}</td>
+                  <th>Area libre por capa (m² / mm²)</th>
+                  <td>{formatAreaDualFromMm2(singleDerivedMetrics.freeAreaPerLayerMm2)}</td>
                 </tr>
                 <tr>
                   <th>Altura disponible (mm)</th>
@@ -2475,8 +2507,16 @@ function App() {
                   <td>{formatInt.format(result.freeHeight)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen total de cajas (mm3)</th>
-                  <td>{formatInt.format(singleTotalBoxVolume)}</td>
+                  <th>Volumen total de cajas (m³ / mm³)</th>
+                  <td>{formatVolumeDualFromMm3(singleDerivedMetrics.totalBoxesVolumeMm3)}</td>
+                </tr>
+                <tr>
+                  <th>Volumen base de pallet (m³ / mm³)</th>
+                  <td>{formatVolumeDualFromMm3(singleDerivedMetrics.palletBaseVolumeMm3)}</td>
+                </tr>
+                <tr>
+                  <th>Volumen total unitarizado (m³ / mm³)</th>
+                  <td>{formatVolumeDualFromMm3(singleDerivedMetrics.totalUnitizedVolumeMm3)}</td>
                 </tr>
               </tbody>
             </table>
@@ -3221,7 +3261,7 @@ function App() {
                 <strong>{formatInt.format(containerResult.totalPalletsBySpace)}</strong>
               </article>
               <article className="kpi">
-                <span>Total pallets</span>
+                <span>Total de pallets</span>
                 <strong>{formatInt.format(containerResult.totalPallets)}</strong>
               </article>
               <article className="kpi">
@@ -3231,6 +3271,14 @@ function App() {
               <article className="kpi">
                 <span>Utilizacion volumen</span>
                 <strong>{formatPercent(containerResult.utilizationVolume)}</strong>
+              </article>
+              <article className="kpi">
+                <span>Area ocupada pallets</span>
+                <strong>{formatAreaM2FromMm2(containerDerivedMetrics.occupiedFootprintAreaMm2)}</strong>
+              </article>
+              <article className="kpi">
+                <span>Volumen carga</span>
+                <strong>{formatVolumeM3FromMm3(containerDerivedMetrics.loadVolumeMm3)}</strong>
               </article>
             </div>
 
@@ -3306,6 +3354,34 @@ function App() {
                 <tr>
                   <th>Total de pallets final</th>
                   <td>{formatInt.format(containerResult.totalPallets)}</td>
+                </tr>
+                <tr>
+                  <th>Area interna contenedor (m² / mm²)</th>
+                  <td>{formatAreaDualFromMm2(containerDerivedMetrics.containerAreaMm2)}</td>
+                </tr>
+                <tr>
+                  <th>Area ocupada pallets - suma huellas (m² / mm²)</th>
+                  <td>{formatAreaDualFromMm2(containerDerivedMetrics.occupiedFootprintAreaMm2)}</td>
+                </tr>
+                <tr>
+                  <th>Area ocupada pallets - bloque envolvente (m² / mm²)</th>
+                  <td>{formatAreaDualFromMm2(containerDerivedMetrics.occupiedBlockAreaMm2)}</td>
+                </tr>
+                <tr>
+                  <th>Area libre interna (m² / mm²)</th>
+                  <td>{formatAreaDualFromMm2(containerDerivedMetrics.freeAreaMm2)}</td>
+                </tr>
+                <tr>
+                  <th>Volumen interno contenedor (m³ / mm³)</th>
+                  <td>{formatVolumeDualFromMm3(containerDerivedMetrics.containerVolumeMm3)}</td>
+                </tr>
+                <tr>
+                  <th>Volumen carga palletizada (m³ / mm³)</th>
+                  <td>{formatVolumeDualFromMm3(containerDerivedMetrics.loadVolumeMm3)}</td>
+                </tr>
+                <tr>
+                  <th>Volumen libre interno (m³ / mm³)</th>
+                  <td>{formatVolumeDualFromMm3(containerDerivedMetrics.freeVolumeMm3)}</td>
                 </tr>
                 <tr>
                   <th>Residual interno eje largo (mm)</th>

@@ -1,8 +1,10 @@
 import type { ContainerInput, ContainerResult, SkuLabelsBySku } from '../types'
+import type { ContainerDerivedMetrics } from '../metrics/units'
 
 interface ExportContainerPayload {
   input: ContainerInput
   result: ContainerResult
+  derivedMetrics?: ContainerDerivedMetrics
   labelsBySku?: SkuLabelsBySku
   generatedAt: string
 }

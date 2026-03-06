@@ -5,6 +5,7 @@ import {
 } from './exportContainerPlan'
 import { CONTAINER_CLEARANCE_MM } from '../constants'
 import type { ContainerInput, ContainerResult } from '../types'
+import type { ContainerDerivedMetrics } from '../metrics/units'
 
 const sampleInput: ContainerInput = {
   preset: '20gp',
@@ -72,15 +73,26 @@ describe('exportContainerPlan', () => {
     )
   })
 
-  it('exporta JSON con payload y nombre esperado', () => {
+  it('exporta JSON con payload, derivedMetrics y nombre esperado', async () => {
     const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')
     const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     const appendSpy = vi.spyOn(document.body, 'append')
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const stringifySpy = vi.spyOn(JSON, 'stringify')
+    const derivedMetrics: ContainerDerivedMetrics = {
+      containerAreaMm2: 13876896,
+      occupiedFootprintAreaMm2: 9600000,
+      occupiedBlockAreaMm2: 10147500,
+      freeAreaMm2: 4276896,
+      containerVolumeMm3: 33199437888,
+      loadVolumeMm3: 11040000000,
+      freeVolumeMm3: 22159437888,
+    }
 
     exportContainerPlanJson({
       input: sampleInput,
       result: sampleResult,
+      derivedMetrics,
       generatedAt: '2026-03-01T14:05:09.000Z',
     })
 
@@ -90,10 +102,21 @@ describe('exportContainerPlan', () => {
 
     const link = appendSpy.mock.calls[0]?.[0] as HTMLAnchorElement
     expect(link.download).toMatch(/^container-plan-\d{8}-\d{6}\.json$/)
+    expect(stringifySpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        derivedMetrics: expect.objectContaining({
+          occupiedFootprintAreaMm2: 9600000,
+          freeVolumeMm3: 22159437888,
+        }),
+      }),
+      null,
+      2,
+    )
 
     createObjectURLSpy.mockRestore()
     revokeObjectURLSpy.mockRestore()
     appendSpy.mockRestore()
     clickSpy.mockRestore()
+    stringifySpy.mockRestore()
   })
 })

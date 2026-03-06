@@ -28,6 +28,16 @@ npm run preview
 - Escenarios: guardado local en `localStorage` con comparativa rapida.
 - Share link: genera URL con query params (`pL,pW,pH,bPr,bL,bW,bH,maxH,rot,ov,pm,mode`) para reproducir el caso.
 
+## Metricas de area y volumen
+
+- Las vistas de `Caja unica` y `Contenedores` muestran area y volumen en formato dual:
+  - principal: `m²` / `m³`
+  - referencia: `mm²` / `mm³`
+- En `Contenedores` se reportan ambas lecturas de area ocupada:
+  - suma de huellas de pallets
+  - bloque envolvente ocupado
+- Los exports JSON (`Exportar JSON` y `Exportar plan JSON`) incluyen `derivedMetrics` para consumo externo.
+
 ## Presets de Caja Maestra
 
 - Disponible en `Caja unica` con selector `Preset de caja maestra`.
