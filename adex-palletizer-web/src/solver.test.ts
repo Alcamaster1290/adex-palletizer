@@ -176,6 +176,7 @@ describe('solvePalletization', () => {
       length: 350,
       width: 500,
       height: 450,
+      layer: 0,
     })
     expect(boxes[11]).toEqual({
       x: 275,
@@ -184,6 +185,7 @@ describe('solvePalletization', () => {
       length: 350,
       width: 500,
       height: 450,
+      layer: 1,
     })
   })
 })

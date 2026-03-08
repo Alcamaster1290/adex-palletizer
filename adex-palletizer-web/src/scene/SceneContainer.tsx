@@ -14,6 +14,7 @@ import type {
 } from '../types'
 import { Pallet, PalletFallback } from './Pallet'
 import { useSackTemplate } from './Sack'
+import { resolveSackPatternTransform } from './sackPattern'
 import { resolveSackVisualProfile } from './sackVisual'
 
 interface SceneContainerProps {
@@ -35,6 +36,7 @@ interface InstanceTransform {
   z: number
   rotationY: number
   isStacked?: boolean
+  layerIndex?: number
 }
 
 interface InstancedBoxGroupProps {
@@ -102,10 +104,22 @@ function InstancedBoxGroup({
       const sackVisual = useSack
         ? resolveSackVisualProfile(length, width, height, Boolean(instance.isStacked))
         : null
+      const patternTransform = useSack
+        ? resolveSackPatternTransform(
+            sackVisual?.visualLength ?? visualLength,
+            sackVisual?.visualWidth ?? visualWidth,
+            instance.layerIndex ?? 0,
+            instance.z,
+          )
+        : { offsetX: 0, offsetZ: 0 }
       const resolvedY = useSack
         ? instance.y + (sackVisual?.gravityOffsetY ?? -visualHeight / 2)
         : instance.y
-      dummy.position.set(instance.x, resolvedY, instance.z)
+      dummy.position.set(
+        instance.x + patternTransform.offsetX,
+        resolvedY,
+        instance.z + patternTransform.offsetZ,
+      )
       dummy.rotation.set(0, instance.rotationY, 0)
       if (useSack) {
         dummy.scale.set(
@@ -216,6 +230,7 @@ export function SceneContainer({
             z: placement.z,
             rotationY: placement.rotated ? Math.PI / 2 : 0,
             isStacked: false,
+            layerIndex: 0,
           },
         ],
       })
@@ -254,6 +269,7 @@ export function SceneContainer({
               z: placement.z,
               rotationY: placement.rotated ? Math.PI / 2 : 0,
               isStacked: false,
+              layerIndex: 0,
             }
           }),
         },
@@ -278,6 +294,10 @@ export function SceneContainer({
             z: placement.z + offsetZ,
             rotationY,
             isStacked: box.yMm - box.heightMm / 2 > 0.5,
+            layerIndex: Math.max(
+              0,
+              Math.round((box.yMm - box.heightMm / 2) / Math.max(1, box.heightMm)),
+            ),
           })
         })
       })

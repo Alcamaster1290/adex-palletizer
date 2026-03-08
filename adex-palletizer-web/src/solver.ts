@@ -212,6 +212,7 @@ export function buildBoxInstances(
           length: boxFootprintL,
           width: boxFootprintW,
           height: input.box.height,
+          layer,
         })
       }
     }

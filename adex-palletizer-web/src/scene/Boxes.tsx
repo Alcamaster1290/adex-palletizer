@@ -1,6 +1,7 @@
 import { Edges, Text } from '@react-three/drei'
 import { VISUAL_GAP_MM } from '../constants'
 import { resolveSkuTexture } from '../labels/labelTextures'
+import { resolveSackLayerIndex, resolveSackPatternTransform } from './sackPattern'
 import { SackMesh, useSackTemplate } from './Sack'
 import { resolveSackVisualProfile } from './sackVisual'
 import type { BoxInstance, BoxSkinMode, SkuLabelsBySku } from '../types'
@@ -45,6 +46,15 @@ export function Boxes({
         const visualWidth = sackVisual
           ? sackVisual.visualWidth
           : Math.max(1, box.width - VISUAL_GAP_MM)
+        const layerIndex = sackMode ? resolveSackLayerIndex(box, baseBottomY) : 0
+        const patternTransform = sackMode
+          ? resolveSackPatternTransform(
+              visualLength,
+              visualWidth,
+              layerIndex,
+              box.z,
+            )
+          : { offsetX: 0, offsetZ: 0 }
         const texture = resolveSkuTexture(labelsBySku, box.skuId, defaultSkuId)
         const materialColor = texture ? '#ffffff' : box.color ?? DEFAULT_BOX_COLOR
 
@@ -52,7 +62,11 @@ export function Boxes({
           return (
             <group
               key={`${index}-${box.x}-${box.y}-${box.z}`}
-              position={[box.x, box.y, box.z]}
+              position={[
+                box.x + patternTransform.offsetX,
+                box.y,
+                box.z + patternTransform.offsetZ,
+              ]}
             >
               <SackMesh
                 template={sackTemplate}
