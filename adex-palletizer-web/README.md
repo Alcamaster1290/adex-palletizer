@@ -184,10 +184,10 @@ Si el modelo tarda en cargar, se muestra un pallet de respaldo en forma de bloqu
 - Licencia: CC BY 3.0
 - URL: https://poly.pizza/m/XSKlcrzyi6
 
-- Modelo: "Sack Trench Small" por Quaternius
+- Modelo: "Sack - Game Asset" por Don Carson
 - Fuente: Poly Pizza
 - Licencia: CC BY 3.0
-- URL: https://poly.pizza/m/iHyRewQQcN
+- URL: https://poly.pizza/m/34cZWd7Lr5o
 
 ## Logica de calculo (resumen)
 

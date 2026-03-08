@@ -97,7 +97,8 @@ function InstancedBoxGroup({
     const dummy = new Object3D()
 
     instances.forEach((instance, index) => {
-      dummy.position.set(instance.x, instance.y, instance.z)
+      const resolvedY = useSack ? instance.y - visualHeight / 2 : instance.y
+      dummy.position.set(instance.x, resolvedY, instance.z)
       dummy.rotation.set(0, instance.rotationY, 0)
       if (useSack) {
         dummy.scale.set(visualLength, visualHeight, visualWidth)

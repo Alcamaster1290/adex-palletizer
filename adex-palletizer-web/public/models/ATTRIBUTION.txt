@@ -3,7 +3,7 @@ Author: J-Toastie
 Source: Poly Pizza (https://poly.pizza/m/XSKlcrzyi6)
 License: Creative Commons Attribution 3.0 (CC BY 3.0)
 
-Model: Sack Trench Small
-Author: Quaternius
-Source: Poly Pizza (https://poly.pizza/m/iHyRewQQcN)
+Model: Sack - Game Asset
+Author: Don Carson
+Source: Poly Pizza (https://poly.pizza/m/34cZWd7Lr5o)
 License: Creative Commons Attribution 3.0 (CC BY 3.0)
