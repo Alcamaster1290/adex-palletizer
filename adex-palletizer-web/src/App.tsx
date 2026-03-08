@@ -58,6 +58,7 @@ import { TopViewLayer } from './top-view/TopViewLayer'
 import { solveMultiHeuristic } from './multiSolver'
 import { solveMultiHeuristicNoMix } from './multiSolverNoMix'
 import type {
+  BoxSkinMode,
   ContainerInput,
   ContainerPresetKey,
   DimensionsMM,
@@ -734,6 +735,9 @@ function App() {
   const [shareStatus, setShareStatus] = useState<string | null>(null)
   const [skuLabelsBySku, setSkuLabelsBySku] = useState<SkuLabelsBySku>(() =>
     loadSkuLabels(),
+  )
+  const [boxSkinMode, setBoxSkinMode] = useState<BoxSkinMode>(
+    () => initialShareState.boxSkinMode ?? 'box',
   )
   const [labelEditorOpen, setLabelEditorOpen] = useState(false)
   const [labelEditorMode, setLabelEditorMode] = useState<LabelEditorMode>('single')
@@ -1898,6 +1902,7 @@ function App() {
               result: solvePalletization(cloneInput(appliedInput)),
               boxPresetId: singleBoxPreset,
               packingMode: singlePackingModeApplied,
+              boxSkinMode,
               labelSkuRefs: singleLabelRefs,
             },
           }
@@ -1908,6 +1913,7 @@ function App() {
               multi: {
                 input: cloneMultiPreviewInput(multiApplied),
                 result: multiResult,
+                boxSkinMode,
                 labelSkuRefs: multiLabelRefs,
               },
             }
@@ -1917,6 +1923,7 @@ function App() {
               container: {
                 input: cloneContainerInput(containerApplied),
                 result: containerResult,
+                boxSkinMode,
                 labelSkuRefs: containerLabelRefs,
               },
             }
@@ -1944,6 +1951,7 @@ function App() {
       setSingleFieldErrors({})
       setMultiAlgorithm('preview')
       setMultiHeuristicResult(null)
+      setBoxSkinMode(scenario.single.boxSkinMode ?? 'box')
       setLastCalculatedAt(new Date())
       return
     }
@@ -1963,6 +1971,7 @@ function App() {
       setMultiHeuristicResult(
         loadedAlgorithm === 'heuristic' ? scenario.multi.result : null,
       )
+      setBoxSkinMode(scenario.multi.boxSkinMode ?? 'box')
       setLastGeneratedAt(new Date())
       return
     }
@@ -1974,6 +1983,7 @@ function App() {
     setContainerPreset(detectContainerPreset(nextContainer.container))
     setContainerFieldValues(buildContainerFieldValues(nextContainer))
     setContainerFieldErrors({})
+    setBoxSkinMode(scenario.container.boxSkinMode ?? 'box')
     setContainerPalletLoad(null)
     setLastContainerCalculatedAt(new Date())
   }
@@ -2014,6 +2024,7 @@ function App() {
     const query = buildShareQuery(appliedInput, 'single', {
       boxPresetId: singleBoxPreset,
       packingMode: singlePackingModeApplied,
+      boxSkinMode,
     })
     const relativeUrl = `${window.location.pathname}${query}`
     const absoluteUrl = `${window.location.origin}${relativeUrl}`
@@ -2035,6 +2046,7 @@ function App() {
   const shareCurrentMulti = async () => {
     const query = buildShareQuery(appliedInput, 'multi', {
       noMixedSkuStacking: multiDraft.noMixedSkuStacking,
+      boxSkinMode,
     })
     const relativeUrl = `${window.location.pathname}${query}`
     const absoluteUrl = `${window.location.origin}${relativeUrl}`
@@ -2054,7 +2066,7 @@ function App() {
   }
 
   const shareCurrentContainer = async () => {
-    const query = buildShareQuery(containerApplied, 'container')
+    const query = buildShareQuery(containerApplied, 'container', { boxSkinMode })
     const relativeUrl = `${window.location.pathname}${query}`
     const absoluteUrl = `${window.location.origin}${relativeUrl}`
     window.history.replaceState(window.history.state, '', relativeUrl)
@@ -2094,12 +2106,28 @@ function App() {
   return (
     <main className="app-shell">
       <header className="hero">
-        <p className="eyebrow">ADEX SOLUCIONADOR DE PALLETS</p>
-        <h1>Solucionador de pallets por Alvaro Caceres</h1>
+        <p className="eyebrow">ADEX PALETIZACION Y CONTENERIZACION</p>
+        <h1>Pallet Solver by Alvaro Caceres</h1>
         <p>
-          Usa <strong>Caja unica</strong> para calculo homogeneo y{' '}
-          <strong>Multiples cajas</strong> para vista 3D multicaja.
+          Resolver unitarizacion y contenedorizacion con visualizacion tecnica 2D/3D,
+          escenarios y enlaces compartibles.
         </p>
+        <div className="hero-toolbar">
+          <label className="field compact" htmlFor="global-box-skin-mode">
+            <span>
+              Skin 3D global
+              <strong>visual</strong>
+            </span>
+            <select
+              id="global-box-skin-mode"
+              value={boxSkinMode}
+              onChange={(event) => setBoxSkinMode(event.target.value as BoxSkinMode)}
+            >
+              <option value="box">Caja tecnica</option>
+              <option value="sack">Saco warehouse</option>
+            </select>
+          </label>
+        </div>
       </header>
 
       {shareWarning && (
@@ -2353,6 +2381,7 @@ function App() {
                 boxesOverride={singleBoxes}
                 labelsBySku={skuLabelsBySku}
                 defaultSkuId={SINGLE_BOX_SKU_ID}
+                boxSkinMode={boxSkinMode}
                 onCanvasReady={setSingleCanvas}
               />
             </article>
@@ -2855,6 +2884,7 @@ function App() {
                 boxes={multiResult.boxes}
                 showLabels={multiShowLabels}
                 labelsBySku={skuLabelsBySku}
+                boxSkinMode={boxSkinMode}
               />
             </article>
           </section>
@@ -3218,6 +3248,7 @@ function App() {
                 result={containerResult}
                 palletLoad={containerPalletLoad}
                 labelsBySku={skuLabelsBySku}
+                boxSkinMode={boxSkinMode}
               />
             </article>
           </section>
@@ -3545,6 +3576,7 @@ function App() {
             : multiLabelSkuOptions
         }
         initialSkuId={labelEditorSkuId}
+        skinMode={boxSkinMode}
         onClose={closeLabelEditor}
         onSave={saveLabelConfig}
         onReset={resetLabelConfig}

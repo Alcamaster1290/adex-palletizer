@@ -6,18 +6,21 @@ import { VISUAL_GAP_MM } from '../constants'
 import { groupLoadBoxesForInstancing } from '../containerPalletLoad'
 import { getTextureForDataUrl, resolveSkuTextureDataUrl } from '../labels/labelTextures'
 import type {
+  BoxSkinMode,
   ContainerInput,
   ContainerResult,
   ExportedPalletLoad,
   SkuLabelsBySku,
 } from '../types'
 import { Pallet, PalletFallback } from './Pallet'
+import { useSackTemplate } from './Sack'
 
 interface SceneContainerProps {
   input: ContainerInput
   result: ContainerResult
   palletLoad?: ExportedPalletLoad | null
   labelsBySku?: SkuLabelsBySku
+  boxSkinMode?: BoxSkinMode
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
 }
 
@@ -41,6 +44,8 @@ interface InstancedBoxGroupProps {
   instances: InstanceTransform[]
   applyVisualGap?: boolean
   gapMm?: number
+  boxSkinMode?: BoxSkinMode
+  sackTemplate?: ReturnType<typeof useSackTemplate>
 }
 
 interface LoadInstancedGroup extends InstancedBoxGroupProps {
@@ -67,6 +72,8 @@ function InstancedBoxGroup({
   instances,
   applyVisualGap = false,
   gapMm = VISUAL_GAP_MM,
+  boxSkinMode = 'box',
+  sackTemplate = null,
 }: InstancedBoxGroupProps) {
   const meshRef = useRef<InstancedMesh>(null)
   const texture = useMemo(() => {
@@ -75,6 +82,11 @@ function InstancedBoxGroup({
     }
     return getTextureForDataUrl(textureDataUrl)
   }, [textureDataUrl])
+
+  const visualLength = Math.max(1, length - (applyVisualGap ? gapMm : 0))
+  const visualHeight = Math.max(1, height - (applyVisualGap ? gapMm : 0))
+  const visualWidth = Math.max(1, width - (applyVisualGap ? gapMm : 0))
+  const useSack = boxSkinMode === 'sack' && sackTemplate !== null
 
   useLayoutEffect(() => {
     const mesh = meshRef.current
@@ -87,24 +99,29 @@ function InstancedBoxGroup({
     instances.forEach((instance, index) => {
       dummy.position.set(instance.x, instance.y, instance.z)
       dummy.rotation.set(0, instance.rotationY, 0)
+      if (useSack) {
+        dummy.scale.set(visualLength, visualHeight, visualWidth)
+      } else {
+        dummy.scale.set(1, 1, 1)
+      }
       dummy.updateMatrix()
       mesh.setMatrixAt(index, dummy.matrix)
     })
 
     mesh.instanceMatrix.needsUpdate = true
-  }, [instances])
+  }, [instances, useSack, visualHeight, visualLength, visualWidth])
 
   if (instances.length === 0) {
     return null
   }
 
-  const visualLength = Math.max(1, length - (applyVisualGap ? gapMm : 0))
-  const visualHeight = Math.max(1, height - (applyVisualGap ? gapMm : 0))
-  const visualWidth = Math.max(1, width - (applyVisualGap ? gapMm : 0))
-
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, instances.length]} castShadow>
-      <boxGeometry args={[visualLength, visualHeight, visualWidth]} />
+      {useSack ? (
+        <primitive attach="geometry" object={sackTemplate.geometry} />
+      ) : (
+        <boxGeometry args={[visualLength, visualHeight, visualWidth]} />
+      )}
       <meshStandardMaterial
         color={texture ? '#ffffff' : color}
         map={texture ?? undefined}
@@ -132,12 +149,14 @@ export function SceneContainer({
   result,
   palletLoad = null,
   labelsBySku = {},
+  boxSkinMode = 'box',
   onCanvasReady,
 }: SceneContainerProps) {
   const containerLength = input.container.length
   const containerWidth = input.container.width
   const containerHeight = input.container.height
   const sceneScale = Math.max(containerLength, containerWidth, containerHeight)
+  const sackTemplate = useSackTemplate()
 
   const basePalletModels = useMemo<PalletModelPlacement[]>(() => {
     return result.placements.map((placement, index) => {
@@ -331,6 +350,8 @@ export function SceneContainer({
                 textureDataUrl={group.textureDataUrl}
                 instances={group.instances}
                 applyVisualGap={group.applyVisualGap}
+                boxSkinMode={boxSkinMode}
+                sackTemplate={sackTemplate}
               />
             ))}
           </>
@@ -369,6 +390,8 @@ export function SceneContainer({
                 textureDataUrl={group.textureDataUrl}
                 instances={group.instances}
                 applyVisualGap={group.applyVisualGap}
+                boxSkinMode={boxSkinMode}
+                sackTemplate={sackTemplate}
               />
             ))}
           </>

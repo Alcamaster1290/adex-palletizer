@@ -6,6 +6,7 @@ export interface DimensionsMM {
 
 export type PalletInput = DimensionsMM
 export type BoxInput = DimensionsMM
+export type BoxSkinMode = 'box' | 'sack'
 
 export interface SolverInput {
   pallet: PalletInput

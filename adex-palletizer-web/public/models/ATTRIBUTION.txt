@@ -2,3 +2,8 @@ Model: Wooden Pallet
 Author: J-Toastie
 Source: Poly Pizza (https://poly.pizza/m/XSKlcrzyi6)
 License: Creative Commons Attribution 3.0 (CC BY 3.0)
+
+Model: Gunny Sack
+Author: Oliver Herklotz
+Source: Poly Pizza (https://poly.pizza/m/fcE0hQK7uEt)
+License: Creative Commons Attribution 3.0 (CC BY 3.0)

@@ -65,6 +65,17 @@ describe('App share link', () => {
     expect(window.location.search).toContain('ov=0')
     expect(window.location.search).toContain('pm=advanced')
     expect(window.location.search).toContain('mode=single')
+    expect(window.location.search).toContain('skin=box')
+  })
+
+  it('aplica skin desde query param skin=sack', () => {
+    window.history.replaceState({}, '', '/?mode=single&skin=sack')
+
+    render(<App />)
+
+    expect((document.getElementById('global-box-skin-mode') as HTMLSelectElement).value).toBe(
+      'sack',
+    )
   })
 
   it('aplica packing mode desde query param pm=advanced', () => {
@@ -191,16 +202,23 @@ describe('App share link', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
+    fireEvent.change(document.getElementById('global-box-skin-mode') as HTMLSelectElement, {
+      target: { value: 'sack' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
 
     expect(window.location.search).toContain('mode=multi')
     expect(window.location.search).toContain('noMix=1')
+    expect(window.location.search).toContain('skin=sack')
   })
 
   it('genera URL compartible en modo container', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
+    fireEvent.change(document.getElementById('global-box-skin-mode') as HTMLSelectElement, {
+      target: { value: 'sack' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
 
     expect(window.location.search).toContain('mode=container')
@@ -214,5 +232,6 @@ describe('App share link', () => {
     expect(window.location.search).toContain('alt=1')
     expect(window.location.search).toContain('cClr=50')
     expect(window.location.search).toContain('cRear=0')
+    expect(window.location.search).toContain('skin=sack')
   })
 })

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { SkuLabelConfig, SkuLabelsBySku } from '../types'
+import type { BoxSkinMode, SkuLabelConfig, SkuLabelsBySku } from '../types'
 import {
   createDefaultLabelConfig,
   ISO_PICTOGRAM_OPTIONS,
@@ -23,6 +23,7 @@ interface LabelDesignerModalProps {
   labelsBySku: SkuLabelsBySku
   skuOptions: SkuOption[]
   initialSkuId: string
+  skinMode?: BoxSkinMode
   onClose: () => void
   onSave: (config: SkuLabelConfig) => void
   onReset: (skuId: string) => void
@@ -64,6 +65,7 @@ export function LabelDesignerModal({
   labelsBySku,
   skuOptions,
   initialSkuId,
+  skinMode = 'box',
   onClose,
   onSave,
   onReset,
@@ -146,6 +148,10 @@ export function LabelDesignerModal({
             Cerrar
           </button>
         </div>
+
+        <p className="meta-text">
+          Visualizacion activa: {skinMode === 'sack' ? 'Saco warehouse' : 'Caja tecnica'}.
+        </p>
 
         <div className="label-modal-content">
           {mode === 'multi' && (

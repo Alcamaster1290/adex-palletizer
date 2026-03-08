@@ -1,4 +1,5 @@
 import type {
+  BoxSkinMode,
   ContainerInput,
   ContainerResult,
   MultiPreviewInput,
@@ -19,6 +20,7 @@ interface StoredSingleScenarioData {
     result: SolverResult
     boxPresetId?: BoxPresetId
     packingMode?: PackingMode
+    boxSkinMode?: BoxSkinMode
     labelSkuRefs?: string[]
   }
 }
@@ -28,6 +30,7 @@ interface StoredMultiScenarioData {
   multi: {
     input: MultiPreviewInput
     result: MultiPreviewResult
+    boxSkinMode?: BoxSkinMode
     labelSkuRefs?: string[]
   }
 }
@@ -37,6 +40,7 @@ interface StoredContainerScenarioData {
   container: {
     input: ContainerInput
     result: ContainerResult
+    boxSkinMode?: BoxSkinMode
     labelSkuRefs?: string[]
   }
 }

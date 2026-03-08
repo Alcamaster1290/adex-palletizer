@@ -4,6 +4,7 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { buildBoxInstances } from '../solver'
 import type {
   BoxInstance,
+  BoxSkinMode,
   SkuLabelsBySku,
   SolverInput,
   SolverResult,
@@ -17,6 +18,7 @@ interface SceneProps {
   boxesOverride?: BoxInstance[]
   labelsBySku?: SkuLabelsBySku
   defaultSkuId?: string
+  boxSkinMode?: BoxSkinMode
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
 }
 
@@ -42,6 +44,7 @@ export function Scene({
   boxesOverride,
   labelsBySku = {},
   defaultSkuId,
+  boxSkinMode = 'box',
   onCanvasReady,
 }: SceneProps) {
   const boxes = useMemo(() => {
@@ -84,7 +87,12 @@ export function Scene({
             height={input.pallet.height}
           />
         </Suspense>
-        <Boxes boxes={boxes} labelsBySku={labelsBySku} defaultSkuId={defaultSkuId} />
+        <Boxes
+          boxes={boxes}
+          labelsBySku={labelsBySku}
+          defaultSkuId={defaultSkuId}
+          boxSkinMode={boxSkinMode}
+        />
 
         <gridHelper args={[3000, 30, '#ba9f84', '#d8c5b2']} />
         <OrbitControls makeDefault enableDamping dampingFactor={0.08} />

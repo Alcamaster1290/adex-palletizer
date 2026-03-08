@@ -56,8 +56,10 @@ describe('App scenarios storage', () => {
 
     const boxPreset = document.getElementById('single-box-preset') as HTMLSelectElement
     const packingMode = document.getElementById('single-packing-mode') as HTMLSelectElement
+    const skinMode = document.getElementById('global-box-skin-mode') as HTMLSelectElement
     fireEvent.change(boxPreset, { target: { value: 'compact-360-260-220' } })
     fireEvent.change(packingMode, { target: { value: 'advanced' } })
+    fireEvent.change(skinMode, { target: { value: 'sack' } })
     fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
     fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))
 
@@ -66,15 +68,17 @@ describe('App scenarios storage', () => {
     const stored = JSON.parse(storedRaw ?? '[]') as Array<Record<string, unknown>>
     const singleScenario = stored.find((item) => item.mode === 'single') as
       | {
-          single?: { boxPresetId?: string; packingMode?: string }
+          single?: { boxPresetId?: string; packingMode?: string; boxSkinMode?: string }
         }
       | undefined
 
     expect(singleScenario?.single?.boxPresetId).toBe('compact-360-260-220')
     expect(singleScenario?.single?.packingMode).toBe('advanced')
+    expect(singleScenario?.single?.boxSkinMode).toBe('sack')
 
     fireEvent.change(boxPreset, { target: { value: 'standard-600-400-200' } })
     fireEvent.change(packingMode, { target: { value: 'grid' } })
+    fireEvent.change(skinMode, { target: { value: 'box' } })
     fireEvent.click(screen.getByRole('button', { name: 'Cargar' }))
 
     expect((document.getElementById('single-box-preset') as HTMLSelectElement).value).toBe(
@@ -82,6 +86,9 @@ describe('App scenarios storage', () => {
     )
     expect((document.getElementById('single-packing-mode') as HTMLSelectElement).value).toBe(
       'advanced',
+    )
+    expect((document.getElementById('global-box-skin-mode') as HTMLSelectElement).value).toBe(
+      'sack',
     )
     expect((document.getElementById('box-length') as HTMLInputElement).value).toBe('360')
   })

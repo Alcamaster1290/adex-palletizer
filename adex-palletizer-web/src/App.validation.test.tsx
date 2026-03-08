@@ -2,7 +2,11 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import App from './App'
 
 vi.mock('./scene/Scene', () => ({
-  Scene: () => <div data-testid="scene-single">scene-single</div>,
+  Scene: (props: { boxSkinMode?: string }) => (
+    <div data-testid="scene-single" data-skin={props.boxSkinMode ?? 'box'}>
+      scene-single
+    </div>
+  ),
 }))
 
 vi.mock('./scene/SceneMulti', () => ({
@@ -126,6 +130,23 @@ describe('App input validation', () => {
     expect(packingMode.value).toBe('advanced')
     expect(screen.getByTestId('single-top-view-panel')).toBeInTheDocument()
     expect(screen.getByTestId('scene-single')).toBeInTheDocument()
+  })
+
+  it('toggle global de skin cambia el modo visual sin recalcular solver', () => {
+    render(<App />)
+
+    const skinSelect = document.getElementById('global-box-skin-mode') as HTMLSelectElement
+    const scene = screen.getByTestId('scene-single')
+
+    expect(skinSelect.value).toBe('box')
+    expect(scene.getAttribute('data-skin')).toBe('box')
+
+    fireEvent.change(skinSelect, { target: { value: 'sack' } })
+
+    expect((document.getElementById('global-box-skin-mode') as HTMLSelectElement).value).toBe(
+      'sack',
+    )
+    expect(screen.getByTestId('scene-single').getAttribute('data-skin')).toBe('sack')
   })
 
   it('cambia preset de caja a custom cuando se edita manualmente una dimension', () => {

@@ -3,7 +3,7 @@ import {
   getBoxPresetDimensions,
   type BoxPresetId,
 } from './boxPresets'
-import type { ContainerInput, PackingMode, SolverInput } from './types'
+import type { BoxSkinMode, ContainerInput, PackingMode, SolverInput } from './types'
 
 export type ShareMode = 'single' | 'multi' | 'container'
 
@@ -15,6 +15,7 @@ interface ParseShareResult {
   boxPresetId: BoxPresetId | null
   packingMode: PackingMode | null
   multiNoMixedSkuStacking: boolean | null
+  boxSkinMode: BoxSkinMode | null
 }
 
 const SINGLE_SHARE_KEYS = [
@@ -324,6 +325,14 @@ function parseMultiOptions(params: URLSearchParams): {
   }
 }
 
+function parseBoxSkinMode(params: URLSearchParams): BoxSkinMode | null {
+  const skinRaw = params.get('skin')
+  if (skinRaw === 'box' || skinRaw === 'sack') {
+    return skinRaw
+  }
+  return null
+}
+
 export function parseShareLinkInput(
   search: string,
   defaults: SolverInput,
@@ -351,6 +360,7 @@ export function parseShareLinkInput(
     boxPresetId: parsedSingle.boxPresetId,
     packingMode: parsedSingle.packingMode,
     multiNoMixedSkuStacking: parsedMulti.noMixedSkuStacking,
+    boxSkinMode: parseBoxSkinMode(params),
   }
 }
 
@@ -370,6 +380,7 @@ export function buildShareQuery(
     boxPresetId?: BoxPresetId
     packingMode?: PackingMode
     noMixedSkuStacking?: boolean
+    boxSkinMode?: BoxSkinMode
   },
 ) {
   const params = new URLSearchParams()
@@ -377,6 +388,7 @@ export function buildShareQuery(
   if (mode === 'multi') {
     params.set('mode', 'multi')
     params.set('noMix', options?.noMixedSkuStacking ? '1' : '0')
+    params.set('skin', options?.boxSkinMode ?? 'box')
     return `?${params.toString()}`
   }
 
@@ -399,6 +411,7 @@ export function buildShareQuery(
     if (input.payloadMaxKg !== undefined) {
       params.set('pMax', String(input.payloadMaxKg))
     }
+    params.set('skin', options?.boxSkinMode ?? 'box')
     return `?${params.toString()}`
   }
 
@@ -415,9 +428,11 @@ export function buildShareQuery(
     params.set('ov', String(input.overhang))
     params.set('pm', options?.packingMode ?? 'advanced')
     params.set('mode', mode)
+    params.set('skin', options?.boxSkinMode ?? 'box')
     return `?${params.toString()}`
   }
 
   params.set('mode', mode)
+  params.set('skin', options?.boxSkinMode ?? 'box')
   return `?${params.toString()}`
 }

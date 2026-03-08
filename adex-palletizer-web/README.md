@@ -68,6 +68,16 @@ npm run preview
 - Export JSON:
   - Incluye `labelsBySku` cuando existe.
 
+## Skin 3D de cajas (Box/Sack)
+
+- Selector global `Skin 3D global` en la cabecera del app:
+  - `Caja tecnica` (default)
+  - `Saco warehouse`
+- Aplica de forma consistente en `Caja unica`, `Multiples cajas` y `Contenedores`.
+- No cambia el solver ni recalcula resultados: solo cambia la capa visual 3D.
+- El valor se conserva al compartir enlace (`skin=box|sack`) y al guardar escenarios.
+- Si el modelo GLB del saco no carga, el render vuelve automaticamente a geometria de caja.
+
 ## Contenedores (Sprint 4 + ADEX-29)
 
 - Tab `Contenedores` para calcular carga palletizada dentro de contenedores.
@@ -173,6 +183,11 @@ Si el modelo tarda en cargar, se muestra un pallet de respaldo en forma de bloqu
 - Fuente: Poly Pizza
 - Licencia: CC BY 3.0
 - URL: https://poly.pizza/m/XSKlcrzyi6
+
+- Modelo: "Gunny Sack" por Oliver Herklotz
+- Fuente: Poly Pizza
+- Licencia: CC BY 3.0
+- URL: https://poly.pizza/m/fcE0hQK7uEt
 
 ## Logica de calculo (resumen)
 
