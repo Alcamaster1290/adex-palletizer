@@ -22,7 +22,7 @@ describe('App share link', () => {
     window.history.replaceState(
       {},
       '',
-      '/?pL=1300&pW=900&pH=160&bL=700&bW=500&bH=300&bKg=25&maxH=1400&rot=0&ov=25&mode=single',
+      '/?pL=1300&pW=900&pH=160&pKg=35&bL=700&bW=500&bH=300&bKg=25&maxH=1400&rot=0&ov=25&mode=single',
     )
 
     render(<App />)
@@ -30,6 +30,7 @@ describe('App share link', () => {
     expect((document.getElementById('pallet-length') as HTMLInputElement).value).toBe('1300')
     expect((document.getElementById('pallet-width') as HTMLInputElement).value).toBe('900')
     expect((document.getElementById('pallet-height') as HTMLInputElement).value).toBe('160')
+    expect((document.getElementById('pallet-weight') as HTMLInputElement).value).toBe('35')
     expect((document.getElementById('box-length') as HTMLInputElement).value).toBe('700')
     expect((document.getElementById('box-width') as HTMLInputElement).value).toBe('500')
     expect((document.getElementById('box-height') as HTMLInputElement).value).toBe('300')
@@ -125,6 +126,18 @@ describe('App share link', () => {
     fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
 
     expect(window.location.search).toContain('bKg=32')
+  })
+
+  it('incluye pKg al compartir enlace cuando se define peso del pallet base', () => {
+    render(<App />)
+
+    fireEvent.change(document.getElementById('pallet-weight') as HTMLInputElement, {
+      target: { value: '40' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
+    fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
+
+    expect(window.location.search).toContain('pKg=40')
   })
 
   it('aplica bPr en la inicializacion del modo single', () => {

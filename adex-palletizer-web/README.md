@@ -76,7 +76,7 @@ npm run preview
 - Aplica de forma consistente en `Caja unica`, `Multiples cajas` y `Contenedores`.
 - No cambia el solver ni recalcula resultados: solo cambia la capa visual 3D.
 - El valor se conserva al compartir enlace (`skin=box|sack`) y al guardar escenarios.
-- Si el modelo GLB del saco no carga, el render vuelve automaticamente a geometria de caja.
+- El skin `Saco warehouse` usa una geometria de saco logistica ajustada para apilado denso sobre pallet.
 
 ## Contenedores (Sprint 4 + ADEX-29)
 

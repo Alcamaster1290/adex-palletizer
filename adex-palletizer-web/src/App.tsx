@@ -135,6 +135,7 @@ type SingleFieldId =
   | 'pallet-length'
   | 'pallet-width'
   | 'pallet-height'
+  | 'pallet-weight'
   | 'box-length'
   | 'box-width'
   | 'box-height'
@@ -159,6 +160,7 @@ type ContainerFieldValues = Record<ContainerFieldId, string>
 
 interface MultiDraftState {
   pallet: DimensionsMM
+  palletWeightKg?: number
   maxTotalHeight: number
   allowRotation: boolean
   overhang: number
@@ -331,6 +333,7 @@ function resolveMultiSkuId(sku: MultiSkuInput) {
 
 const DEFAULT_MULTI_STATE: MultiDraftState = {
   pallet: { length: 1200, width: 1000, height: 150 },
+  palletWeightKg: undefined,
   maxTotalHeight: 1200,
   allowRotation: true,
   overhang: 0,
@@ -345,6 +348,7 @@ function cloneInput(input: SolverInput): SolverInput {
   return {
     pallet: { ...input.pallet },
     box: { ...input.box },
+    palletWeightKg: input.palletWeightKg,
     boxUnitWeightKg: input.boxUnitWeightKg,
     maxTotalHeight: input.maxTotalHeight,
     allowRotation: input.allowRotation,
@@ -355,6 +359,7 @@ function cloneInput(input: SolverInput): SolverInput {
 function cloneMultiState(state: MultiDraftState): MultiDraftState {
   return {
     pallet: { ...state.pallet },
+    palletWeightKg: state.palletWeightKg,
     maxTotalHeight: state.maxTotalHeight,
     allowRotation: state.allowRotation,
     overhang: state.overhang,
@@ -366,6 +371,7 @@ function cloneMultiState(state: MultiDraftState): MultiDraftState {
 function cloneMultiPreviewInput(state: MultiDraftState): MultiPreviewInput {
   return {
     pallet: { ...state.pallet },
+    palletWeightKg: state.palletWeightKg,
     maxTotalHeight: state.maxTotalHeight,
     overhang: state.overhang,
     allowRotation: state.allowRotation,
@@ -414,6 +420,7 @@ function normalizeMultiInput(input: MultiPreviewInput | Record<string, unknown>)
   const fallback = DEFAULT_MULTI_STATE
   const base = {
     pallet: { ...(candidate.pallet ?? fallback.pallet) },
+    palletWeightKg: candidate.palletWeightKg ?? fallback.palletWeightKg,
     maxTotalHeight: candidate.maxTotalHeight ?? fallback.maxTotalHeight,
     allowRotation: candidate.allowRotation ?? fallback.allowRotation,
     overhang: candidate.overhang ?? fallback.overhang,
@@ -484,6 +491,7 @@ function areInputsEqual(left: SolverInput, right: SolverInput) {
     left.box.length === right.box.length &&
     left.box.width === right.box.width &&
     left.box.height === right.box.height &&
+    left.palletWeightKg === right.palletWeightKg &&
     left.boxUnitWeightKg === right.boxUnitWeightKg &&
     left.maxTotalHeight === right.maxTotalHeight &&
     left.allowRotation === right.allowRotation &&
@@ -496,6 +504,7 @@ function areMultiStatesEqual(left: MultiDraftState, right: MultiDraftState) {
     left.pallet.length !== right.pallet.length ||
     left.pallet.width !== right.pallet.width ||
     left.pallet.height !== right.pallet.height ||
+    left.palletWeightKg !== right.palletWeightKg ||
     left.maxTotalHeight !== right.maxTotalHeight ||
     left.allowRotation !== right.allowRotation ||
     left.overhang !== right.overhang ||
@@ -616,6 +625,8 @@ function buildSingleFieldValues(input: SolverInput): SingleFieldValues {
     'pallet-length': String(input.pallet.length),
     'pallet-width': String(input.pallet.width),
     'pallet-height': String(input.pallet.height),
+    'pallet-weight':
+      input.palletWeightKg !== undefined ? String(input.palletWeightKg) : '',
     'box-length': String(input.box.length),
     'box-width': String(input.box.width),
     'box-height': String(input.box.height),
@@ -647,6 +658,8 @@ function buildMultiFieldValues(state: MultiDraftState): Record<string, string> {
     'multi-pallet-length': String(state.pallet.length),
     'multi-pallet-width': String(state.pallet.width),
     'multi-pallet-height': String(state.pallet.height),
+    'multi-pallet-weight':
+      typeof state.palletWeightKg === 'number' ? String(state.palletWeightKg) : '',
     'multi-max-total-height': String(state.maxTotalHeight),
     'multi-overhang': String(state.overhang),
   }
@@ -854,9 +867,14 @@ function App() {
   const singlePerLayer = singleIsAdvanced ? singleAdvancedResult.perLayer : result.selected.perLayer
   const singleTotalBoxes = singleIsAdvanced ? singleAdvancedResult.totalBoxes : result.totalBoxes
   const singleTotalHeight = singleIsAdvanced ? singleAdvancedResult.totalHeight : result.totalHeight
-  const singleTotalWeightKg =
+  const singleBoxesWeightKg =
     appliedInput.boxUnitWeightKg !== undefined
       ? singleTotalBoxes * appliedInput.boxUnitWeightKg
+      : null
+  const singlePalletBaseWeightKg = appliedInput.palletWeightKg ?? null
+  const singlePalletizedWeightKg =
+    singleBoxesWeightKg !== null || singlePalletBaseWeightKg !== null
+      ? (singleBoxesWeightKg ?? 0) + (singlePalletBaseWeightKg ?? 0)
       : null
   const singleUsedArea = singleIsAdvanced ? singleAdvancedResult.usedAreaPerLayer : result.usedArea
   const singleFreeArea = singleIsAdvanced ? singleAdvancedResult.freeAreaPerLayer : result.freeArea
@@ -889,7 +907,7 @@ function App() {
     multiAlgorithm === 'heuristic' && multiHeuristicResult
       ? multiHeuristicResult
       : multiPreviewResult
-  const multiTotalWeightKg = useMemo(() => {
+  const multiBoxesWeightKg = useMemo(() => {
     let hasWeightData = false
     let totalWeight = 0
 
@@ -910,6 +928,11 @@ function App() {
 
     return hasWeightData ? totalWeight : null
   }, [multiApplied.skus, multiResult.placedBySku])
+  const multiPalletBaseWeightKg = multiApplied.palletWeightKg ?? null
+  const multiPalletizedWeightKg =
+    multiBoxesWeightKg !== null || multiPalletBaseWeightKg !== null
+      ? (multiBoxesWeightKg ?? 0) + (multiPalletBaseWeightKg ?? 0)
+      : null
   const containerResult = useMemo(
     () => solveContainerLoading(containerApplied),
     [containerApplied],
@@ -1162,6 +1185,41 @@ function App() {
     }))
   }
 
+  const updateSinglePalletWeight = (value: string) => {
+    const fieldId: SingleFieldId = 'pallet-weight'
+    setSingleFieldValues((current) => ({
+      ...current,
+      [fieldId]: value,
+    }))
+
+    const trimmed = value.trim()
+    if (trimmed.length === 0) {
+      setSingleFieldErrors((current) => upsertFieldError(current, fieldId, null))
+      setDraftInput((current) => ({
+        ...current,
+        palletWeightKg: undefined,
+      }))
+      return
+    }
+
+    const validation = validateIntegerInput(value, {
+      label: 'El peso del pallet base',
+      min: 1,
+    })
+    setSingleFieldErrors((current) =>
+      upsertFieldError(current, fieldId, validation.error),
+    )
+
+    if (validation.value === null) {
+      return
+    }
+
+    setDraftInput((current) => ({
+      ...current,
+      palletWeightKg: validation.value ?? undefined,
+    }))
+  }
+
   const runSingleCalculation = () => {
     if (singleHasValidationErrors) {
       return
@@ -1357,7 +1415,9 @@ function App() {
   const useCurrentPalletResult = () => {
     const importedLoad = resolveCurrentPalletLoadFromSource(containerPalletSource)
     const estimatedPalletWeightKg =
-      containerPalletSource === 'multi' ? multiTotalWeightKg : singleTotalWeightKg
+      containerPalletSource === 'multi'
+        ? multiPalletizedWeightKg
+        : singlePalletizedWeightKg
     const sourcePallet: DimensionsMM = {
       length: importedLoad.palletLengthMm,
       width: importedLoad.palletWidthMm,
@@ -1493,6 +1553,41 @@ function App() {
         }))
       },
     )
+  }
+
+  const updateMultiPalletWeight = (value: string) => {
+    const fieldId = 'multi-pallet-weight'
+    setMultiFieldValues((current) => ({
+      ...current,
+      [fieldId]: value,
+    }))
+
+    const trimmed = value.trim()
+    if (trimmed.length === 0) {
+      setMultiFieldErrors((current) => upsertFieldError(current, fieldId, null))
+      setMultiDraft((current) => ({
+        ...current,
+        palletWeightKg: undefined,
+      }))
+      return
+    }
+
+    const validation = validateIntegerInput(value, {
+      label: 'El peso del pallet base',
+      min: 1,
+    })
+    setMultiFieldErrors((current) =>
+      upsertFieldError(current, fieldId, validation.error),
+    )
+
+    if (validation.value === null) {
+      return
+    }
+
+    setMultiDraft((current) => ({
+      ...current,
+      palletWeightKg: validation.value ?? undefined,
+    }))
   }
 
   const updateMultiCommon = (
@@ -2365,6 +2460,15 @@ function App() {
                     updateSingleDimensions('pallet-height', 'pallet', 'height', value)
                   }
                 />
+                <NumberField
+                  id="pallet-weight"
+                  label="Peso pallet base"
+                  min={1}
+                  unit="kg"
+                  value={singleFieldValues['pallet-weight']}
+                  error={singleFieldErrors['pallet-weight']}
+                  onChange={updateSinglePalletWeight}
+                />
               </div>
 
               <div className="field-group">
@@ -2600,10 +2704,10 @@ function App() {
                 <strong>{formatVolumeM3FromMm3(singleDerivedMetrics.totalBoxesVolumeMm3)}</strong>
               </article>
               <article className="kpi">
-                <span>Peso total estimado</span>
+                <span>Peso total palletizado</span>
                 <strong>
-                  {singleTotalWeightKg !== null
-                    ? `${formatInt.format(singleTotalWeightKg)} kg`
+                  {singlePalletizedWeightKg !== null
+                    ? `${formatInt.format(singlePalletizedWeightKg)} kg`
                     : 'No definido'}
                 </strong>
               </article>
@@ -2702,10 +2806,26 @@ function App() {
                   <td>{formatVolumeDualFromMm3(singleDerivedMetrics.totalUnitizedVolumeMm3)}</td>
                 </tr>
                 <tr>
-                  <th>Peso total estimado (kg)</th>
+                  <th>Peso pallet base (kg)</th>
                   <td>
-                    {singleTotalWeightKg !== null
-                      ? formatInt.format(singleTotalWeightKg)
+                    {singlePalletBaseWeightKg !== null
+                      ? formatInt.format(singlePalletBaseWeightKg)
+                      : 'No definido'}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Peso carga (kg)</th>
+                  <td>
+                    {singleBoxesWeightKg !== null
+                      ? formatInt.format(singleBoxesWeightKg)
+                      : 'No definido'}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Peso total palletizado (kg)</th>
+                  <td>
+                    {singlePalletizedWeightKg !== null
+                      ? formatInt.format(singlePalletizedWeightKg)
                       : 'No definido'}
                   </td>
                 </tr>
@@ -2774,6 +2894,15 @@ function App() {
                   value={multiFieldValues['multi-pallet-height']}
                   error={multiFieldErrors['multi-pallet-height']}
                   onChange={(value) => updateMultiPallet('height', value)}
+                />
+                <NumberField
+                  id="multi-pallet-weight"
+                  label="Peso pallet base"
+                  min={1}
+                  unit="kg"
+                  value={multiFieldValues['multi-pallet-weight']}
+                  error={multiFieldErrors['multi-pallet-weight']}
+                  onChange={updateMultiPalletWeight}
                 />
               </div>
 
@@ -3103,10 +3232,10 @@ function App() {
                 <strong>{formatInt.format(multiResult.layersUsed)}</strong>
               </article>
               <article className="kpi">
-                <span>Peso total estimado</span>
+                <span>Peso total palletizado</span>
                 <strong>
-                  {multiTotalWeightKg !== null
-                    ? `${formatInt.format(multiTotalWeightKg)} kg`
+                  {multiPalletizedWeightKg !== null
+                    ? `${formatInt.format(multiPalletizedWeightKg)} kg`
                     : 'No definido'}
                 </strong>
               </article>
@@ -3180,10 +3309,26 @@ function App() {
                     <td>{formatInt.format(multiResult.heightFree)}</td>
                   </tr>
                   <tr>
-                    <th>Peso total estimado (kg)</th>
+                    <th>Peso pallet base (kg)</th>
                     <td>
-                      {multiTotalWeightKg !== null
-                        ? formatInt.format(multiTotalWeightKg)
+                      {multiPalletBaseWeightKg !== null
+                        ? formatInt.format(multiPalletBaseWeightKg)
+                        : 'No definido'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>Peso carga (kg)</th>
+                    <td>
+                      {multiBoxesWeightKg !== null
+                        ? formatInt.format(multiBoxesWeightKg)
+                        : 'No definido'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>Peso total palletizado (kg)</th>
+                    <td>
+                      {multiPalletizedWeightKg !== null
+                        ? formatInt.format(multiPalletizedWeightKg)
                         : 'No definido'}
                     </td>
                   </tr>

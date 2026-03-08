@@ -190,18 +190,43 @@ describe('App input validation', () => {
   it('usar resultado actual del pallet actualiza pallet de carga en tab container', () => {
     render(<App />)
 
+    fireEvent.change(document.getElementById('single-packing-mode') as HTMLSelectElement, {
+      target: { value: 'grid' },
+    })
+    fireEvent.change(document.getElementById('box-length') as HTMLInputElement, {
+      target: { value: '600' },
+    })
+    fireEvent.change(document.getElementById('box-width') as HTMLInputElement, {
+      target: { value: '500' },
+    })
+    fireEvent.change(document.getElementById('box-height') as HTMLInputElement, {
+      target: { value: '200' },
+    })
+    fireEvent.change(document.getElementById('pallet-weight') as HTMLInputElement, {
+      target: { value: '18' },
+    })
+    fireEvent.change(document.getElementById('box-unit-weight') as HTMLInputElement, {
+      target: { value: '12' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
+
     fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
 
     const palletHeightInput = document.getElementById(
       'container-pallet-height',
     ) as HTMLInputElement
+    const weightPerPalletInput = document.getElementById(
+      'container-weight-per-pallet',
+    ) as HTMLInputElement
     expect(palletHeightInput.value).toBe('150')
+    expect(weightPerPalletInput.value).toBe('')
     const sceneContainer = screen.getByTestId('scene-container')
     expect(sceneContainer.getAttribute('data-load-height')).toBe('')
 
     fireEvent.click(screen.getByRole('button', { name: /usar resultado actual del pallet/i }))
 
     expect(palletHeightInput.value).toBe('1150')
+    expect(weightPerPalletInput.value).toBe('258')
     const loadHeight = Number(sceneContainer.getAttribute('data-load-height') ?? '0')
     const palletHeight = Number(sceneContainer.getAttribute('data-pallet-height') ?? '0')
     const loadBoxes = Number(sceneContainer.getAttribute('data-load-boxes') ?? '0')

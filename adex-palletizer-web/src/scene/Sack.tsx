@@ -1,10 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useGLTF } from '@react-three/drei'
 import { useMemo } from 'react'
 import { BufferGeometry, Texture } from 'three'
-import { normalizeSackGeometry, pickLargestBakedGeometry } from './sackGeometry'
-
-const SACK_MODEL_PATH = '/models/gunny-sack.glb'
+import { createWarehouseSackGeometry } from './sackGeometry'
 
 export interface SackTemplate {
   geometry: BufferGeometry
@@ -39,16 +36,8 @@ export function SackFallback({
 }
 
 export function useSackTemplate(): SackTemplate | null {
-  const gltf = useGLTF(SACK_MODEL_PATH)
-
   return useMemo(() => {
-    const bakedGeometry = pickLargestBakedGeometry(gltf.scene)
-    if (!bakedGeometry) {
-      return null
-    }
-
-    const geometry = normalizeSackGeometry(bakedGeometry)
-    bakedGeometry.dispose()
+    const geometry = createWarehouseSackGeometry()
     if (!geometry) {
       return null
     }
@@ -56,7 +45,7 @@ export function useSackTemplate(): SackTemplate | null {
     return {
       geometry,
     }
-  }, [gltf.scene])
+  }, [])
 }
 
 interface SackMeshProps {
@@ -105,5 +94,3 @@ export function SackMesh({
     </mesh>
   )
 }
-
-useGLTF.preload(SACK_MODEL_PATH)

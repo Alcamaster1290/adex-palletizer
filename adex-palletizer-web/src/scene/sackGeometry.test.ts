@@ -1,5 +1,6 @@
 import { BoxGeometry, BufferGeometry, Mesh, Object3D, Vector3 } from 'three'
 import {
+  createWarehouseSackGeometry,
   bakeMeshWorldGeometry,
   normalizeSackGeometry,
   pickLargestBakedGeometry,
@@ -17,6 +18,28 @@ function getBoundsSize(geometry: BufferGeometry) {
 }
 
 describe('sackGeometry helpers', () => {
+  it('createWarehouseSackGeometry genera un saco plano con base apoyada y huella completa', () => {
+    const geometry = createWarehouseSackGeometry()
+    expect(geometry).not.toBeNull()
+    if (!geometry) {
+      return
+    }
+
+    geometry.computeBoundingBox()
+    const bounds = geometry.boundingBox
+    expect(bounds).not.toBeNull()
+    if (!bounds) {
+      return
+    }
+
+    expect(bounds.min.x).toBeCloseTo(-0.5, 4)
+    expect(bounds.max.x).toBeCloseTo(0.5, 4)
+    expect(bounds.min.z).toBeCloseTo(-0.5, 4)
+    expect(bounds.max.z).toBeCloseTo(0.5, 4)
+    expect(bounds.min.y).toBeCloseTo(0, 4)
+    expect(bounds.max.y).toBeCloseTo(1, 4)
+  })
+
   it('normalizeSackGeometry centra X/Z y alinea la base en Y=0', () => {
     const source = new BoxGeometry(2, 4, 6)
     source.translate(10, 3, -8)

@@ -26,13 +26,14 @@ export function Boxes({
   return (
     <>
       {boxes.map((box, index) => {
-        const visualLength = Math.max(1, box.length - VISUAL_GAP_MM)
-        const visualHeight = Math.max(1, box.height - VISUAL_GAP_MM)
-        const visualWidth = Math.max(1, box.width - VISUAL_GAP_MM)
+        const sackMode = boxSkinMode === 'sack'
+        const visualLength = sackMode ? box.length : Math.max(1, box.length - VISUAL_GAP_MM)
+        const visualHeight = sackMode ? box.height : Math.max(1, box.height - VISUAL_GAP_MM)
+        const visualWidth = sackMode ? box.width : Math.max(1, box.width - VISUAL_GAP_MM)
         const texture = resolveSkuTexture(labelsBySku, box.skuId, defaultSkuId)
         const materialColor = texture ? '#ffffff' : box.color ?? DEFAULT_BOX_COLOR
 
-        if (boxSkinMode === 'sack') {
+        if (sackMode) {
           return (
             <group
               key={`${index}-${box.x}-${box.y}-${box.z}`}

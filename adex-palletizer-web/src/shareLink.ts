@@ -22,6 +22,7 @@ const SINGLE_SHARE_KEYS = [
   'pL',
   'pW',
   'pH',
+  'pKg',
   'bPr',
   'bL',
   'bW',
@@ -53,6 +54,7 @@ function cloneSolverInput(input: SolverInput): SolverInput {
   return {
     pallet: { ...input.pallet },
     box: { ...input.box },
+    palletWeightKg: input.palletWeightKg,
     boxUnitWeightKg: input.boxUnitWeightKg,
     maxTotalHeight: input.maxTotalHeight,
     allowRotation: input.allowRotation,
@@ -145,6 +147,7 @@ function parseSingleInput(
   const pL = parseIntegerParam(params.get('pL'), 1)
   const pW = parseIntegerParam(params.get('pW'), 1)
   const pH = parseIntegerParam(params.get('pH'), 1)
+  const pKg = parseOptionalPositiveInteger(params.get('pKg'))
   const bL = parseIntegerParam(params.get('bL'), 50)
   const bW = parseIntegerParam(params.get('bW'), 50)
   const bH = parseIntegerParam(params.get('bH'), 50)
@@ -165,7 +168,7 @@ function parseSingleInput(
   }
 
   const invalidValues =
-    [pL, pW, pH, bL, bW, bH, bKg, maxH, ov].some((value) => Number.isNaN(value)) ||
+    [pL, pW, pH, pKg, bL, bW, bH, bKg, maxH, ov].some((value) => Number.isNaN(value)) ||
     rotInvalid
 
   if (invalidValues) {
@@ -188,6 +191,7 @@ function parseSingleInput(
       width: bW ?? baseInput.box.width,
       height: bH ?? baseInput.box.height,
     },
+    palletWeightKg: pKg ?? defaults.palletWeightKg,
     boxUnitWeightKg: bKg ?? defaults.boxUnitWeightKg,
     maxTotalHeight: maxH ?? defaults.maxTotalHeight,
     allowRotation: rot === null ? defaults.allowRotation : rot,
@@ -423,6 +427,9 @@ export function buildShareQuery(
     params.set('pL', String(input.pallet.length))
     params.set('pW', String(input.pallet.width))
     params.set('pH', String(input.pallet.height))
+    if (input.palletWeightKg !== undefined) {
+      params.set('pKg', String(input.palletWeightKg))
+    }
     params.set('bPr', options?.boxPresetId ?? detectBoxPreset(input.box))
     params.set('bL', String(input.box.length))
     params.set('bW', String(input.box.width))

@@ -11,6 +11,7 @@ export type BoxSkinMode = 'box' | 'sack'
 export interface SolverInput {
   pallet: PalletInput
   box: BoxInput
+  palletWeightKg?: number
   boxUnitWeightKg?: number
   maxTotalHeight: number
   allowRotation: boolean
@@ -207,6 +208,7 @@ export interface MultiSkuInput {
 
 export interface MultiPreviewInput {
   pallet: PalletInput
+  palletWeightKg?: number
   maxTotalHeight: number
   allowRotation: boolean
   overhang: number
