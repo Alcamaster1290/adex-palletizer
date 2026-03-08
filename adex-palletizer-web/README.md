@@ -184,10 +184,10 @@ Si el modelo tarda en cargar, se muestra un pallet de respaldo en forma de bloqu
 - Licencia: CC BY 3.0
 - URL: https://poly.pizza/m/XSKlcrzyi6
 
-- Modelo: "Gunny Sack" por Oliver Herklotz
+- Modelo: "Sack Trench Small" por Quaternius
 - Fuente: Poly Pizza
 - Licencia: CC BY 3.0
-- URL: https://poly.pizza/m/fcE0hQK7uEt
+- URL: https://poly.pizza/m/iHyRewQQcN
 
 ## Logica de calculo (resumen)
 
