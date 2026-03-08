@@ -53,6 +53,7 @@ interface SackMeshProps {
   length: number
   width: number
   height: number
+  gravityOffsetY?: number
   color: string
   texture?: Texture | null
 }
@@ -62,6 +63,7 @@ export function SackMesh({
   length,
   width,
   height,
+  gravityOffsetY = -height / 2,
   color,
   texture = null,
 }: SackMeshProps) {
@@ -83,7 +85,7 @@ export function SackMesh({
       castShadow
       receiveShadow
       scale={[length, height, width]}
-      position={[0, -height / 2, 0]}
+      position={[0, gravityOffsetY, 0]}
     >
       <meshStandardMaterial
         color={texture ? '#ffffff' : color}

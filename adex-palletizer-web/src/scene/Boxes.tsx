@@ -2,6 +2,7 @@ import { Edges, Text } from '@react-three/drei'
 import { VISUAL_GAP_MM } from '../constants'
 import { resolveSkuTexture } from '../labels/labelTextures'
 import { SackMesh, useSackTemplate } from './Sack'
+import { resolveSackVisualProfile } from './sackVisual'
 import type { BoxInstance, BoxSkinMode, SkuLabelsBySku } from '../types'
 
 interface BoxesProps {
@@ -22,14 +23,28 @@ export function Boxes({
   boxSkinMode = 'box',
 }: BoxesProps) {
   const sackTemplate = useSackTemplate()
+  const baseBottomY =
+    boxes.length > 0 ? Math.min(...boxes.map((box) => box.y - box.height / 2)) : 0
 
   return (
     <>
       {boxes.map((box, index) => {
         const sackMode = boxSkinMode === 'sack'
-        const visualLength = sackMode ? box.length : Math.max(1, box.length - VISUAL_GAP_MM)
-        const visualHeight = sackMode ? box.height : Math.max(1, box.height - VISUAL_GAP_MM)
-        const visualWidth = sackMode ? box.width : Math.max(1, box.width - VISUAL_GAP_MM)
+        const isStacked =
+          sackMode &&
+          ((box.layer ?? 0) > 0 || box.y - box.height / 2 > baseBottomY + 0.5)
+        const sackVisual = sackMode
+          ? resolveSackVisualProfile(box.length, box.width, box.height, isStacked)
+          : null
+        const visualLength = sackVisual
+          ? sackVisual.visualLength
+          : Math.max(1, box.length - VISUAL_GAP_MM)
+        const visualHeight = sackVisual
+          ? sackVisual.visualHeight
+          : Math.max(1, box.height - VISUAL_GAP_MM)
+        const visualWidth = sackVisual
+          ? sackVisual.visualWidth
+          : Math.max(1, box.width - VISUAL_GAP_MM)
         const texture = resolveSkuTexture(labelsBySku, box.skuId, defaultSkuId)
         const materialColor = texture ? '#ffffff' : box.color ?? DEFAULT_BOX_COLOR
 
@@ -44,12 +59,13 @@ export function Boxes({
                 length={visualLength}
                 height={visualHeight}
                 width={visualWidth}
+                gravityOffsetY={sackVisual?.gravityOffsetY}
                 color={materialColor}
                 texture={texture}
               />
               {showLabels && box.label && (
                 <Text
-                  position={[0, visualHeight / 2 + 14, 0]}
+                  position={[0, (sackVisual?.topSurfaceY ?? visualHeight / 2) + 14, 0]}
                   fontSize={28}
                   color="#1f1f1f"
                   anchorX="center"

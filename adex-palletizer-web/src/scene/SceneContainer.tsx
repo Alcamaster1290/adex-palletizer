@@ -14,6 +14,7 @@ import type {
 } from '../types'
 import { Pallet, PalletFallback } from './Pallet'
 import { useSackTemplate } from './Sack'
+import { resolveSackVisualProfile } from './sackVisual'
 
 interface SceneContainerProps {
   input: ContainerInput
@@ -33,6 +34,7 @@ interface InstanceTransform {
   y: number
   z: number
   rotationY: number
+  isStacked?: boolean
 }
 
 interface InstancedBoxGroupProps {
@@ -97,11 +99,20 @@ function InstancedBoxGroup({
     const dummy = new Object3D()
 
     instances.forEach((instance, index) => {
-      const resolvedY = useSack ? instance.y - visualHeight / 2 : instance.y
+      const sackVisual = useSack
+        ? resolveSackVisualProfile(length, width, height, Boolean(instance.isStacked))
+        : null
+      const resolvedY = useSack
+        ? instance.y + (sackVisual?.gravityOffsetY ?? -visualHeight / 2)
+        : instance.y
       dummy.position.set(instance.x, resolvedY, instance.z)
       dummy.rotation.set(0, instance.rotationY, 0)
       if (useSack) {
-        dummy.scale.set(visualLength, visualHeight, visualWidth)
+        dummy.scale.set(
+          sackVisual?.visualLength ?? visualLength,
+          sackVisual?.visualHeight ?? visualHeight,
+          sackVisual?.visualWidth ?? visualWidth,
+        )
       } else {
         dummy.scale.set(1, 1, 1)
       }
@@ -110,7 +121,7 @@ function InstancedBoxGroup({
     })
 
     mesh.instanceMatrix.needsUpdate = true
-  }, [instances, useSack, visualHeight, visualLength, visualWidth])
+  }, [height, instances, length, useSack, visualHeight, visualLength, visualWidth, width])
 
   if (instances.length === 0) {
     return null
@@ -204,6 +215,7 @@ export function SceneContainer({
             y: placement.y - placement.height / 2 + baseHeight + remainingHeight / 2,
             z: placement.z,
             rotationY: placement.rotated ? Math.PI / 2 : 0,
+            isStacked: false,
           },
         ],
       })
@@ -241,6 +253,7 @@ export function SceneContainer({
               y: floorY + palletLoad.palletHeightMm + fallbackHeight / 2,
               z: placement.z,
               rotationY: placement.rotated ? Math.PI / 2 : 0,
+              isStacked: false,
             }
           }),
         },
@@ -264,6 +277,7 @@ export function SceneContainer({
             y: floorY + palletLoad.palletHeightMm + box.yMm,
             z: placement.z + offsetZ,
             rotationY,
+            isStacked: box.yMm - box.heightMm / 2 > 0.5,
           })
         })
       })

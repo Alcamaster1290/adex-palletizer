@@ -6,6 +6,8 @@ export const MIN_MASTER_BOX = {
 
 export const VISUAL_GAP_MM = 2
 export const CONTAINER_CLEARANCE_MM = 50
+export const SACK_FOOTPRINT_OVERLAP_MM = 18
+export const SACK_GRAVITY_SETTLE_MM = 12
 
 export const MULTI_TYPE_COLORS = [
   '#2f8f9d',
