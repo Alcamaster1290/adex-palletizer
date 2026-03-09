@@ -76,7 +76,7 @@ npm run preview
 - Aplica de forma consistente en `Caja unica`, `Multiples cajas` y `Contenedores`.
 - No cambia el solver ni recalcula resultados: solo cambia la capa visual 3D.
 - El valor se conserva al compartir enlace (`skin=box|sack`) y al guardar escenarios.
-- El skin `Saco warehouse` usa una geometria de saco logistica ajustada para apilado denso sobre pallet.
+- El skin `Saco warehouse` usa un modelo 3D real de saco warehouse, normalizado y escalado a las dimensiones configuradas de largo/ancho/alto.
 
 ## Contenedores (Sprint 4 + ADEX-29)
 
@@ -184,10 +184,10 @@ Si el modelo tarda en cargar, se muestra un pallet de respaldo en forma de bloqu
 - Licencia: CC BY 3.0
 - URL: https://poly.pizza/m/XSKlcrzyi6
 
-- Modelo: "Sack - Game Asset" por Don Carson
+- Modelo: "Bag" por Quaternius
 - Fuente: Poly Pizza
-- Licencia: CC BY 3.0
-- URL: https://poly.pizza/m/34cZWd7Lr5o
+- Licencia: Public Domain (CC0 1.0)
+- URL: https://poly.pizza/m/VRfAODZ0Xk
 
 ## Logica de calculo (resumen)
 

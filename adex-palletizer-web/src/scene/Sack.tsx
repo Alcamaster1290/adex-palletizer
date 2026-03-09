@@ -1,10 +1,76 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BufferGeometry, Texture } from 'three'
-import { createWarehouseSackGeometry } from './sackGeometry'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import {
+  createWarehouseSackGeometry,
+  normalizeSackGeometry,
+  pickLargestBakedGeometry,
+} from './sackGeometry'
 
 export interface SackTemplate {
   geometry: BufferGeometry
+}
+
+const WAREHOUSE_SACK_MODEL_URL = '/models/warehouse-sack.glb'
+
+let cachedSackGeometry: BufferGeometry | null = null
+let loadingSackGeometry: Promise<BufferGeometry | null> | null = null
+
+function buildFallbackSackGeometry(): BufferGeometry | null {
+  if (cachedSackGeometry) {
+    return cachedSackGeometry
+  }
+
+  const fallback = createWarehouseSackGeometry()
+  if (!fallback) {
+    return null
+  }
+
+  cachedSackGeometry = fallback
+  return fallback
+}
+
+function loadWarehouseSackGeometry(): Promise<BufferGeometry | null> {
+  if (cachedSackGeometry) {
+    return Promise.resolve(cachedSackGeometry)
+  }
+
+  if (loadingSackGeometry) {
+    return loadingSackGeometry
+  }
+
+  loadingSackGeometry = new Promise((resolve) => {
+    const loader = new GLTFLoader()
+    loader.load(
+      WAREHOUSE_SACK_MODEL_URL,
+      (gltf) => {
+        const bakedGeometry = pickLargestBakedGeometry(gltf.scene)
+        const normalizedGeometry = bakedGeometry
+          ? normalizeSackGeometry(bakedGeometry)
+          : null
+
+        bakedGeometry?.dispose()
+
+        if (!normalizedGeometry) {
+          resolve(buildFallbackSackGeometry())
+          loadingSackGeometry = null
+          return
+        }
+
+        cachedSackGeometry = normalizedGeometry
+        resolve(normalizedGeometry)
+        loadingSackGeometry = null
+      },
+      undefined,
+      () => {
+        resolve(buildFallbackSackGeometry())
+        loadingSackGeometry = null
+      },
+    )
+  })
+
+  return loadingSackGeometry
 }
 
 interface SackFallbackProps {
@@ -36,16 +102,32 @@ export function SackFallback({
 }
 
 export function useSackTemplate(): SackTemplate | null {
+  const [geometry, setGeometry] = useState<BufferGeometry | null>(
+    cachedSackGeometry,
+  )
+
+  useEffect(() => {
+    let active = true
+
+    loadWarehouseSackGeometry().then((loadedGeometry) => {
+      if (!active) {
+        return
+      }
+      setGeometry(loadedGeometry)
+    })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   return useMemo(() => {
-    const geometry = createWarehouseSackGeometry()
     if (!geometry) {
       return null
     }
 
-    return {
-      geometry,
-    }
-  }, [])
+    return { geometry }
+  }, [geometry])
 }
 
 interface SackMeshProps {
