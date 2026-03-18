@@ -35,6 +35,8 @@ export function getConfig(): AppConfig {
     throw new Error('DATABASE_URL es obligatorio para iniciar el backend.')
   }
 
+  const isVercelRuntime = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_URL)
+
   return {
     port: parsePositiveInteger(process.env.PORT, DEFAULT_PORT),
     host: process.env.HOST?.trim() || DEFAULT_HOST,
@@ -42,7 +44,7 @@ export function getConfig(): AppConfig {
     corsOrigin: process.env.CORS_ORIGIN?.trim() || DEFAULT_CORS_ORIGIN,
     cookieName: process.env.COOKIE_NAME?.trim() || DEFAULT_COOKIE_NAME,
     sessionTtlDays: parsePositiveInteger(process.env.SESSION_TTL_DAYS, DEFAULT_SESSION_TTL_DAYS),
-    cookieSecure: process.env.AUTH_COOKIE_SECURE === 'true',
+    cookieSecure: process.env.AUTH_COOKIE_SECURE === 'true' || isVercelRuntime,
     sislopeUrl: process.env.SISLOPE_URL?.trim() || DEFAULT_SISLOPE_URL,
   }
 }

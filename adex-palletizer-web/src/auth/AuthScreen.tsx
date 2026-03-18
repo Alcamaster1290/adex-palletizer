@@ -26,6 +26,7 @@ export function AuthScreen({
   sislopeUrl,
 }: AuthScreenProps) {
   const apiBaseUrl = getApiBaseUrl()
+  const usesLocalDocker = apiBaseUrl.includes('localhost:8787')
 
   if (status === 'checking') {
     return (
@@ -56,7 +57,11 @@ export function AuthScreen({
           <ul className="auth-bullets">
             <li>Backend esperado: {apiBaseUrl}</li>
             <li>Usuario bootstrap de prueba: `admin`</li>
-            <li>Docker local: `npm run docker:backend:up`</li>
+            <li>
+              {usesLocalDocker
+                ? 'Docker local: `npm run docker:backend:up`'
+                : 'Produccion: el backend se sirve desde el mismo deployment en `/api`.'}
+            </li>
           </ul>
         </div>
 

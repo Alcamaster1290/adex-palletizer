@@ -20,14 +20,18 @@ interface ErrorPayload {
   message?: string
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8787'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || ''
 
 function buildUrl(path: string): string {
+  if (!API_BASE_URL) {
+    return path
+  }
+
   return new URL(path, API_BASE_URL).toString()
 }
 
 export function getApiBaseUrl() {
-  return API_BASE_URL
+  return API_BASE_URL || 'mismo origen (/api)'
 }
 
 export class AuthApiError extends Error {

@@ -170,6 +170,9 @@ Formula base del solver de contenedor (fila homogenea):
 ```bash
 VITE_API_BASE_URL=http://localhost:8787
 ```
+
+- En Vercel no hace falta definir `VITE_API_BASE_URL` si la API vive en el mismo proyecto.
+- En desarrollo local, si no defines `VITE_API_BASE_URL`, Vite reenvia `/api` a `http://localhost:8787`.
 - Endpoints incluidos:
   - `GET /api/health`
   - `POST /api/auth/login`
@@ -214,6 +217,28 @@ curl http://localhost:8787/api/integrations/sislope/health
 ```
 
 - El endpoint `/api/integrations/sislope/health` permite verificar que la integracion externa con `https://sis-lo-pe.vercel.app` responde sin error.
+
+## Vercel (frontend + backend en el mismo proyecto)
+
+- La SPA sigue saliendo desde `dist`.
+- El backend B1 se publica como Vercel Functions en:
+  - `api/health.ts`
+  - `api/auth/*`
+  - `api/integrations/sislope/health.ts`
+- Variable obligatoria en Vercel:
+  - `DATABASE_URL`
+- Variables opcionales recomendadas:
+  - `COOKIE_NAME`
+  - `SESSION_TTL_DAYS`
+  - `AUTH_COOKIE_SECURE=true`
+  - `SISLOPE_URL=https://sis-lo-pe.vercel.app`
+- La URL de autenticacion en produccion queda bajo el mismo dominio del app:
+  - `/api/auth/login`
+  - `/api/auth/me`
+- Migraciones de PostgreSQL/Neon:
+  ```bash
+  npm run server:migrate
+  ```
 - `pitchL = palletL + palletGap`
 - `pitchW = palletW + palletGap`
 - `nx = floor((effectiveL + palletGap) / pitchL)`

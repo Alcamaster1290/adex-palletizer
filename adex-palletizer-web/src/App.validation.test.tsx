@@ -87,20 +87,39 @@ describe('App input validation', () => {
       },
     }
 
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: 'UNAUTHENTICATED' }), {
-          status: 401,
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url
+
+      if (url.includes('/api/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'UNAUTHENTICATED' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/api/auth/login')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(authenticatedPayload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ error: 'NOT_MOCKED' }), {
+          status: 404,
           headers: { 'Content-Type': 'application/json' },
         }),
       )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(authenticatedPayload), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      )
+    })
 
     vi.stubGlobal('fetch', fetchMock)
 
@@ -116,7 +135,7 @@ describe('App input validation', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /iniciar sesion/i }))
 
-    expect(await screen.findByText(/resolver unitarizacion y contenedorizacion/i)).toBeInTheDocument()
+    expect(await screen.findByText(/pallet solver by alvaro cac/i)).toBeInTheDocument()
     expect(screen.getByText(/sesion activa/i)).toBeInTheDocument()
 
     delete (window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
