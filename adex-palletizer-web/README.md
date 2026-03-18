@@ -165,6 +165,11 @@ Formula base del solver de contenedor (fila homogenea):
   - `npm run server:build`
 - Variables de entorno base:
   - `server/.env.example`
+- Variable frontend para conectar la SPA con el backend:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8787
+```
 - Endpoints incluidos:
   - `GET /api/health`
   - `POST /api/auth/login`

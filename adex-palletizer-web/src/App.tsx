@@ -1,4 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { AuthScreen } from './auth/AuthScreen'
+import {
+  AuthApiError,
+  fetchCurrentSession,
+  loginWithPassword,
+  logoutSession,
+  type AuthUser,
+} from './auth/authApi'
 import {
   BOX_PRESET_OPTIONS,
   detectBoxPreset,
@@ -134,6 +142,15 @@ const DEFAULT_CONTAINER_INPUT: ContainerInput = {
   allowStacking: false,
 }
 
+const TEST_AUTH_USER: AuthUser = {
+  id: 'test-user-id',
+  username: 'admin',
+  email: 'admin',
+  role: 'admin',
+  status: 'active',
+  mustChangePassword: true,
+}
+
 const MIN_SINGLE_BOX_DIMENSION_MM = 50
 const MIN_WEIGHT_KG = 0.001
 
@@ -143,6 +160,7 @@ type LabelEditorMode = 'single' | 'multi'
 type FieldErrors = Record<string, string>
 type PalletPresetKey = 'american' | 'euro' | 'custom'
 type ContainerPalletSource = 'single' | 'multi'
+type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated'
 
 type SingleFieldId =
   | 'pallet-length'
@@ -875,10 +893,29 @@ function App() {
     }
     return next
   }, [initialShareState.multiNoMixedSkuStacking])
+  const testAuthBypass =
+    import.meta.env.MODE === 'test' &&
+    !(window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialShareState.mode)
   const [shareWarning] = useState<string | null>(initialShareState.warning)
   const [shareStatus, setShareStatus] = useState<string | null>(null)
+  const [authStatus, setAuthStatus] = useState<AuthStatus>(
+    testAuthBypass ? 'authenticated' : 'checking',
+  )
+  const [authUser, setAuthUser] = useState<AuthUser | null>(testAuthBypass ? TEST_AUTH_USER : null)
+  const [authSessionExpiresAt, setAuthSessionExpiresAt] = useState<string | null>(
+    testAuthBypass ? '2099-01-01T00:00:00.000Z' : null,
+  )
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [authIdentifier, setAuthIdentifier] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authSubmitting, setAuthSubmitting] = useState(false)
+  const [authNotice, setAuthNotice] = useState<string | null>(
+    testAuthBypass
+      ? 'Sesion de prueba inyectada por la suite automatizada.'
+      : null,
+  )
   const [skuLabelsBySku, setSkuLabelsBySku] = useState<SkuLabelsBySku>(() =>
     loadSkuLabels(),
   )
@@ -972,6 +1009,121 @@ function App() {
     loadStoredScenarios(),
   )
   const [scenarioNotice, setScenarioNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (testAuthBypass) {
+      return
+    }
+
+    let isMounted = true
+
+    const restoreSession = async () => {
+      try {
+        const sessionPayload = await fetchCurrentSession()
+        if (!isMounted) {
+          return
+        }
+
+        setAuthUser(sessionPayload.user)
+        setAuthSessionExpiresAt(sessionPayload.session.expiresAt)
+        setAuthStatus('authenticated')
+        setAuthError(null)
+        setAuthNotice(
+          sessionPayload.user.mustChangePassword
+            ? 'Sesion iniciada con credencial temporal. El cambio de contrasena se habilitara en el siguiente sprint.'
+            : null,
+        )
+      } catch (error) {
+        if (!isMounted) {
+          return
+        }
+
+        setAuthUser(null)
+        setAuthSessionExpiresAt(null)
+        setAuthStatus('unauthenticated')
+        setAuthError(
+          error instanceof AuthApiError && error.status !== 401 ? error.message : null,
+        )
+        setAuthNotice(null)
+      }
+    }
+
+    void restoreSession()
+
+    return () => {
+      isMounted = false
+    }
+  }, [testAuthBypass])
+
+  const runAuthLogin = async () => {
+    const identifier = authIdentifier.trim()
+    const password = authPassword
+
+    if (!identifier || !password) {
+      setAuthError('Ingresa usuario/correo y contrasena para continuar.')
+      return
+    }
+
+    setAuthSubmitting(true)
+    setAuthError(null)
+
+    try {
+      const sessionPayload = await loginWithPassword(identifier, password)
+      setAuthUser(sessionPayload.user)
+      setAuthSessionExpiresAt(sessionPayload.session.expiresAt)
+      setAuthStatus('authenticated')
+      setAuthPassword('')
+      setAuthNotice(
+        sessionPayload.user.mustChangePassword
+          ? 'Sesion iniciada con credencial temporal. Debes cambiarla cuando habilitemos ese flujo.'
+          : null,
+      )
+    } catch (error) {
+      setAuthError(
+        error instanceof AuthApiError
+          ? error.message
+          : 'No se pudo iniciar sesion. Intenta nuevamente.',
+      )
+      setAuthStatus('unauthenticated')
+    } finally {
+      setAuthSubmitting(false)
+    }
+  }
+
+  const retryAuthSession = async () => {
+    setAuthStatus('checking')
+    setAuthError(null)
+
+    try {
+      const sessionPayload = await fetchCurrentSession()
+      setAuthUser(sessionPayload.user)
+      setAuthSessionExpiresAt(sessionPayload.session.expiresAt)
+      setAuthStatus('authenticated')
+      setAuthNotice(
+        sessionPayload.user.mustChangePassword
+          ? 'Sesion iniciada con credencial temporal. El cambio de contrasena se habilitara en el siguiente sprint.'
+          : null,
+      )
+    } catch (error) {
+      setAuthStatus('unauthenticated')
+      setAuthError(
+        error instanceof AuthApiError && error.status !== 401 ? error.message : null,
+      )
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logoutSession()
+    } finally {
+      setAuthUser(null)
+      setAuthSessionExpiresAt(null)
+      setAuthStatus('unauthenticated')
+      setAuthNotice(null)
+      setAuthPassword('')
+      setAuthError(null)
+    }
+  }
 
   const result = useMemo(() => solvePalletization(appliedInput), [appliedInput])
   const singleAdvancedResult = useMemo(
@@ -2542,6 +2694,27 @@ function App() {
     )
   }
 
+  if (authStatus !== 'authenticated' || authUser === null) {
+    return (
+      <AuthScreen
+        status={authStatus === 'checking' ? 'checking' : 'unauthenticated'}
+        identifier={authIdentifier}
+        password={authPassword}
+        error={authError}
+        submitting={authSubmitting}
+        onIdentifierChange={setAuthIdentifier}
+        onPasswordChange={setAuthPassword}
+        onSubmit={() => {
+          void runAuthLogin()
+        }}
+        onRetrySession={() => {
+          void retryAuthSession()
+        }}
+        sislopeUrl={SISLOPE_URL}
+      />
+    )
+  }
+
   return (
     <main className="app-shell">
       <header className="hero">
@@ -2575,8 +2748,25 @@ function App() {
           >
             Abrir Sistema Logistico del Peru
           </a>
+          <div className="session-badge" aria-live="polite">
+            <span className="session-label">Sesion activa</span>
+            <strong>{authUser.username}</strong>
+            <small>
+              {authUser.role}
+              {authSessionExpiresAt ? ` · vence ${new Date(authSessionExpiresAt).toLocaleString('es-ES')}` : ''}
+            </small>
+          </div>
+          <button type="button" className="btn-secondary" onClick={() => void handleLogout()}>
+            Cerrar sesion
+          </button>
         </div>
       </header>
+
+      {authNotice && (
+        <div className="notice-box" role="status">
+          <p>{authNotice}</p>
+        </div>
+      )}
 
       {shareWarning && (
         <div className="notice-box" role="alert">

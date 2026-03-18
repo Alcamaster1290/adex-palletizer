@@ -38,6 +38,10 @@ vi.mock('./scene/SceneContainer', () => ({
   ),
 }))
 
+afterEach(() => {
+  delete (window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
+})
+
 describe('App input validation', () => {
   it('bloquea Calcular y muestra error cuando un campo queda vacio', () => {
     render(<App />)
@@ -63,6 +67,59 @@ describe('App input validation', () => {
 
     expect(sislopeLink).toHaveAttribute('href', 'https://sis-lo-pe.vercel.app')
     expect(sislopeLink).toHaveAttribute('target', '_blank')
+  })
+
+  it('muestra login cuando no hay sesion y permite entrar con admin/admin', async () => {
+    ;(window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__ = true
+
+    const authenticatedPayload = {
+      user: {
+        id: 'user-1',
+        username: 'admin',
+        email: 'admin',
+        role: 'admin',
+        status: 'active',
+        mustChangePassword: true,
+      },
+      session: {
+        id: 'session-1',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+      },
+    }
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'UNAUTHENTICATED' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(authenticatedPayload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    expect(await screen.findByRole('button', { name: /iniciar sesion/i })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/usuario o correo/i), {
+      target: { value: 'admin' },
+    })
+    fireEvent.change(screen.getByLabelText(/^contrasena/i), {
+      target: { value: 'admin' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /iniciar sesion/i }))
+
+    expect(await screen.findByText(/resolver unitarizacion y contenedorizacion/i)).toBeInTheDocument()
+    expect(screen.getByText(/sesion activa/i)).toBeInTheDocument()
+
+    delete (window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
   })
 
   it('mantiene el error de negocio cuando maxTotalHeight <= palletHeight', () => {
