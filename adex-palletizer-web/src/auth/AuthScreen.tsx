@@ -56,7 +56,7 @@ export function AuthScreen({
           </p>
           <div className="auth-highlights" aria-label="estado de acceso">
             <span className="auth-chip">Acceso seguro</span>
-            <span className="auth-chip">Usuario de prueba: admin</span>
+            <span className="auth-chip">Sesion profesional</span>
             <span className="auth-chip">{connectionHint}</span>
           </div>
         </div>
@@ -79,7 +79,7 @@ export function AuthScreen({
               value={identifier}
               onChange={(event) => onIdentifierChange(event.target.value)}
               autoComplete="username"
-              placeholder="admin"
+              placeholder="usuario o correo"
             />
           </label>
 
@@ -94,7 +94,7 @@ export function AuthScreen({
               value={password}
               onChange={(event) => onPasswordChange(event.target.value)}
               autoComplete="current-password"
-              placeholder="admin"
+              placeholder="Ingresa tu contrasena"
             />
           </label>
 
@@ -126,7 +126,7 @@ export function AuthScreen({
             </a>
           </div>
 
-          <p className="auth-meta">Acceso temporal de pruebas: `admin / admin`.</p>
+          <p className="auth-meta">Acceso disponible solo para usuarios habilitados.</p>
         </form>
       </section>
     </main>
