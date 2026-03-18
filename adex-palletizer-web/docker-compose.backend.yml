@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: adex-palletizer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: adex_palletizer
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - adex_palletizer_postgres_data:/var/lib/postgresql/data
+      - ./docs/database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d adex_palletizer"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: adex-palletizer-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 8787
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/adex_palletizer
+      CORS_ORIGIN: http://localhost:5173
+      COOKIE_NAME: adex_refresh_token
+      SESSION_TTL_DAYS: 30
+      AUTH_COOKIE_SECURE: "false"
+      SISLOPE_URL: https://sis-lo-pe.vercel.app
+    ports:
+      - "8787:8787"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:8787/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+        ]
+      interval: 15s
+      timeout: 7s
+      retries: 10
+
+volumes:
+  adex_palletizer_postgres_data:

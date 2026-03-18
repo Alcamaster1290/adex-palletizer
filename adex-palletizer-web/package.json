@@ -15,7 +15,10 @@
     "preview": "vite preview",
     "server:start": "tsx server/src/index.ts",
     "server:dev": "tsx watch server/src/index.ts",
-    "server:build": "tsc -p server/tsconfig.json"
+    "server:build": "tsc -p server/tsconfig.json",
+    "docker:backend:up": "docker compose -f docker-compose.backend.yml up -d --build",
+    "docker:backend:down": "docker compose -f docker-compose.backend.yml down",
+    "docker:backend:logs": "docker compose -f docker-compose.backend.yml logs -f backend"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

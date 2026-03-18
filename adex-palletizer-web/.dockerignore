@@ -1,0 +1,7 @@
+node_modules
+dist
+.vercel
+coverage
+*.log
+npm-debug.log*
+server/dist

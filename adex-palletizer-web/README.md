@@ -180,6 +180,35 @@ Formula base del solver de contenedor (fila homogenea):
   - `password: admin`
 - Nota:
   - este backend ya permite arrancar autenticacion real basica con sesiones seguras, pero todavia no incluye email de recuperacion ni CRUD de usuarios.
+
+### Docker Desktop
+
+- Stack local listo para Docker Desktop:
+  - `docker-compose.backend.yml`
+  - `Dockerfile.backend`
+- Levantar PostgreSQL + backend:
+
+```bash
+docker compose -f docker-compose.backend.yml up -d --build
+```
+
+- Verificar salud:
+
+```bash
+curl http://localhost:8787/api/health
+curl http://localhost:8787/api/integrations/sislope/health
+```
+
+- Login bootstrap:
+
+```json
+{
+  "identifier": "admin",
+  "password": "admin"
+}
+```
+
+- El endpoint `/api/integrations/sislope/health` permite verificar que la integracion externa con `https://sis-lo-pe.vercel.app` responde sin error.
 - `pitchL = palletL + palletGap`
 - `pitchW = palletW + palletGap`
 - `nx = floor((effectiveL + palletGap) / pitchL)`

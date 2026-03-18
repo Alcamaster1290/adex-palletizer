@@ -56,10 +56,37 @@ export function buildApp(config: AppConfig, pool: pg.Pool) {
     })
   })
 
-  app.get('/api/health', async () => ({
-    status: 'ok',
-    service: 'adex-auth-api',
-  }))
+  app.get('/api/health', async () => {
+    await pool.query('SELECT 1')
+
+    return {
+      status: 'ok',
+      service: 'adex-auth-api',
+      database: 'ok',
+    }
+  })
+
+  app.get('/api/integrations/sislope/health', async (_request, reply) => {
+    try {
+      const response = await fetch(config.sislopeUrl, {
+        method: 'GET',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(7_000),
+      })
+
+      return reply.send({
+        status: response.ok ? 'ok' : 'degraded',
+        target: config.sislopeUrl,
+        httpStatus: response.status,
+      })
+    } catch (error) {
+      app.log.warn({ error }, 'No se pudo verificar SisLoPe')
+      return reply.status(502).send({
+        status: 'unreachable',
+        target: config.sislopeUrl,
+      })
+    }
+  })
 
   app.post('/api/auth/login', async (request, reply) => {
     const payload = parseLoginPayload(request.body)

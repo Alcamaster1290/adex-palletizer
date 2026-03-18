@@ -3,6 +3,7 @@ const DEFAULT_HOST = '0.0.0.0'
 const DEFAULT_CORS_ORIGIN = 'http://localhost:5173'
 const DEFAULT_COOKIE_NAME = 'adex_refresh_token'
 const DEFAULT_SESSION_TTL_DAYS = 30
+const DEFAULT_SISLOPE_URL = 'https://sis-lo-pe.vercel.app'
 
 function parsePositiveInteger(value: string | undefined, fallback: number): number {
   if (!value) {
@@ -25,6 +26,7 @@ export interface AppConfig {
   cookieName: string
   sessionTtlDays: number
   cookieSecure: boolean
+  sislopeUrl: string
 }
 
 export function getConfig(): AppConfig {
@@ -41,5 +43,6 @@ export function getConfig(): AppConfig {
     cookieName: process.env.COOKIE_NAME?.trim() || DEFAULT_COOKIE_NAME,
     sessionTtlDays: parsePositiveInteger(process.env.SESSION_TTL_DAYS, DEFAULT_SESSION_TTL_DAYS),
     cookieSecure: process.env.AUTH_COOKIE_SECURE === 'true',
+    sislopeUrl: process.env.SISLOPE_URL?.trim() || DEFAULT_SISLOPE_URL,
   }
 }
