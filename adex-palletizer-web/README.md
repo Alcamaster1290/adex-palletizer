@@ -118,6 +118,68 @@ Formula base del solver de contenedor (fila homogenea):
 
 - `effectiveL = containerL`
 - `effectiveW = containerW`
+
+## DDL de usuarios (base de autenticacion futura)
+
+- Se agrego el script PostgreSQL:
+  - `docs/database/001_auth_usuarios_postgres.sql`
+- Este DDL crea la tabla `public.usuarios` para profesionalizar el acceso con:
+  - `email`
+  - `username`
+  - `password_hash`
+  - `role`
+  - `status`
+  - trazabilidad basica (`last_login_at`, `last_login_ip`, intentos fallidos, reset de contrasena)
+- La contrasena no se almacena en claro:
+  - el script usa `pgcrypto` y guarda hash `bcrypt`
+- Usuario bootstrap decoy para pruebas futuras de recuperacion de contrasena:
+  - `username: admin`
+  - `email/identifier: admin`
+  - `password inicial: admin`
+- Este sprint solo deja preparado el esquema de datos.
+- El frontend actual todavia no implementa login real ni recuperacion de contrasena.
+
+## Blueprint de backend
+
+- Documentacion tecnica:
+  - `docs/backend/backend-architecture.md`
+- Migraciones SQL base:
+  - `docs/database/001_auth_usuarios_postgres.sql`
+  - `docs/database/002_backend_foundation_postgres.sql`
+- El blueprint cubre:
+  - autenticacion
+  - sesiones
+  - recuperacion de contrasena
+  - auditoria
+  - persistencia de escenarios
+  - labels por SKU
+  - historial de exports
+
+## Backend auth minimo (Sprint B1)
+
+- Se agrego un backend inicial en:
+  - `server/`
+- Scripts:
+  - `npm run server:start`
+  - `npm run server:dev`
+  - `npm run server:build`
+- Variables de entorno base:
+  - `server/.env.example`
+- Endpoints incluidos:
+  - `GET /api/health`
+  - `POST /api/auth/login`
+  - `GET /api/auth/me`
+  - `POST /api/auth/refresh`
+  - `POST /api/auth/logout`
+  - `POST /api/auth/change-password`
+- Requiere ejecutar antes:
+  - `docs/database/001_auth_usuarios_postgres.sql`
+  - `docs/database/002_backend_foundation_postgres.sql`
+- Bootstrap actual:
+  - `identifier: admin`
+  - `password: admin`
+- Nota:
+  - este backend ya permite arrancar autenticacion real basica con sesiones seguras, pero todavia no incluye email de recuperacion ni CRUD de usuarios.
 - `pitchL = palletL + palletGap`
 - `pitchW = palletW + palletGap`
 - `nx = floor((effectiveL + palletGap) / pitchL)`
