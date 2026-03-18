@@ -15,7 +15,7 @@ interface BoxesProps {
   boxSkinMode?: BoxSkinMode
 }
 
-const DEFAULT_BOX_COLOR = '#2f8f9d'
+const DEFAULT_BOX_COLOR = '#b88752'
 
 export function Boxes({
   boxes,

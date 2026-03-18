@@ -162,7 +162,7 @@ function canFitInBase(
 
 function resolveSkuColor(rawColor: string | undefined) {
   if (!rawColor) {
-    return '#2f8f9d'
+    return '#b88752'
   }
   if (/^#[0-9a-fA-F]{6}$/.test(rawColor)) {
     return rawColor
@@ -170,7 +170,7 @@ function resolveSkuColor(rawColor: string | undefined) {
   if (/^[0-9a-fA-F]{6}$/.test(rawColor)) {
     return `#${rawColor}`
   }
-  return '#2f8f9d'
+  return '#b88752'
 }
 
 function buildSummary(

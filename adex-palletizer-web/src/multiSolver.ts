@@ -152,7 +152,7 @@ function buildSummary(
       unplaceable,
       layersUsed,
       rotationsUsed: rotationsBySku[skuId] ?? 0,
-      color: sku.color ?? '#2f8f9d',
+      color: sku.color ?? '#b88752',
     }
   })
 }
@@ -193,7 +193,7 @@ export function solveMultiHeuristic(input: MultiPreviewInput): MultiPreviewResul
       ? sku.color.startsWith('#')
         ? sku.color
         : `#${sku.color}`
-      : '#2f8f9d'
+      : '#b88752'
 
     requestedTotal += quantity
 

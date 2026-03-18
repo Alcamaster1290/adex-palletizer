@@ -6,7 +6,7 @@ describe('labelTextures mapping', () => {
     const labelsBySku: SkuLabelsBySku = {
       'SKU-1': {
         skuId: 'SKU-1',
-        baseColor: '#2f8f9d',
+        baseColor: '#b88752',
         template: 'export',
         shippingMarks: {
           consignee: 'A',

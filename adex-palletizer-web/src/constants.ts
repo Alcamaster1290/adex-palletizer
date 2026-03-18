@@ -10,7 +10,7 @@ export const SACK_FOOTPRINT_OVERLAP_MM = 18
 export const SACK_GRAVITY_SETTLE_MM = 12
 
 export const MULTI_TYPE_COLORS = [
-  '#2f8f9d',
+  '#b88752',
   '#e67e22',
   '#3b8f3b',
   '#9b59b6',

@@ -68,7 +68,7 @@ describe('App label designer', () => {
       JSON.stringify({
         'SINGLE-BOX': {
           skuId: 'SINGLE-BOX',
-          baseColor: '#2f8f9d',
+          baseColor: '#b88752',
           template: 'export',
           shippingMarks: {
             consignee: 'Persistido',

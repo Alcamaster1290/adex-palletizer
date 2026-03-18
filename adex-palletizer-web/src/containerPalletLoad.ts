@@ -10,7 +10,7 @@ import type {
   SolverResult,
 } from './types'
 
-const DEFAULT_BOX_COLOR = '#2f8f9d'
+const DEFAULT_BOX_COLOR = '#b88752'
 
 interface GroupedLoadBoxes {
   lengthMm: number

@@ -235,7 +235,7 @@ export function SceneContainer({
         length: placement.length,
         width: placement.width,
         height: remainingHeight,
-        color: '#2f8f9d',
+        color: '#b88752',
         applyVisualGap: false,
         instances: [
           {
@@ -298,7 +298,7 @@ export function SceneContainer({
             length: placement.length,
             width: placement.width,
             height: fallbackHeight,
-            color: entry.color ?? '#2f8f9d',
+            color: entry.color ?? '#b88752',
             applyVisualGap: false,
             instances: [instance],
           })
@@ -366,7 +366,7 @@ export function SceneContainer({
           length: palletLoad.palletLengthMm,
           width: palletLoad.palletWidthMm,
           height: fallbackHeight,
-          color: '#2f8f9d',
+          color: '#b88752',
           applyVisualGap: false,
           instances: result.placements.map((placement) => {
             const floorY = placement.y - placement.height / 2

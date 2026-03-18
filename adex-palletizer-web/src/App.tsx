@@ -377,7 +377,7 @@ const DEFAULT_MULTI_STATE: MultiDraftState = {
   overhang: 0,
   noMixedSkuStacking: true,
   skus: [
-    createDefaultMultiSku(1, { name: 'Caja A', quantity: 8, color: '#2f8f9d' }),
+    createDefaultMultiSku(1, { name: 'Caja A', quantity: 8, color: '#b88752' }),
     createDefaultMultiSku(2, { name: 'Caja B', quantity: 10, color: '#e67e22' }),
   ],
 }
@@ -2028,7 +2028,7 @@ function App() {
         upsertFieldError(
           current,
           fieldId,
-          isValidColor ? null : 'Color invalido. Usa formato HEX, por ejemplo #2f8f9d.',
+          isValidColor ? null : 'Color invalido. Usa formato HEX, por ejemplo #b88752.',
         ),
       )
       if (!isValidColor) {
@@ -2753,7 +2753,7 @@ function App() {
             <strong>{authUser.username}</strong>
             <small>
               {authUser.role}
-              {authSessionExpiresAt ? ` · vence ${new Date(authSessionExpiresAt).toLocaleString('es-ES')}` : ''}
+              {authSessionExpiresAt ? ` Â· vence ${new Date(authSessionExpiresAt).toLocaleString('es-ES')}` : ''}
             </small>
           </div>
           <button type="button" className="btn-secondary" onClick={() => void handleLogout()}>
@@ -2955,8 +2955,8 @@ function App() {
                       setSinglePackingModeDraft(event.target.value as PackingMode)
                     }
                   >
-                    <option value="grid">Grid</option>
-                    <option value="advanced">Advanced</option>
+                    <option value="grid">Regular</option>
+                    <option value="advanced">Optimizado</option>
                   </select>
                 </label>
               </div>
@@ -3030,7 +3030,7 @@ function App() {
                   title="Editar caja maestra"
                   aria-label="Editar caja maestra"
                 >
-                  ✎
+                  âœŽ
                 </button>
               </div>
               <Scene
@@ -3182,15 +3182,15 @@ function App() {
                   <td>{volumeUtilizationText}</td>
                 </tr>
                 <tr>
-                  <th>Area pallet (m² / mm²)</th>
+                  <th>Area pallet (mÂ² / mmÂ²)</th>
                   <td>{formatAreaDualFromMm2(singleDerivedMetrics.palletAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area ocupada por capa (m² / mm²)</th>
+                  <th>Area ocupada por capa (mÂ² / mmÂ²)</th>
                   <td>{formatAreaDualFromMm2(singleDerivedMetrics.usedAreaPerLayerMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area libre por capa (m² / mm²)</th>
+                  <th>Area libre por capa (mÂ² / mmÂ²)</th>
                   <td>{formatAreaDualFromMm2(singleDerivedMetrics.freeAreaPerLayerMm2)}</td>
                 </tr>
                 <tr>
@@ -3202,15 +3202,15 @@ function App() {
                   <td>{formatInt.format(result.freeHeight)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen total de cajas (m³ / mm³)</th>
+                  <th>Volumen total de cajas (mÂ³ / mmÂ³)</th>
                   <td>{formatVolumeDualFromMm3(singleDerivedMetrics.totalBoxesVolumeMm3)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen base de pallet (m³ / mm³)</th>
+                  <th>Volumen base de pallet (mÂ³ / mmÂ³)</th>
                   <td>{formatVolumeDualFromMm3(singleDerivedMetrics.palletBaseVolumeMm3)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen total unitarizado (m³ / mm³)</th>
+                  <th>Volumen total unitarizado (mÂ³ / mmÂ³)</th>
                   <td>{formatVolumeDualFromMm3(singleDerivedMetrics.totalUnitizedVolumeMm3)}</td>
                 </tr>
                 <tr>
@@ -3850,14 +3850,6 @@ function App() {
                 <p className="meta-text">
                   Cada clic agrega 1 unidad del pallet aplicado al catalogo consolidado.
                 </p>
-                {containerIsConsolidated && (
-                  <div className="notice-box">
-                    <p>
-                      Modo consolidado activo. El solver usa el catalogo agregado y ya no llena el
-                      contenedor con un unico tipo de pallet.
-                    </p>
-                  </div>
-                )}
                 <NumberField
                   id="container-pallet-length"
                   label="Largo pallet"
@@ -4253,31 +4245,31 @@ function App() {
                   <td>{formatInt.format(containerResult.totalPallets)}</td>
                 </tr>
                 <tr>
-                  <th>Area interna contenedor (m² / mm²)</th>
+                  <th>Area interna contenedor (mÂ² / mmÂ²)</th>
                   <td>{formatAreaDualFromMm2(containerDerivedMetrics.containerAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area ocupada pallets - suma huellas (m² / mm²)</th>
+                  <th>Area ocupada pallets - suma huellas (mÂ² / mmÂ²)</th>
                   <td>{formatAreaDualFromMm2(containerDerivedMetrics.occupiedFootprintAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area ocupada pallets - bloque envolvente (m² / mm²)</th>
+                  <th>Area ocupada pallets - bloque envolvente (mÂ² / mmÂ²)</th>
                   <td>{formatAreaDualFromMm2(containerDerivedMetrics.occupiedBlockAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area libre interna (m² / mm²)</th>
+                  <th>Area libre interna (mÂ² / mmÂ²)</th>
                   <td>{formatAreaDualFromMm2(containerDerivedMetrics.freeAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen interno contenedor (m³ / mm³)</th>
+                  <th>Volumen interno contenedor (mÂ³ / mmÂ³)</th>
                   <td>{formatVolumeDualFromMm3(containerDerivedMetrics.containerVolumeMm3)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen carga palletizada (m³ / mm³)</th>
+                  <th>Volumen carga palletizada (mÂ³ / mmÂ³)</th>
                   <td>{formatVolumeDualFromMm3(containerDerivedMetrics.loadVolumeMm3)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen libre interno (m³ / mm³)</th>
+                  <th>Volumen libre interno (mÂ³ / mmÂ³)</th>
                   <td>{formatVolumeDualFromMm3(containerDerivedMetrics.freeVolumeMm3)}</td>
                 </tr>
                 <tr>
@@ -4468,7 +4460,7 @@ function App() {
                 {
                   skuId: SINGLE_BOX_SKU_ID,
                   name: 'Caja maestra',
-                  color: normalizeBaseColor(singleBoxes[0]?.color ?? '#2f8f9d'),
+                  color: normalizeBaseColor(singleBoxes[0]?.color ?? '#b88752'),
                 },
               ]
             : multiLabelSkuOptions

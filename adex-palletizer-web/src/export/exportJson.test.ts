@@ -44,7 +44,7 @@ describe('exportJson', () => {
     const labelsBySku: SkuLabelsBySku = {
       'SINGLE-BOX': {
         skuId: 'SINGLE-BOX',
-        baseColor: '#2f8f9d',
+        baseColor: '#b88752',
         template: 'export',
         shippingMarks: {
           consignee: 'A',

@@ -4,7 +4,7 @@ import type {
   ExportedPalletLoad,
 } from './types'
 
-const DEFAULT_PALLET_COLOR = '#2f8f9d'
+const DEFAULT_PALLET_COLOR = '#b88752'
 
 export function cloneExportedPalletBoxPlacement(
   box: ExportedPalletBoxPlacement,

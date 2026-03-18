@@ -10,7 +10,7 @@ import type { SkuLabelConfig } from '../types'
 function createLabel(skuId: string): SkuLabelConfig {
   return {
     skuId,
-    baseColor: '#2f8f9d',
+    baseColor: '#b88752',
     template: 'export',
     shippingMarks: {
       consignee: 'A',

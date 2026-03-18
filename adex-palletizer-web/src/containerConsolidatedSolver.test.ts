@@ -33,7 +33,7 @@ function buildEntry(
     pallet: { length: 1200, width: 1000, height: 1150 },
     weightPerPalletKg: 800,
     load: buildLoad('single', 1200, 1000, 150, 1150),
-    color: '#2f8f9d',
+    color: '#b88752',
     ...overrides,
   }
 }

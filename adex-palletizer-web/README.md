@@ -33,7 +33,7 @@ npm run preview
 VITE_SISLOPE_URL=https://sis-lo-pe.vercel.app
 ```
 
-- La integracion actual es desacoplada y segura: abre SisLoPe en una nueva pestaña sin mezclar el bundle de mapas dentro del palletizer.
+- La integracion actual es desacoplada y segura: abre SisLoPe en una nueva pestaÃ±a sin mezclar el bundle de mapas dentro del palletizer.
 
 ## Presets / Scenarios / Share link
 
@@ -44,8 +44,8 @@ VITE_SISLOPE_URL=https://sis-lo-pe.vercel.app
 ## Metricas de area y volumen
 
 - Las vistas de `Caja unica` y `Contenedores` muestran area y volumen en formato dual:
-  - principal: `m²` / `m³`
-  - referencia: `mm²` / `mm³`
+  - principal: `mÂ²` / `mÂ³`
+  - referencia: `mmÂ²` / `mmÂ³`
 - En `Contenedores` se reportan ambas lecturas de area ocupada:
   - suma de huellas de pallets
   - bloque envolvente ocupado
@@ -272,13 +272,13 @@ En modo alternado por filas (MVP):
 4. Ejecutar `Solve (heuristic)` para intentar mejor aprovechamiento.
 5. Guardar con `Save scenario` para comparar resultados.
 
-## Grid vs Advanced (Caja unica)
+## Regular vs Optimizado (Caja unica)
 
-- `Advanced` (modo estandar cuando `Grid` deja area libre): usa packing mixed-orientation por item (0/90) con `free-rectangles` y heuristic `bestShortSideFit`.
-- `Grid`: usa una orientacion global por capa (`LxW` o `WxL`) y calcula `nx x ny`.
-- Cuándo usar cada uno:
-  - `Grid`: resultados rapidos y comparables con el metodo clasico de capas uniformes.
-  - `Advanced`: cuando quieres maximizar aprovechamiento en planta mezclando orientaciones dentro de la misma capa.
+- `Optimizado` (modo estandar cuando `Regular` deja area libre): usa packing mixed-orientation por item (0/90) con `free-rectangles` y heuristic `bestShortSideFit`.
+- `Regular`: usa una orientacion global por capa (`LxW` o `WxL`) y calcula `nx x ny`.
+- CuÃ¡ndo usar cada uno:
+  - `Regular`: resultados rapidos y comparables con el metodo clasico de capas uniformes.
+  - `Optimizado`: cuando quieres maximizar aprovechamiento en planta mezclando orientaciones dentro de la misma capa.
 - Share link para `single` agrega `pm`:
   - `pm=advanced`
   - `pm=grid`

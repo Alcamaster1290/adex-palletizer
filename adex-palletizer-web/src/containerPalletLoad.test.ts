@@ -42,7 +42,7 @@ describe('containerPalletLoad', () => {
           height: 200,
           quantity: 8,
           allowRotation: true,
-          color: '#2f8f9d',
+          color: '#b88752',
           noStack: false,
         },
       ],
