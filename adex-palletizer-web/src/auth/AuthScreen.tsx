@@ -27,18 +27,19 @@ export function AuthScreen({
 }: AuthScreenProps) {
   const apiBaseUrl = getApiBaseUrl()
   const usesLocalDocker = apiBaseUrl.includes('localhost:8787')
+  const connectionHint = usesLocalDocker
+    ? 'Usa tu backend local en Docker Desktop.'
+    : 'Usa el backend integrado del mismo deployment.'
 
   if (status === 'checking') {
     return (
       <main className="auth-shell">
         <section className="auth-card auth-card-loading">
           <p className="eyebrow">ADEX ACCESS GATE</p>
-          <h1>Verificando sesion activa</h1>
-          <p>
-            Consultando el backend B1 para restaurar la sesion segura del palletizer.
-          </p>
+          <h1>Verificando acceso</h1>
+          <p>Restaurando tu sesion segura.</p>
           <div className="auth-spinner" aria-hidden="true" />
-          <p className="auth-meta">Backend esperado: {apiBaseUrl}</p>
+          <p className="auth-meta">Origen API: {apiBaseUrl}</p>
         </section>
       </main>
     )
@@ -49,20 +50,15 @@ export function AuthScreen({
       <section className="auth-card">
         <div className="auth-copy">
           <p className="eyebrow">ADEX ACCESS GATE</p>
-          <h1>Inicia sesion para usar el palletizer</h1>
+          <h1>Accede a tu espacio de trabajo</h1>
           <p className="auth-lead">
-            El frontend ya esta conectado al backend B1. La sesion usa cookie segura y
-            el acceso bootstrap actual es solo para pruebas controladas.
+            Inicia sesion para continuar con palletizacion, escenarios y contenedorizacion.
           </p>
-          <ul className="auth-bullets">
-            <li>Backend esperado: {apiBaseUrl}</li>
-            <li>Usuario bootstrap de prueba: `admin`</li>
-            <li>
-              {usesLocalDocker
-                ? 'Docker local: `npm run docker:backend:up`'
-                : 'Produccion: el backend se sirve desde el mismo deployment en `/api`.'}
-            </li>
-          </ul>
+          <div className="auth-highlights" aria-label="estado de acceso">
+            <span className="auth-chip">Acceso seguro</span>
+            <span className="auth-chip">Usuario de prueba: admin</span>
+            <span className="auth-chip">{connectionHint}</span>
+          </div>
         </div>
 
         <form
@@ -110,7 +106,7 @@ export function AuthScreen({
 
           <div className="auth-actions">
             <button type="submit" className="btn-primary" disabled={submitting}>
-              {submitting ? 'Conectando...' : 'Iniciar sesion'}
+              {submitting ? 'Entrando...' : 'Iniciar sesion'}
             </button>
             <button
               type="button"
@@ -118,7 +114,7 @@ export function AuthScreen({
               onClick={onRetrySession}
               disabled={submitting}
             >
-              Reintentar backend
+              Reintentar
             </button>
             <a
               className="btn-secondary hero-link"
@@ -130,10 +126,7 @@ export function AuthScreen({
             </a>
           </div>
 
-          <p className="auth-meta">
-            Siguiente sprint pendiente: cambio/recuperacion de contrasena. B2 aun no se
-            ejecuta.
-          </p>
+          <p className="auth-meta">Acceso temporal de pruebas: `admin / admin`.</p>
         </form>
       </section>
     </main>

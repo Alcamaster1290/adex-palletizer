@@ -82,38 +82,48 @@ body {
 
 .auth-copy {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   align-content: start;
 }
 
 .auth-copy h1 {
   margin: 0;
-  font-size: clamp(30px, 4vw, 48px);
-  line-height: 0.98;
-  max-width: 14ch;
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 0.96;
+  max-width: 12ch;
 }
 
 .auth-lead {
   margin: 0;
-  font-size: 16px;
+  font-size: 17px;
   color: color-mix(in srgb, var(--muted) 88%, var(--accent-strong) 12%);
-  max-width: 54ch;
+  max-width: 42ch;
 }
 
-.auth-bullets {
-  margin: 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 14px;
+.auth-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.auth-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, var(--accent) 20%);
+  background: color-mix(in srgb, rgba(255, 253, 248, 0.9) 82%, var(--accent-soft) 18%);
+  color: color-mix(in srgb, var(--text) 82%, var(--accent-strong) 18%);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .auth-form {
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 18px;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 22px;
   border: 1px solid var(--line-soft);
   background: rgba(255, 253, 248, 0.92);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);

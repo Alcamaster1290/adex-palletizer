@@ -73,7 +73,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     })
   } catch {
     throw new AuthApiError(
-      'No se pudo conectar con el backend de autenticacion. Verifica Docker Desktop y el puerto 8787.',
+      'No se pudo conectar con el servicio de acceso. Intenta nuevamente en unos segundos.',
       0,
       'NETWORK_ERROR',
     )
@@ -81,12 +81,18 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const payload = await readErrorPayload(response)
+    const errorCode = payload.error ?? 'HTTP_ERROR'
+    const message =
+      errorCode === 'INVALID_CREDENTIALS'
+        ? 'Usuario, correo o contrasena incorrectos.'
+        : payload.message ??
+          payload.error ??
+          'No se pudo completar el inicio de sesion. Intenta nuevamente.'
+
     throw new AuthApiError(
-      payload.message ??
-        payload.error ??
-        'La solicitud de autenticacion fallo. Intenta nuevamente.',
+      message,
       response.status,
-      payload.error ?? 'HTTP_ERROR',
+      errorCode,
     )
   }
 
