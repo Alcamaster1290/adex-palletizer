@@ -5,7 +5,7 @@ import {
 } from './exportContainerPlan'
 import { CONTAINER_CLEARANCE_MM } from '../constants'
 import type { ContainerInput, ContainerResult } from '../types'
-import type { ContainerDerivedMetrics } from '../metrics/units'
+import type { ContainerDerivedMetrics, ContainerWeightMetrics } from '../metrics/units'
 
 const sampleInput: ContainerInput = {
   preset: '20gp',
@@ -88,11 +88,23 @@ describe('exportContainerPlan', () => {
       loadVolumeMm3: 11040000000,
       freeVolumeMm3: 22159437888,
     }
+    const weightMetrics: ContainerWeightMetrics = {
+      weightPerPalletKg: 850.25,
+      totalLoadWeightKg: 6802,
+      payloadLimitKg: 20000,
+      payloadUtilizationRatio: 0.3401,
+      payloadMarginKg: 13198,
+      tonsPerPallet: 0.85025,
+      totalLoadTons: 6.802,
+      payloadLimitTons: 20,
+      payloadMarginTons: 13.198,
+    }
 
     exportContainerPlanJson({
       input: sampleInput,
       result: sampleResult,
       derivedMetrics,
+      weightMetrics,
       generatedAt: '2026-03-01T14:05:09.000Z',
     })
 
@@ -107,6 +119,10 @@ describe('exportContainerPlan', () => {
         derivedMetrics: expect.objectContaining({
           occupiedFootprintAreaMm2: 9600000,
           freeVolumeMm3: 22159437888,
+        }),
+        weightMetrics: expect.objectContaining({
+          weightPerPalletKg: 850.25,
+          totalLoadTons: 6.802,
         }),
       }),
       null,

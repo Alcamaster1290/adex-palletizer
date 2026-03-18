@@ -113,6 +113,8 @@ export function ContainerTopView({
               width={placement.length * geometry.scale}
               height={placement.width * geometry.scale}
               className="top-view-box"
+              fill={placement.color ? `${placement.color}44` : undefined}
+              stroke={placement.color ?? undefined}
             />
           )
         })}

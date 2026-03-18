@@ -2,6 +2,7 @@ import { Edges, Text } from '@react-three/drei'
 import { VISUAL_GAP_MM } from '../constants'
 import { resolveSkuTexture } from '../labels/labelTextures'
 import { resolveSackLayerIndex, resolveSackPatternTransform } from './sackPattern'
+import { LateralLabelMaterial } from './LateralLabelMaterial'
 import { SackMesh, useSackTemplate } from './Sack'
 import { resolveSackVisualProfile } from './sackVisual'
 import type { BoxInstance, BoxSkinMode, SkuLabelsBySku } from '../types'
@@ -100,9 +101,9 @@ export function Boxes({
             castShadow
           >
             <boxGeometry args={[visualLength, visualHeight, visualWidth]} />
-            <meshStandardMaterial
+            <LateralLabelMaterial
               color={materialColor}
-              map={texture ?? undefined}
+              texture={texture}
               roughness={0.55}
               metalness={0.02}
             />

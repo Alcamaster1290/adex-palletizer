@@ -7,6 +7,12 @@ import {
 } from './boxPresets'
 import { CONTAINER_CLEARANCE_MM, MIN_MASTER_BOX } from './constants'
 import {
+  buildContainerPalletCatalogSignature,
+  cloneContainerPalletCatalog,
+  cloneContainerPalletCatalogEntry,
+  detectPalletCatalogColor,
+} from './containerCatalog'
+import {
   buildExportedPalletLoadFromMulti,
   buildExportedPalletLoadFromSingle,
 } from './containerPalletLoad'
@@ -33,9 +39,11 @@ import {
 } from './labels/labelStorage'
 import {
   buildContainerDerivedMetrics,
+  buildContainerWeightMetrics,
   buildSingleDerivedMetrics,
   formatAreaDualFromMm2,
   formatAreaM2FromMm2,
+  formatWeightDualFromKg,
   formatVolumeDualFromMm3,
   formatVolumeM3FromMm3,
 } from './metrics/units'
@@ -60,6 +68,7 @@ import { solveMultiHeuristicNoMix } from './multiSolverNoMix'
 import type {
   BoxSkinMode,
   ContainerInput,
+  ContainerPalletCatalogEntry,
   ContainerPresetKey,
   DimensionsMM,
   ExportedPalletLoad,
@@ -84,6 +93,9 @@ const DEFAULT_INPUT: SolverInput = {
   allowRotation: true,
   overhang: 0,
 }
+
+const SISLOPE_URL =
+  import.meta.env.VITE_SISLOPE_URL?.trim() || 'https://sis-lo-pe.vercel.app'
 
 const CONTAINER_PRESET_OPTIONS: Array<{
   key: ContainerPresetKey
@@ -123,6 +135,7 @@ const DEFAULT_CONTAINER_INPUT: ContainerInput = {
 }
 
 const MIN_SINGLE_BOX_DIMENSION_MM = 50
+const MIN_WEIGHT_KG = 0.001
 
 type BoxSection = 'pallet' | 'box'
 type TabKey = 'single' | 'multi' | 'container'
@@ -184,6 +197,13 @@ interface IntegerValidationConfig {
   label: string
   min: number
   max?: number
+}
+
+interface DecimalValidationConfig {
+  label: string
+  min: number
+  max?: number
+  maxDecimals?: number
 }
 
 interface ValidationResult {
@@ -390,6 +410,7 @@ function cloneContainerInput(input: ContainerInput): ContainerInput {
     preset: input.preset,
     container: { ...input.container },
     pallet: { ...input.pallet },
+    pallets: cloneContainerPalletCatalog(input.pallets),
     allowRotation: input.allowRotation,
     clearance: normalizedClearance,
     rearClearance: normalizedRearClearance,
@@ -538,7 +559,45 @@ function areMultiStatesEqual(left: MultiDraftState, right: MultiDraftState) {
   return true
 }
 
+function buildContainerCatalogEntryFingerprint(entry: ContainerPalletCatalogEntry) {
+  return JSON.stringify({
+    id: entry.id,
+    name: entry.name,
+    source: entry.source,
+    quantity: entry.quantity,
+    pallet: entry.pallet,
+    weightPerPalletKg: entry.weightPerPalletKg ?? null,
+    color: entry.color ?? null,
+    load: entry.load
+      ? {
+          palletLengthMm: entry.load.palletLengthMm,
+          palletWidthMm: entry.load.palletWidthMm,
+          palletHeightMm: entry.load.palletHeightMm,
+          loadTotalHeightMm: entry.load.loadTotalHeightMm,
+          source: entry.load.source,
+          meta: entry.load.meta ?? null,
+          boxesPlacements: entry.load.boxesPlacements,
+        }
+      : null,
+  })
+}
+
 function areContainerInputsEqual(left: ContainerInput, right: ContainerInput) {
+  const leftCatalog = left.pallets ?? []
+  const rightCatalog = right.pallets ?? []
+  if (leftCatalog.length !== rightCatalog.length) {
+    return false
+  }
+
+  for (let index = 0; index < leftCatalog.length; index += 1) {
+    if (
+      buildContainerCatalogEntryFingerprint(leftCatalog[index]) !==
+      buildContainerCatalogEntryFingerprint(rightCatalog[index])
+    ) {
+      return false
+    }
+  }
+
   return (
     left.preset === right.preset &&
     left.container.length === right.container.length &&
@@ -583,6 +642,64 @@ function validateIntegerInput(
     return {
       value: null,
       error: `${config.label} debe ser un entero.`,
+    }
+  }
+
+  if (parsed < config.min) {
+    return {
+      value: null,
+      error: `${config.label} debe ser mayor o igual a ${config.min}.`,
+    }
+  }
+
+  if (config.max !== undefined && parsed > config.max) {
+    return {
+      value: null,
+      error: `${config.label} debe ser menor o igual a ${config.max}.`,
+    }
+  }
+
+  return {
+    value: parsed,
+    error: null,
+  }
+}
+
+function validateDecimalInput(
+  rawValue: string,
+  config: DecimalValidationConfig,
+): ValidationResult {
+  const value = rawValue.trim()
+
+  if (value.length === 0) {
+    return {
+      value: null,
+      error: `${config.label} es obligatorio.`,
+    }
+  }
+
+  const normalized = value.replace(',', '.')
+  if (!/^[+-]?\d+(\.\d+)?$/.test(normalized)) {
+    return {
+      value: null,
+      error: `${config.label} debe ser numerico.`,
+    }
+  }
+
+  const maxDecimals = config.maxDecimals ?? 3
+  const decimalPart = normalized.split('.')[1]
+  if (decimalPart && decimalPart.length > maxDecimals) {
+    return {
+      value: null,
+      error: `${config.label} debe tener como maximo ${maxDecimals} decimales.`,
+    }
+  }
+
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed)) {
+    return {
+      value: null,
+      error: `${config.label} debe ser numerico.`,
     }
   }
 
@@ -732,6 +849,10 @@ function buildMultiNoMixErrorResult(
 }
 
 const formatInt = new Intl.NumberFormat('es-ES')
+const formatKg = new Intl.NumberFormat('es-ES', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 3,
+})
 const percentFormatter = new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 2,
 })
@@ -937,8 +1058,17 @@ function App() {
     () => solveContainerLoading(containerApplied),
     [containerApplied],
   )
+  const containerCatalogEntries = useMemo(
+    () => containerApplied.pallets ?? [],
+    [containerApplied.pallets],
+  )
+  const containerIsConsolidated = containerCatalogEntries.length > 0
   const containerDerivedMetrics = useMemo(
     () => buildContainerDerivedMetrics(containerApplied, containerResult),
+    [containerApplied, containerResult],
+  )
+  const containerWeightMetrics = useMemo(
+    () => buildContainerWeightMetrics(containerApplied, containerResult),
     [containerApplied, containerResult],
   )
 
@@ -980,11 +1110,22 @@ function App() {
   }, [multiApplied.skus, skuLabelsBySku])
 
   const containerLabelRefs = useMemo(() => {
-    if (!containerPalletLoad) {
-      return []
-    }
     const refs = new Set<string>()
-    containerPalletLoad.boxesPlacements.forEach((box) => {
+    if (containerCatalogEntries.length > 0) {
+      containerCatalogEntries.forEach((entry) => {
+        entry.load?.boxesPlacements.forEach((box) => {
+          if (!box.skuId) {
+            return
+          }
+          if (skuLabelsBySku[box.skuId]) {
+            refs.add(box.skuId)
+          }
+        })
+      })
+      return Array.from(refs)
+    }
+
+    containerPalletLoad?.boxesPlacements.forEach((box) => {
       if (!box.skuId) {
         return
       }
@@ -993,7 +1134,7 @@ function App() {
       }
     })
     return Array.from(refs)
-  }, [containerPalletLoad, skuLabelsBySku])
+  }, [containerCatalogEntries, containerPalletLoad, skuLabelsBySku])
 
   const multiLabelSkuOptions = useMemo(
     () =>
@@ -1167,9 +1308,10 @@ function App() {
       return
     }
 
-    const validation = validateIntegerInput(value, {
+    const validation = validateDecimalInput(value, {
       label: 'El peso por caja/saco',
-      min: 1,
+      min: MIN_WEIGHT_KG,
+      maxDecimals: 3,
     })
     setSingleFieldErrors((current) =>
       upsertFieldError(current, fieldId, validation.error),
@@ -1202,9 +1344,10 @@ function App() {
       return
     }
 
-    const validation = validateIntegerInput(value, {
+    const validation = validateDecimalInput(value, {
       label: 'El peso del pallet base',
-      min: 1,
+      min: MIN_WEIGHT_KG,
+      maxDecimals: 3,
     })
     setSingleFieldErrors((current) =>
       upsertFieldError(current, fieldId, validation.error),
@@ -1369,14 +1512,15 @@ function App() {
       return
     }
 
-    const validation = validateIntegerInput(value, {
+    const validation = validateDecimalInput(value, {
       label:
         field === 'clearance'
           ? 'La separacion entre pallets'
           : field === 'weightPerPalletKg'
             ? 'El peso por pallet'
             : 'El payload maximo',
-      min: field === 'clearance' ? 0 : 1,
+      min: field === 'clearance' ? 0 : MIN_WEIGHT_KG,
+      maxDecimals: field === 'clearance' ? 0 : 3,
     })
     setContainerFieldErrors((current) =>
       upsertFieldError(current, fieldId, validation.error),
@@ -1397,7 +1541,11 @@ function App() {
       return
     }
 
-    setContainerApplied(cloneContainerInput(containerDraft))
+    const nextInput = cloneContainerInput(containerDraft)
+    setContainerApplied(nextInput)
+    if ((nextInput.pallets?.length ?? 0) > 0) {
+      setContainerPalletLoad(null)
+    }
     setLastContainerCalculatedAt(new Date())
     setShareStatus(null)
   }
@@ -1412,10 +1560,30 @@ function App() {
     return buildExportedPalletLoadFromSingle(appliedInput, result, singleBoxes)
   }
 
-  const useCurrentPalletResult = () => {
-    const importedLoad = resolveCurrentPalletLoadFromSource(containerPalletSource)
+  const mutateContainerCatalog = (
+    updater: (
+      current: ContainerPalletCatalogEntry[],
+    ) => ContainerPalletCatalogEntry[],
+  ) => {
+    setContainerDraft((current) => ({
+      ...current,
+      pallets: updater(current.pallets ?? []),
+    }))
+    setContainerApplied((current) => ({
+      ...current,
+      pallets: updater(current.pallets ?? []),
+    }))
+    setContainerPalletLoad(null)
+    setLastContainerCalculatedAt(new Date())
+    setShareStatus(null)
+  }
+
+  const buildCurrentContainerCatalogEntry = (
+    source: ContainerPalletSource,
+  ): ContainerPalletCatalogEntry => {
+    const importedLoad = resolveCurrentPalletLoadFromSource(source)
     const estimatedPalletWeightKg =
-      containerPalletSource === 'multi'
+      source === 'multi'
         ? multiPalletizedWeightKg
         : singlePalletizedWeightKg
     const sourcePallet: DimensionsMM = {
@@ -1423,39 +1591,68 @@ function App() {
       width: importedLoad.palletWidthMm,
       height: importedLoad.loadTotalHeightMm,
     }
-    setContainerDraft((current) => ({
-      ...current,
+
+    const signature = buildContainerPalletCatalogSignature(
+      source,
+      importedLoad,
+      estimatedPalletWeightKg ?? undefined,
+    )
+
+    return {
+      id: signature,
+      name: `${
+        source === 'multi' ? 'Pallet multiples cajas' : 'Pallet caja unica'
+      } ${sourcePallet.length}x${sourcePallet.width}x${sourcePallet.height}`,
+      source,
+      quantity: 1,
       pallet: { ...sourcePallet },
-      weightPerPalletKg: estimatedPalletWeightKg ?? current.weightPerPalletKg,
-    }))
-    setContainerApplied((current) => ({
-      ...current,
-      pallet: { ...sourcePallet },
-      weightPerPalletKg: estimatedPalletWeightKg ?? current.weightPerPalletKg,
-    }))
-    setContainerFieldValues((current) => ({
-      ...current,
-      'container-pallet-length': String(sourcePallet.length),
-      'container-pallet-width': String(sourcePallet.width),
-      'container-pallet-height': String(sourcePallet.height),
-      'container-weight-per-pallet':
-        estimatedPalletWeightKg !== null
-          ? String(estimatedPalletWeightKg)
-          : current['container-weight-per-pallet'],
-    }))
-    setContainerFieldErrors((current) => {
-      const next = { ...current }
-      delete next['container-pallet-length']
-      delete next['container-pallet-width']
-      delete next['container-pallet-height']
-      if (estimatedPalletWeightKg !== null) {
-        delete next['container-weight-per-pallet']
+      weightPerPalletKg: estimatedPalletWeightKg ?? undefined,
+      load: importedLoad,
+      color: detectPalletCatalogColor(importedLoad),
+    }
+  }
+
+  const addCurrentPalletToCatalog = () => {
+    const nextEntry = buildCurrentContainerCatalogEntry(containerPalletSource)
+
+    mutateContainerCatalog((current) => {
+      const existingIndex = current.findIndex((entry) => entry.id === nextEntry.id)
+      if (existingIndex >= 0) {
+        return current.map((entry, index) =>
+          index === existingIndex
+            ? {
+                ...cloneContainerPalletCatalogEntry(entry),
+                quantity: entry.quantity + 1,
+              }
+            : cloneContainerPalletCatalogEntry(entry),
+        )
       }
-      return next
+
+      return [...current.map(cloneContainerPalletCatalogEntry), nextEntry]
     })
-    setContainerPalletLoad(importedLoad)
-    setLastContainerCalculatedAt(new Date())
-    setShareStatus(null)
+  }
+
+  const adjustContainerCatalogQuantity = (entryId: string, delta: number) => {
+    mutateContainerCatalog((current) =>
+      current
+        .map((entry) =>
+          entry.id === entryId
+            ? {
+                ...cloneContainerPalletCatalogEntry(entry),
+                quantity: Math.max(0, entry.quantity + delta),
+              }
+            : cloneContainerPalletCatalogEntry(entry),
+        )
+        .filter((entry) => entry.quantity > 0),
+    )
+  }
+
+  const removeContainerCatalogEntry = (entryId: string) => {
+    mutateContainerCatalog((current) =>
+      current
+        .filter((entry) => entry.id !== entryId)
+        .map(cloneContainerPalletCatalogEntry),
+    )
   }
 
   const resetContainer = () => {
@@ -1572,9 +1769,10 @@ function App() {
       return
     }
 
-    const validation = validateIntegerInput(value, {
+    const validation = validateDecimalInput(value, {
       label: 'El peso del pallet base',
-      min: 1,
+      min: MIN_WEIGHT_KG,
+      maxDecimals: 3,
     })
     setMultiFieldErrors((current) =>
       upsertFieldError(current, fieldId, validation.error),
@@ -1796,9 +1994,10 @@ function App() {
       return
     }
 
-    const validation = validateIntegerInput(value, {
+    const validation = validateDecimalInput(value, {
       label: `Peso unitario del SKU ${index + 1}`,
-      min: 1,
+      min: MIN_WEIGHT_KG,
+      maxDecimals: 3,
     })
     setMultiFieldErrors((current) =>
       upsertFieldError(current, fieldId, validation.error),
@@ -2298,6 +2497,13 @@ function App() {
   }
 
   const shareCurrentContainer = async () => {
+    if ((containerApplied.pallets?.length ?? 0) > 0) {
+      setShareStatus(
+        'El modo consolidado no se serializa en enlace. Guarda un escenario para compartir el catalogo.',
+      )
+      return
+    }
+
     const query = buildShareQuery(containerApplied, 'container', { boxSkinMode })
     const relativeUrl = `${window.location.pathname}${query}`
     const absoluteUrl = `${window.location.origin}${relativeUrl}`
@@ -2322,6 +2528,7 @@ function App() {
       input: cloneContainerInput(containerApplied),
       result: containerResult,
       derivedMetrics: containerDerivedMetrics,
+      weightMetrics: containerWeightMetrics,
       labelsBySku: skuLabelsBySku,
       generatedAt,
     })
@@ -2359,6 +2566,15 @@ function App() {
               <option value="sack">Saco warehouse</option>
             </select>
           </label>
+          <a
+            className="btn-secondary hero-link"
+            href={SISLOPE_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label="Abrir Sistema Logistico del Peru"
+          >
+            Abrir Sistema Logistico del Peru
+          </a>
         </div>
       </header>
 
@@ -2463,7 +2679,8 @@ function App() {
                 <NumberField
                   id="pallet-weight"
                   label="Peso pallet base"
-                  min={1}
+                  min={MIN_WEIGHT_KG}
+                  step={0.001}
                   unit="kg"
                   value={singleFieldValues['pallet-weight']}
                   error={singleFieldErrors['pallet-weight']}
@@ -2525,7 +2742,8 @@ function App() {
                 <NumberField
                   id="box-unit-weight"
                   label="Peso por caja/saco"
-                  min={1}
+                  min={MIN_WEIGHT_KG}
+                  step={0.001}
                   unit="kg"
                   value={singleFieldValues['box-unit-weight']}
                   error={singleFieldErrors['box-unit-weight']}
@@ -2707,7 +2925,7 @@ function App() {
                 <span>Peso total palletizado</span>
                 <strong>
                   {singlePalletizedWeightKg !== null
-                    ? `${formatInt.format(singlePalletizedWeightKg)} kg`
+                    ? `${formatKg.format(singlePalletizedWeightKg)} kg`
                     : 'No definido'}
                 </strong>
               </article>
@@ -2809,7 +3027,7 @@ function App() {
                   <th>Peso pallet base (kg)</th>
                   <td>
                     {singlePalletBaseWeightKg !== null
-                      ? formatInt.format(singlePalletBaseWeightKg)
+                      ? formatKg.format(singlePalletBaseWeightKg)
                       : 'No definido'}
                   </td>
                 </tr>
@@ -2817,7 +3035,7 @@ function App() {
                   <th>Peso carga (kg)</th>
                   <td>
                     {singleBoxesWeightKg !== null
-                      ? formatInt.format(singleBoxesWeightKg)
+                      ? formatKg.format(singleBoxesWeightKg)
                       : 'No definido'}
                   </td>
                 </tr>
@@ -2825,7 +3043,7 @@ function App() {
                   <th>Peso total palletizado (kg)</th>
                   <td>
                     {singlePalletizedWeightKg !== null
-                      ? formatInt.format(singlePalletizedWeightKg)
+                      ? formatKg.format(singlePalletizedWeightKg)
                       : 'No definido'}
                   </td>
                 </tr>
@@ -2898,7 +3116,8 @@ function App() {
                 <NumberField
                   id="multi-pallet-weight"
                   label="Peso pallet base"
-                  min={1}
+                  min={MIN_WEIGHT_KG}
+                  step={0.001}
                   unit="kg"
                   value={multiFieldValues['multi-pallet-weight']}
                   error={multiFieldErrors['multi-pallet-weight']}
@@ -3076,7 +3295,8 @@ function App() {
                     <NumberField
                       id={getMultiSkuFieldId(item.id, 'unitWeight')}
                       label="Peso unitario"
-                      min={1}
+                      min={MIN_WEIGHT_KG}
+                      step={0.001}
                       unit="kg"
                       value={multiFieldValues[getMultiSkuFieldId(item.id, 'unitWeight')] ?? ''}
                       error={multiFieldErrors[getMultiSkuFieldId(item.id, 'unitWeight')]}
@@ -3235,7 +3455,7 @@ function App() {
                 <span>Peso total palletizado</span>
                 <strong>
                   {multiPalletizedWeightKg !== null
-                    ? `${formatInt.format(multiPalletizedWeightKg)} kg`
+                    ? `${formatKg.format(multiPalletizedWeightKg)} kg`
                     : 'No definido'}
                 </strong>
               </article>
@@ -3312,7 +3532,7 @@ function App() {
                     <th>Peso pallet base (kg)</th>
                     <td>
                       {multiPalletBaseWeightKg !== null
-                        ? formatInt.format(multiPalletBaseWeightKg)
+                        ? formatKg.format(multiPalletBaseWeightKg)
                         : 'No definido'}
                     </td>
                   </tr>
@@ -3320,7 +3540,7 @@ function App() {
                     <th>Peso carga (kg)</th>
                     <td>
                       {multiBoxesWeightKg !== null
-                        ? formatInt.format(multiBoxesWeightKg)
+                        ? formatKg.format(multiBoxesWeightKg)
                         : 'No definido'}
                     </td>
                   </tr>
@@ -3328,7 +3548,7 @@ function App() {
                     <th>Peso total palletizado (kg)</th>
                     <td>
                       {multiPalletizedWeightKg !== null
-                        ? formatInt.format(multiPalletizedWeightKg)
+                        ? formatKg.format(multiPalletizedWeightKg)
                         : 'No definido'}
                     </td>
                   </tr>
@@ -3433,10 +3653,21 @@ function App() {
                   id="container-use-current"
                   type="button"
                   className="btn-secondary"
-                  onClick={useCurrentPalletResult}
+                  onClick={addCurrentPalletToCatalog}
                 >
-                  Usar resultado actual del pallet
+                  Agregar pallet actual
                 </button>
+                <p className="meta-text">
+                  Cada clic agrega 1 unidad del pallet aplicado al catalogo consolidado.
+                </p>
+                {containerIsConsolidated && (
+                  <div className="notice-box">
+                    <p>
+                      Modo consolidado activo. El solver usa el catalogo agregado y ya no llena el
+                      contenedor con un unico tipo de pallet.
+                    </p>
+                  </div>
+                )}
                 <NumberField
                   id="container-pallet-length"
                   label="Largo pallet"
@@ -3480,6 +3711,62 @@ function App() {
               </div>
 
               <div className="field-group">
+                <h3>Catalogo consolidado</h3>
+                {containerDraft.pallets && containerDraft.pallets.length > 0 ? (
+                  <div className="scenario-list" data-testid="container-pallet-catalog">
+                    {containerDraft.pallets.map((entry) => (
+                      <article key={entry.id} className="scenario-card">
+                        <div>
+                          <strong>{entry.name}</strong>
+                          <p className="meta-text">
+                            {entry.source === 'multi' ? 'Origen: multiples cajas' : 'Origen: caja unica'}
+                          </p>
+                          <p className="meta-text">
+                            {entry.pallet.length} x {entry.pallet.width} x {entry.pallet.height} mm
+                          </p>
+                          <p className="meta-text">
+                            Peso por pallet:{' '}
+                            {entry.weightPerPalletKg === undefined
+                              ? 'No definido'
+                              : formatWeightDualFromKg(entry.weightPerPalletKg)}
+                          </p>
+                        </div>
+                        <div className="button-row">
+                          <span className="meta-text">Cantidad: {entry.quantity}</span>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => adjustContainerCatalogQuantity(entry.id, 1)}
+                          >
+                            +1
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => adjustContainerCatalogQuantity(entry.id, -1)}
+                          >
+                            -1
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => removeContainerCatalogEntry(entry.id)}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="meta-text">
+                    Sin pallets agregados. Si el catalogo queda vacio, el modo contenedor simple
+                    sigue usando el pallet unico manual.
+                  </p>
+                )}
+              </div>
+
+              <div className="field-group">
                 <h3>Reglas operativas</h3>
                 <NumberField
                   id="container-clearance"
@@ -3494,7 +3781,8 @@ function App() {
                 <NumberField
                   id="container-weight-per-pallet"
                   label="Peso por pallet"
-                  min={1}
+                  min={MIN_WEIGHT_KG}
+                  step={0.001}
                   unit="kg"
                   value={containerFieldValues['container-weight-per-pallet']}
                   error={containerFieldErrors['container-weight-per-pallet']}
@@ -3509,7 +3797,8 @@ function App() {
                 <NumberField
                   id="container-payload-max"
                   label="Carga util maxima"
-                  min={1}
+                  min={MIN_WEIGHT_KG}
+                  step={0.001}
                   unit="kg"
                   value={containerFieldValues['container-payload-max']}
                   error={containerFieldErrors['container-payload-max']}
@@ -3579,6 +3868,7 @@ function App() {
                 input={containerApplied}
                 result={containerResult}
                 palletLoad={containerPalletLoad}
+                palletCatalog={containerCatalogEntries}
                 labelsBySku={skuLabelsBySku}
                 boxSkinMode={boxSkinMode}
               />
@@ -3620,7 +3910,7 @@ function App() {
 
             <div className="kpi-grid">
               <article className="kpi">
-                <span>Pallets por cama</span>
+                <span>{containerIsConsolidated ? 'Pallets colocados por espacio' : 'Pallets por cama'}</span>
                 <strong>{formatInt.format(containerResult.totalPalletsBySpace)}</strong>
               </article>
               <article className="kpi">
@@ -3642,6 +3932,46 @@ function App() {
               <article className="kpi">
                 <span>Volumen carga</span>
                 <strong>{formatVolumeM3FromMm3(containerDerivedMetrics.loadVolumeMm3)}</strong>
+              </article>
+              <article className="kpi">
+                <span>Peso por pallet</span>
+                <strong>
+                  {containerWeightMetrics.weightPerPalletKg === null
+                    ? 'No definido'
+                    : formatWeightDualFromKg(containerWeightMetrics.weightPerPalletKg)}
+                </strong>
+              </article>
+              <article className="kpi">
+                <span>Peso total de carga</span>
+                <strong>
+                  {containerWeightMetrics.totalLoadWeightKg === null
+                    ? 'No definido'
+                    : formatWeightDualFromKg(containerWeightMetrics.totalLoadWeightKg)}
+                </strong>
+              </article>
+              <article className="kpi">
+                <span>Payload permitido</span>
+                <strong>
+                  {containerWeightMetrics.payloadLimitKg === null
+                    ? 'No definido'
+                    : formatWeightDualFromKg(containerWeightMetrics.payloadLimitKg)}
+                </strong>
+              </article>
+              <article className="kpi">
+                <span>Utilizacion de payload</span>
+                <strong>
+                  {containerWeightMetrics.payloadUtilizationRatio === null
+                    ? '-'
+                    : formatPercent(containerWeightMetrics.payloadUtilizationRatio)}
+                </strong>
+              </article>
+              <article className="kpi">
+                <span>Margen de payload</span>
+                <strong>
+                  {containerWeightMetrics.payloadMarginKg === null
+                    ? '-'
+                    : formatWeightDualFromKg(containerWeightMetrics.payloadMarginKg)}
+                </strong>
               </article>
             </div>
 
@@ -3679,7 +4009,9 @@ function App() {
                   <td>
                     {containerResult.solverVariant === 'alternating'
                       ? 'Alternado por filas'
-                      : 'Homogeneo'}
+                      : containerResult.solverVariant === 'consolidated'
+                        ? 'Consolidado por catalogo'
+                        : 'Homogeneo'}
                   </td>
                 </tr>
                 <tr>
@@ -3692,15 +4024,27 @@ function App() {
                 </tr>
                 <tr>
                   <th>Orientacion base</th>
-                  <td>{containerResult.selected.orientation}</td>
+                  <td>
+                    {containerResult.solverVariant === 'consolidated'
+                      ? '-'
+                      : containerResult.selected.orientation}
+                  </td>
                 </tr>
                 <tr>
                   <th>nx</th>
-                  <td>{formatInt.format(containerResult.selected.nx)}</td>
+                  <td>
+                    {containerResult.solverVariant === 'consolidated'
+                      ? '-'
+                      : formatInt.format(containerResult.selected.nx)}
+                  </td>
                 </tr>
                 <tr>
                   <th>ny</th>
-                  <td>{formatInt.format(containerResult.selected.ny)}</td>
+                  <td>
+                    {containerResult.solverVariant === 'consolidated'
+                      ? '-'
+                      : formatInt.format(containerResult.selected.ny)}
+                  </td>
                 </tr>
                 <tr>
                   <th>Pallets por espacio</th>
@@ -3771,11 +4115,43 @@ function App() {
                   <td>{containerResult.heightFits ? 'Si' : 'No'}</td>
                 </tr>
                 <tr>
-                  <th>Peso total estimado (kg)</th>
+                  <th>Peso por pallet (kg / t)</th>
                   <td>
-                    {containerResult.weightTotalKg === null
+                    {containerWeightMetrics.weightPerPalletKg === null
                       ? '-'
-                      : formatInt.format(containerResult.weightTotalKg)}
+                      : formatWeightDualFromKg(containerWeightMetrics.weightPerPalletKg)}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Peso total estimado (kg / t)</th>
+                  <td>
+                    {containerWeightMetrics.totalLoadWeightKg === null
+                      ? '-'
+                      : formatWeightDualFromKg(containerWeightMetrics.totalLoadWeightKg)}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Payload maximo (kg / t)</th>
+                  <td>
+                    {containerWeightMetrics.payloadLimitKg === null
+                      ? '-'
+                      : formatWeightDualFromKg(containerWeightMetrics.payloadLimitKg)}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Utilizacion de payload (%)</th>
+                  <td>
+                    {containerWeightMetrics.payloadUtilizationRatio === null
+                      ? '-'
+                      : formatPercent(containerWeightMetrics.payloadUtilizationRatio)}
+                  </td>
+                </tr>
+                <tr>
+                  <th>Margen a payload (kg / t)</th>
+                  <td>
+                    {containerWeightMetrics.payloadMarginKg === null
+                      ? '-'
+                      : formatWeightDualFromKg(containerWeightMetrics.payloadMarginKg)}
                   </td>
                 </tr>
               </tbody>

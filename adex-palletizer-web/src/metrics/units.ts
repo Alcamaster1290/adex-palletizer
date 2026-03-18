@@ -19,8 +19,21 @@ export interface ContainerDerivedMetrics {
   freeVolumeMm3: number
 }
 
+export interface ContainerWeightMetrics {
+  weightPerPalletKg: number | null
+  totalLoadWeightKg: number | null
+  payloadLimitKg: number | null
+  payloadUtilizationRatio: number | null
+  payloadMarginKg: number | null
+  tonsPerPallet: number | null
+  totalLoadTons: number | null
+  payloadLimitTons: number | null
+  payloadMarginTons: number | null
+}
+
 const MM2_PER_M2 = 1_000_000
 const MM3_PER_M3 = 1_000_000_000
+const KG_PER_TON = 1_000
 
 const integerFormatter = new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 0,
@@ -29,6 +42,11 @@ const integerFormatter = new Intl.NumberFormat('es-ES', {
 const decimalFormatter = new Intl.NumberFormat('es-ES', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
+})
+
+const weightFormatter = new Intl.NumberFormat('es-ES', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 3,
 })
 
 function normalizeNonNegative(value: number) {
@@ -46,6 +64,10 @@ export function volumeMm3ToM3(valueMm3: number) {
   return normalizeNonNegative(valueMm3) / MM3_PER_M3
 }
 
+export function kgToTons(valueKg: number) {
+  return normalizeNonNegative(valueKg) / KG_PER_TON
+}
+
 export function formatAreaMm2(valueMm2: number) {
   return `${integerFormatter.format(Math.round(normalizeNonNegative(valueMm2)))} mm²`
 }
@@ -60,6 +82,18 @@ export function formatAreaM2FromMm2(valueMm2: number) {
 
 export function formatVolumeM3FromMm3(valueMm3: number) {
   return `${decimalFormatter.format(volumeMm3ToM3(valueMm3))} m³`
+}
+
+export function formatWeightKg(valueKg: number) {
+  return `${weightFormatter.format(normalizeNonNegative(valueKg))} kg`
+}
+
+export function formatTonsFromKg(valueKg: number) {
+  return `${weightFormatter.format(kgToTons(valueKg))} t`
+}
+
+export function formatWeightDualFromKg(valueKg: number) {
+  return `${formatWeightKg(valueKg)} (${formatTonsFromKg(valueKg)})`
 }
 
 export function formatAreaDualFromMm2(valueMm2: number) {
@@ -119,5 +153,48 @@ export function buildContainerDerivedMetrics(
     containerVolumeMm3,
     loadVolumeMm3,
     freeVolumeMm3,
+  }
+}
+
+export function buildContainerWeightMetrics(
+  input: ContainerInput,
+  result: ContainerResult,
+): ContainerWeightMetrics {
+  const payloadLimitKg =
+    typeof input.payloadMaxKg === 'number' && Number.isFinite(input.payloadMaxKg)
+      ? input.payloadMaxKg
+      : null
+  const totalLoadWeightKg =
+    typeof result.weightTotalKg === 'number' && Number.isFinite(result.weightTotalKg)
+      ? result.weightTotalKg
+      : typeof input.weightPerPalletKg === 'number' && Number.isFinite(input.weightPerPalletKg)
+        ? input.weightPerPalletKg * Math.max(0, result.totalPallets)
+        : null
+  const weightPerPalletKg =
+    totalLoadWeightKg !== null && result.totalPallets > 0
+      ? totalLoadWeightKg / result.totalPallets
+      : typeof input.weightPerPalletKg === 'number' && Number.isFinite(input.weightPerPalletKg)
+        ? input.weightPerPalletKg
+        : null
+
+  const payloadUtilizationRatio =
+    payloadLimitKg !== null && payloadLimitKg > 0 && totalLoadWeightKg !== null
+      ? Math.min(1, Math.max(0, totalLoadWeightKg / payloadLimitKg))
+      : null
+  const payloadMarginKg =
+    payloadLimitKg !== null && totalLoadWeightKg !== null
+      ? payloadLimitKg - totalLoadWeightKg
+      : null
+
+  return {
+    weightPerPalletKg,
+    totalLoadWeightKg,
+    payloadLimitKg,
+    payloadUtilizationRatio,
+    payloadMarginKg,
+    tonsPerPallet: weightPerPalletKg !== null ? kgToTons(weightPerPalletKg) : null,
+    totalLoadTons: totalLoadWeightKg !== null ? kgToTons(totalLoadWeightKg) : null,
+    payloadLimitTons: payloadLimitKg !== null ? kgToTons(payloadLimitKg) : null,
+    payloadMarginTons: payloadMarginKg !== null ? payloadMarginKg / KG_PER_TON : null,
   }
 }

@@ -20,12 +20,18 @@ vi.mock('./scene/SceneContainer', () => ({
       palletHeightMm?: number
       boxesPlacements?: Array<unknown>
     } | null
+    palletCatalog?: Array<{ id: string; quantity: number }>
+    result?: {
+      solverVariant?: string
+    }
   }) => (
     <div
       data-testid="scene-container"
       data-load-height={props.palletLoad?.loadTotalHeightMm ?? ''}
       data-pallet-height={props.palletLoad?.palletHeightMm ?? ''}
       data-load-boxes={props.palletLoad?.boxesPlacements?.length ?? 0}
+      data-catalog-size={props.palletCatalog?.length ?? 0}
+      data-solver-variant={props.result?.solverVariant ?? ''}
     >
       scene-container
     </div>
@@ -46,6 +52,17 @@ describe('App input validation', () => {
     expect(screen.getByText(/obligatorio/i)).toBeInTheDocument()
     expect(screen.getByTestId('scene-single')).toBeInTheDocument()
     expect(screen.queryByText(/nan/i)).not.toBeInTheDocument()
+  })
+
+  it('muestra acceso directo a SisLoPe en la cabecera', () => {
+    render(<App />)
+
+    const sislopeLink = screen.getByRole('link', {
+      name: /abrir sistema logistico del peru/i,
+    })
+
+    expect(sislopeLink).toHaveAttribute('href', 'https://sis-lo-pe.vercel.app')
+    expect(sislopeLink).toHaveAttribute('target', '_blank')
   })
 
   it('mantiene el error de negocio cuando maxTotalHeight <= palletHeight', () => {
@@ -184,10 +201,12 @@ describe('App input validation', () => {
 
     expect(containerLengthInput.value).toBe('12032')
     expect(screen.getByText(/patron:/i)).toBeInTheDocument()
+    expect(screen.getByText(/peso total de carga/i)).toBeInTheDocument()
+    expect(screen.getByText(/utilizacion de payload \(%\)/i)).toBeInTheDocument()
     expect(screen.getByTestId('scene-container')).toBeInTheDocument()
   })
 
-  it('usar resultado actual del pallet actualiza pallet de carga en tab container', () => {
+  it('agregar pallet actual crea una entrada consolidada desde el pallet aplicado', () => {
     render(<App />)
 
     fireEvent.change(document.getElementById('single-packing-mode') as HTMLSelectElement, {
@@ -203,10 +222,10 @@ describe('App input validation', () => {
       target: { value: '200' },
     })
     fireEvent.change(document.getElementById('pallet-weight') as HTMLInputElement, {
-      target: { value: '18' },
+      target: { value: '18.5' },
     })
     fireEvent.change(document.getElementById('box-unit-weight') as HTMLInputElement, {
-      target: { value: '12' },
+      target: { value: '12.25' },
     })
     fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
 
@@ -223,15 +242,14 @@ describe('App input validation', () => {
     const sceneContainer = screen.getByTestId('scene-container')
     expect(sceneContainer.getAttribute('data-load-height')).toBe('')
 
-    fireEvent.click(screen.getByRole('button', { name: /usar resultado actual del pallet/i }))
+    fireEvent.click(screen.getByRole('button', { name: /agregar pallet actual/i }))
 
-    expect(palletHeightInput.value).toBe('1150')
-    expect(weightPerPalletInput.value).toBe('258')
-    const loadHeight = Number(sceneContainer.getAttribute('data-load-height') ?? '0')
-    const palletHeight = Number(sceneContainer.getAttribute('data-pallet-height') ?? '0')
-    const loadBoxes = Number(sceneContainer.getAttribute('data-load-boxes') ?? '0')
-    expect(loadHeight).toBeGreaterThan(palletHeight)
-    expect(loadBoxes).toBeGreaterThan(0)
+    expect(screen.getByTestId('container-pallet-catalog')).toBeInTheDocument()
+    expect(screen.getByText(/cantidad: 1/i)).toBeInTheDocument()
+    expect(palletHeightInput.value).toBe('150')
+    expect(weightPerPalletInput.value).toBe('')
+    expect(sceneContainer.getAttribute('data-catalog-size')).toBe('1')
+    expect(sceneContainer.getAttribute('data-solver-variant')).toBe('consolidated')
   })
 
   it('usa solver por columnas SKU al activar no mix stacking en multi', () => {

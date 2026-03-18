@@ -1,4 +1,5 @@
 import { solveAlternatingByRows } from './containerSolverAlternating'
+import { solveContainerConsolidated } from './containerConsolidatedSolver'
 import type {
   ContainerInput,
   ContainerOrientationPlan,
@@ -222,6 +223,10 @@ function emptyResult(errors: string[]): ContainerResult {
 }
 
 export function solveContainerLoading(input: ContainerInput): ContainerResult {
+  if ((input.pallets?.length ?? 0) > 0) {
+    return solveContainerConsolidated(input)
+  }
+
   const errors: string[] = []
   const warnings: string[] = []
 

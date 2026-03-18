@@ -7,6 +7,7 @@ import {
   normalizeSackGeometry,
   pickLargestBakedGeometry,
 } from './sackGeometry'
+import { LateralLabelMaterial } from './LateralLabelMaterial'
 
 export interface SackTemplate {
   geometry: BufferGeometry
@@ -91,9 +92,9 @@ export function SackFallback({
   return (
     <mesh castShadow receiveShadow>
       <boxGeometry args={[length, height, width]} />
-      <meshStandardMaterial
-        color={texture ? '#ffffff' : color}
-        map={texture ?? undefined}
+      <LateralLabelMaterial
+        color={color}
+        texture={texture}
         roughness={0.62}
         metalness={0.02}
       />
@@ -169,9 +170,9 @@ export function SackMesh({
       scale={[length, height, width]}
       position={[0, gravityOffsetY, 0]}
     >
-      <meshStandardMaterial
-        color={texture ? '#ffffff' : color}
-        map={texture ?? undefined}
+      <LateralLabelMaterial
+        color={color}
+        texture={texture}
         roughness={0.72}
         metalness={0.01}
       />

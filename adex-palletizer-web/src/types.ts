@@ -183,6 +183,17 @@ export interface ExportedPalletLoad {
   }
 }
 
+export interface ContainerPalletCatalogEntry {
+  id: string
+  name: string
+  source: 'single' | 'multi'
+  quantity: number
+  pallet: DimensionsMM
+  weightPerPalletKg?: number
+  load?: ExportedPalletLoad | null
+  color?: string
+}
+
 export interface MultiBoxTypeInput {
   id: number
   length: number
@@ -259,6 +270,7 @@ export interface ContainerInput {
   preset: ContainerPresetKey
   container: DimensionsMM
   pallet: DimensionsMM
+  pallets?: ContainerPalletCatalogEntry[]
   allowRotation: boolean
   clearance: number
   rearClearance?: number
@@ -294,6 +306,9 @@ export interface PalletPlacement {
   length: number
   width: number
   height: number
+  palletTypeId?: string
+  color?: string
+  label?: string
   rotated: boolean
   index: number
   layer: number
@@ -302,7 +317,7 @@ export interface PalletPlacement {
 export interface ContainerResult {
   selected: ContainerOrientationPlan
   candidates: ContainerOrientationPlan[]
-  solverVariant: 'homogeneous' | 'alternating'
+  solverVariant: 'homogeneous' | 'alternating' | 'consolidated'
   patternLabel: string
   rowPattern?: Orientation[]
   wallClearanceMm: number

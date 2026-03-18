@@ -62,8 +62,8 @@ describe('App scenarios storage', () => {
     fireEvent.change(boxPreset, { target: { value: 'compact-360-260-220' } })
     fireEvent.change(packingMode, { target: { value: 'advanced' } })
     fireEvent.change(skinMode, { target: { value: 'sack' } })
-    fireEvent.change(palletWeight, { target: { value: '18' } })
-    fireEvent.change(boxUnitWeight, { target: { value: '28' } })
+    fireEvent.change(palletWeight, { target: { value: '18.5' } })
+    fireEvent.change(boxUnitWeight, { target: { value: '28.125' } })
     fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
     fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))
 
@@ -84,8 +84,8 @@ describe('App scenarios storage', () => {
     expect(singleScenario?.single?.boxPresetId).toBe('compact-360-260-220')
     expect(singleScenario?.single?.packingMode).toBe('advanced')
     expect(singleScenario?.single?.boxSkinMode).toBe('sack')
-    expect(singleScenario?.single?.input?.palletWeightKg).toBe(18)
-    expect(singleScenario?.single?.input?.boxUnitWeightKg).toBe(28)
+    expect(singleScenario?.single?.input?.palletWeightKg).toBe(18.5)
+    expect(singleScenario?.single?.input?.boxUnitWeightKg).toBe(28.125)
 
     fireEvent.change(boxPreset, { target: { value: 'standard-600-400-200' } })
     fireEvent.change(packingMode, { target: { value: 'grid' } })
@@ -103,8 +103,8 @@ describe('App scenarios storage', () => {
     expect((document.getElementById('global-box-skin-mode') as HTMLSelectElement).value).toBe(
       'sack',
     )
-    expect((document.getElementById('pallet-weight') as HTMLInputElement).value).toBe('18')
-    expect((document.getElementById('box-unit-weight') as HTMLInputElement).value).toBe('28')
+    expect((document.getElementById('pallet-weight') as HTMLInputElement).value).toBe('18.5')
+    expect((document.getElementById('box-unit-weight') as HTMLInputElement).value).toBe('28.125')
     expect((document.getElementById('box-length') as HTMLInputElement).value).toBe('360')
   })
 
@@ -113,10 +113,10 @@ describe('App scenarios storage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /multiples cajas/i }))
     fireEvent.change(document.getElementById('multi-pallet-weight') as HTMLInputElement, {
-      target: { value: '25' },
+      target: { value: '25.5' },
     })
     fireEvent.change(document.getElementById('multi-sku-unitWeight-1') as HTMLInputElement, {
-      target: { value: '12' },
+      target: { value: '12.75' },
     })
     fireEvent.click(screen.getByRole('button', { name: /agregar sku/i }))
     expect((document.getElementById('multi-no-mix-stacking') as HTMLInputElement).checked).toBe(
@@ -145,9 +145,9 @@ describe('App scenarios storage', () => {
       | undefined
     expect(Array.isArray(multi?.input?.skus)).toBe(true)
     expect((multi?.input?.skus ?? []).length).toBeGreaterThanOrEqual(3)
-    expect(multi?.input?.palletWeightKg).toBe(25)
+    expect(multi?.input?.palletWeightKg).toBe(25.5)
     expect(multi?.input?.noMixedSkuStacking).toBe(true)
-    expect((multi?.input?.skus ?? [])[0]?.unitWeightKg).toBe(12)
+    expect((multi?.input?.skus ?? [])[0]?.unitWeightKg).toBe(12.75)
 
     fireEvent.click(document.getElementById('multi-no-mix-stacking') as HTMLInputElement)
     fireEvent.change(document.getElementById('multi-pallet-weight') as HTMLInputElement, {
@@ -160,7 +160,9 @@ describe('App scenarios storage', () => {
     expect((document.getElementById('multi-no-mix-stacking') as HTMLInputElement).checked).toBe(
       true,
     )
-    expect((document.getElementById('multi-pallet-weight') as HTMLInputElement).value).toBe('25')
+    expect((document.getElementById('multi-pallet-weight') as HTMLInputElement).value).toBe(
+      '25.5',
+    )
   })
 
   it('guarda y carga escenario de container restaurando dimensiones', () => {
@@ -181,5 +183,48 @@ describe('App scenarios storage', () => {
 
     expect((document.getElementById('container-length') as HTMLInputElement).value).toBe('12032')
     expect(screen.getByText(/patron:/i)).toBeInTheDocument()
+  })
+
+  it('guarda y restaura catalogo consolidado de contenedor', () => {
+    render(<App />)
+
+    fireEvent.change(document.getElementById('box-length') as HTMLInputElement, {
+      target: { value: '600' },
+    })
+    fireEvent.change(document.getElementById('box-width') as HTMLInputElement, {
+      target: { value: '500' },
+    })
+    fireEvent.change(document.getElementById('box-height') as HTMLInputElement, {
+      target: { value: '200' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
+
+    fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
+    fireEvent.click(screen.getByRole('button', { name: /agregar pallet actual/i }))
+    fireEvent.click(screen.getByRole('button', { name: /guardar escenario/i }))
+
+    const storedRaw = window.localStorage.getItem(SCENARIOS_STORAGE_KEY)
+    expect(storedRaw).not.toBeNull()
+    const stored = JSON.parse(storedRaw ?? '[]') as Array<Record<string, unknown>>
+    const containerScenario = stored.find((item) => item.mode === 'container') as
+      | {
+          container?: {
+            input?: {
+              pallets?: Array<{ quantity?: number; source?: string }>
+            }
+          }
+        }
+      | undefined
+
+    expect(containerScenario?.container?.input?.pallets?.length).toBe(1)
+    expect(containerScenario?.container?.input?.pallets?.[0]?.quantity).toBe(1)
+
+    fireEvent.click(screen.getByRole('button', { name: /restablecer/i }))
+    expect(screen.queryByTestId('container-pallet-catalog')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar' }))
+
+    expect(screen.getByTestId('container-pallet-catalog')).toBeInTheDocument()
+    expect(screen.getByText(/cantidad: 1/i)).toBeInTheDocument()
   })
 })

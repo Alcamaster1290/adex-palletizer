@@ -22,6 +22,19 @@ npm run build
 npm run preview
 ```
 
+## Integracion con SisLoPe
+
+- La cabecera del app incluye el boton `Abrir Sistema Logistico del Peru`.
+- Por defecto apunta a:
+  - `https://sis-lo-pe.vercel.app`
+- Puede sobreescribirse con variable de entorno:
+
+```bash
+VITE_SISLOPE_URL=https://sis-lo-pe.vercel.app
+```
+
+- La integracion actual es desacoplada y segura: abre SisLoPe en una nueva pestaña sin mezclar el bundle de mapas dentro del palletizer.
+
 ## Presets / Scenarios / Share link
 
 - Presets de pallet: `American 1200x1000x150`, `Euro 1200x800x144` y `Custom`.

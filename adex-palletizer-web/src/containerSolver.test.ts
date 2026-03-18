@@ -162,4 +162,16 @@ describe('solveContainerLoading', () => {
     expect(result.totalPallets).toBeLessThanOrEqual(4)
     expect(result.warnings.join(' ')).toMatch(/payload/i)
   })
+
+  it('calcula pallets por payload con pesos decimales', () => {
+    const result = solveContainerLoading(
+      buildInput({
+        weightPerPalletKg: 899.5,
+        payloadMaxKg: 4000.2,
+      }),
+    )
+
+    expect(result.totalPalletsByWeight).toBe(4)
+    expect(result.totalPallets).toBeLessThanOrEqual(4)
+  })
 })

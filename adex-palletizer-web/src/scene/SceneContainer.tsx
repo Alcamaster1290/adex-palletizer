@@ -8,11 +8,13 @@ import { getTextureForDataUrl, resolveSkuTextureDataUrl } from '../labels/labelT
 import type {
   BoxSkinMode,
   ContainerInput,
+  ContainerPalletCatalogEntry,
   ContainerResult,
   ExportedPalletLoad,
   SkuLabelsBySku,
 } from '../types'
 import { Pallet, PalletFallback } from './Pallet'
+import { LateralLabelMaterial } from './LateralLabelMaterial'
 import { useSackTemplate } from './Sack'
 import { resolveSackPatternTransform } from './sackPattern'
 import { resolveSackVisualProfile } from './sackVisual'
@@ -21,6 +23,7 @@ interface SceneContainerProps {
   input: ContainerInput
   result: ContainerResult
   palletLoad?: ExportedPalletLoad | null
+  palletCatalog?: ContainerPalletCatalogEntry[]
   labelsBySku?: SkuLabelsBySku
   boxSkinMode?: BoxSkinMode
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
@@ -148,9 +151,9 @@ function InstancedBoxGroup({
       ) : (
         <boxGeometry args={[visualLength, visualHeight, visualWidth]} />
       )}
-      <meshStandardMaterial
-        color={texture ? '#ffffff' : color}
-        map={texture ?? undefined}
+      <LateralLabelMaterial
+        color={color}
+        texture={texture}
         roughness={0.55}
         metalness={0.02}
       />
@@ -174,6 +177,7 @@ export function SceneContainer({
   input,
   result,
   palletLoad = null,
+  palletCatalog = [],
   labelsBySku = {},
   boxSkinMode = 'box',
   onCanvasReady,
@@ -183,13 +187,23 @@ export function SceneContainer({
   const containerHeight = input.container.height
   const sceneScale = Math.max(containerLength, containerWidth, containerHeight)
   const sackTemplate = useSackTemplate()
+  const palletCatalogMap = useMemo(
+    () => new Map(palletCatalog.map((entry) => [entry.id, entry])),
+    [palletCatalog],
+  )
+  const hasConsolidatedCatalog = palletCatalog.length > 0
 
   const basePalletModels = useMemo<PalletModelPlacement[]>(() => {
     return result.placements.map((placement, index) => {
       const floorY = placement.y - placement.height / 2
-      const length = palletLoad ? palletLoad.palletLengthMm : placement.length
-      const width = palletLoad ? palletLoad.palletWidthMm : placement.width
-      const height = palletLoad ? palletLoad.palletHeightMm : Math.min(170, placement.height)
+      const catalogEntry =
+        hasConsolidatedCatalog && placement.palletTypeId
+          ? palletCatalogMap.get(placement.palletTypeId)
+          : null
+      const activeLoad = catalogEntry?.load ?? palletLoad
+      const length = activeLoad ? activeLoad.palletLengthMm : placement.length
+      const width = activeLoad ? activeLoad.palletWidthMm : placement.width
+      const height = activeLoad ? activeLoad.palletHeightMm : Math.min(170, placement.height)
       return {
         key: `container-pallet-${index}`,
         x: placement.x,
@@ -201,10 +215,10 @@ export function SceneContainer({
         height,
       }
     })
-  }, [palletLoad, result.placements])
+  }, [hasConsolidatedCatalog, palletCatalogMap, palletLoad, result.placements])
 
   const legacyLoadBlocks = useMemo<LoadInstancedGroup[]>(() => {
-    if (palletLoad) {
+    if (palletLoad || hasConsolidatedCatalog) {
       return []
     }
 
@@ -237,9 +251,102 @@ export function SceneContainer({
     })
 
     return groups
-  }, [palletLoad, result.placements])
+  }, [hasConsolidatedCatalog, palletLoad, result.placements])
 
   const loadGroups = useMemo<LoadInstancedGroup[]>(() => {
+    if (hasConsolidatedCatalog) {
+      const grouped = new Map<string, LoadInstancedGroup>()
+
+      result.placements.forEach((placement) => {
+        if (!placement.palletTypeId) {
+          return
+        }
+
+        const entry = palletCatalogMap.get(placement.palletTypeId)
+        if (!entry) {
+          return
+        }
+
+        const load = entry.load
+        const floorY = placement.y - placement.height / 2
+        const rotationY = placement.rotated ? Math.PI / 2 : 0
+
+        if (!load || load.boxesPlacements.length === 0) {
+          const fallbackHeight = Math.max(1, placement.height - Math.min(170, placement.height))
+          if (fallbackHeight <= 0) {
+            return
+          }
+
+          const key = `catalog-fallback-${entry.id}`
+          const existing = grouped.get(key)
+          const instance = {
+            x: placement.x,
+            y: floorY + Math.min(170, placement.height) + fallbackHeight / 2,
+            z: placement.z,
+            rotationY,
+            isStacked: false,
+            layerIndex: 0,
+          }
+
+          if (existing) {
+            existing.instances.push(instance)
+            return
+          }
+
+          grouped.set(key, {
+            key,
+            length: placement.length,
+            width: placement.width,
+            height: fallbackHeight,
+            color: entry.color ?? '#2f8f9d',
+            applyVisualGap: false,
+            instances: [instance],
+          })
+          return
+        }
+
+        const groupedBoxes = groupLoadBoxesForInstancing(load.boxesPlacements)
+        groupedBoxes.forEach((group, groupIndex) => {
+          const key = `${entry.id}-${groupIndex}-${group.lengthMm}-${group.widthMm}-${group.heightMm}-${group.skuId ?? ''}`
+          const existing = grouped.get(key)
+          const target =
+            existing ??
+            ({
+              key,
+              length: group.lengthMm,
+              width: group.widthMm,
+              height: group.heightMm,
+              color: group.color,
+              textureDataUrl: resolveSkuTextureDataUrl(labelsBySku, group.skuId),
+              applyVisualGap: false,
+              instances: [],
+            } satisfies LoadInstancedGroup)
+
+          group.boxes.forEach((box) => {
+            const offsetX = placement.rotated ? box.zMm : box.xMm
+            const offsetZ = placement.rotated ? -box.xMm : box.zMm
+            target.instances.push({
+              x: placement.x + offsetX,
+              y: floorY + load.palletHeightMm + box.yMm,
+              z: placement.z + offsetZ,
+              rotationY,
+              isStacked: box.yMm - box.heightMm / 2 > 0.5,
+              layerIndex: Math.max(
+                0,
+                Math.round((box.yMm - box.heightMm / 2) / Math.max(1, box.heightMm)),
+              ),
+            })
+          })
+
+          if (!existing) {
+            grouped.set(key, target)
+          }
+        })
+      })
+
+      return Array.from(grouped.values())
+    }
+
     if (!palletLoad) {
       return []
     }
@@ -313,7 +420,7 @@ export function SceneContainer({
         instances,
       }
     })
-  }, [labelsBySku, palletLoad, result.placements])
+  }, [hasConsolidatedCatalog, labelsBySku, palletCatalogMap, palletLoad, result.placements])
 
   return (
     <div className="scene-frame">
@@ -350,7 +457,7 @@ export function SceneContainer({
           <Edges threshold={15} color="#5f7284" />
         </mesh>
 
-        {palletLoad ? (
+        {palletLoad || hasConsolidatedCatalog ? (
           <>
             {basePalletModels.map((placement) => (
               <group

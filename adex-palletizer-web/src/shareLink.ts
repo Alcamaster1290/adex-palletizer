@@ -90,13 +90,26 @@ function parseIntegerParam(value: string | null, min: number): number | null {
   return parsed
 }
 
-function parseOptionalPositiveInteger(value: string | null): number | null {
+function parseOptionalPositiveDecimal(
+  value: string | null,
+  maxDecimals = 3,
+): number | null {
   if (value === null || value.trim().length === 0) {
     return null
   }
 
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+  const normalized = value.trim().replace(',', '.')
+  if (!/^\d+(\.\d+)?$/.test(normalized)) {
+    return NaN
+  }
+
+  const decimalPart = normalized.split('.')[1]
+  if (decimalPart && decimalPart.length > maxDecimals) {
+    return NaN
+  }
+
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
     return NaN
   }
 
@@ -147,11 +160,11 @@ function parseSingleInput(
   const pL = parseIntegerParam(params.get('pL'), 1)
   const pW = parseIntegerParam(params.get('pW'), 1)
   const pH = parseIntegerParam(params.get('pH'), 1)
-  const pKg = parseOptionalPositiveInteger(params.get('pKg'))
+  const pKg = parseOptionalPositiveDecimal(params.get('pKg'))
   const bL = parseIntegerParam(params.get('bL'), 50)
   const bW = parseIntegerParam(params.get('bW'), 50)
   const bH = parseIntegerParam(params.get('bH'), 50)
-  const bKg = parseOptionalPositiveInteger(params.get('bKg'))
+  const bKg = parseOptionalPositiveDecimal(params.get('bKg'))
   const maxH = parseIntegerParam(params.get('maxH'), 1)
   const ov = parseIntegerParam(params.get('ov'), 0)
 
@@ -240,8 +253,8 @@ function parseContainerInput(
   const ppH = parseIntegerParam(params.get('ppH'), 1)
   const cClr = parseIntegerParam(params.get('cClr'), 0)
   const cRear = parseIntegerParam(params.get('cRear'), 0)
-  const wpp = parseOptionalPositiveInteger(params.get('wpp'))
-  const pMax = parseOptionalPositiveInteger(params.get('pMax'))
+  const wpp = parseOptionalPositiveDecimal(params.get('wpp'))
+  const pMax = parseOptionalPositiveDecimal(params.get('pMax'))
 
   const cRotRaw = params.get('cRot')
   let cRot: boolean | null = null

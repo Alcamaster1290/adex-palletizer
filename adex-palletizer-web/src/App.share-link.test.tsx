@@ -22,7 +22,7 @@ describe('App share link', () => {
     window.history.replaceState(
       {},
       '',
-      '/?pL=1300&pW=900&pH=160&pKg=35&bL=700&bW=500&bH=300&bKg=25&maxH=1400&rot=0&ov=25&mode=single',
+      '/?pL=1300&pW=900&pH=160&pKg=35.5&bL=700&bW=500&bH=300&bKg=25.25&maxH=1400&rot=0&ov=25&mode=single',
     )
 
     render(<App />)
@@ -30,11 +30,11 @@ describe('App share link', () => {
     expect((document.getElementById('pallet-length') as HTMLInputElement).value).toBe('1300')
     expect((document.getElementById('pallet-width') as HTMLInputElement).value).toBe('900')
     expect((document.getElementById('pallet-height') as HTMLInputElement).value).toBe('160')
-    expect((document.getElementById('pallet-weight') as HTMLInputElement).value).toBe('35')
+    expect((document.getElementById('pallet-weight') as HTMLInputElement).value).toBe('35.5')
     expect((document.getElementById('box-length') as HTMLInputElement).value).toBe('700')
     expect((document.getElementById('box-width') as HTMLInputElement).value).toBe('500')
     expect((document.getElementById('box-height') as HTMLInputElement).value).toBe('300')
-    expect((document.getElementById('box-unit-weight') as HTMLInputElement).value).toBe('25')
+    expect((document.getElementById('box-unit-weight') as HTMLInputElement).value).toBe('25.25')
     expect((document.getElementById('max-total-height') as HTMLInputElement).value).toBe('1400')
     expect((document.getElementById('overhang') as HTMLInputElement).value).toBe('25')
     expect((document.getElementById('allow-rotation') as HTMLInputElement).checked).toBe(false)
@@ -120,24 +120,24 @@ describe('App share link', () => {
     render(<App />)
 
     fireEvent.change(document.getElementById('box-unit-weight') as HTMLInputElement, {
-      target: { value: '32' },
+      target: { value: '32.75' },
     })
     fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
     fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
 
-    expect(window.location.search).toContain('bKg=32')
+    expect(window.location.search).toContain('bKg=32.75')
   })
 
   it('incluye pKg al compartir enlace cuando se define peso del pallet base', () => {
     render(<App />)
 
     fireEvent.change(document.getElementById('pallet-weight') as HTMLInputElement, {
-      target: { value: '40' },
+      target: { value: '40.125' },
     })
     fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
     fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
 
-    expect(window.location.search).toContain('pKg=40')
+    expect(window.location.search).toContain('pKg=40.125')
   })
 
   it('aplica bPr en la inicializacion del modo single', () => {
@@ -172,7 +172,7 @@ describe('App share link', () => {
     window.history.replaceState(
       {},
       '',
-      '/?mode=container&cPr=40gp&cL=12032&cW=2352&cH=2393&ppL=1200&ppW=1000&ppH=1150&cRot=1&alt=0&cClr=0&cRear=125&wpp=800&pMax=20000',
+      '/?mode=container&cPr=40gp&cL=12032&cW=2352&cH=2393&ppL=1200&ppW=1000&ppH=1150&cRot=1&alt=0&cClr=0&cRear=125&wpp=800.5&pMax=20000.75',
     )
 
     render(<App />)
@@ -183,6 +183,12 @@ describe('App share link', () => {
       '1150',
     )
     expect((document.getElementById('container-clearance') as HTMLInputElement).value).toBe('0')
+    expect((document.getElementById('container-weight-per-pallet') as HTMLInputElement).value).toBe(
+      '800.5',
+    )
+    expect((document.getElementById('container-payload-max') as HTMLInputElement).value).toBe(
+      '20000.75',
+    )
     expect((document.getElementById('container-allow-rotation') as HTMLInputElement).checked).toBe(
       true,
     )
@@ -259,5 +265,46 @@ describe('App share link', () => {
     expect(window.location.search).toContain('cClr=50')
     expect(window.location.search).toContain('cRear=0')
     expect(window.location.search).toContain('skin=sack')
+  })
+
+  it('incluye pesos decimales de contenedor al compartir enlace', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
+    fireEvent.change(document.getElementById('container-weight-per-pallet') as HTMLInputElement, {
+      target: { value: '812.5' },
+    })
+    fireEvent.change(document.getElementById('container-payload-max') as HTMLInputElement, {
+      target: { value: '20100.25' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /calcular contenedor|recalcular contenedor/i }))
+    fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
+
+    expect(window.location.search).toContain('wpp=812.5')
+    expect(window.location.search).toContain('pMax=20100.25')
+  })
+
+  it('en modo consolidado de contenedor no serializa el catalogo en el share link', () => {
+    render(<App />)
+
+    fireEvent.change(document.getElementById('box-length') as HTMLInputElement, {
+      target: { value: '600' },
+    })
+    fireEvent.change(document.getElementById('box-width') as HTMLInputElement, {
+      target: { value: '500' },
+    })
+    fireEvent.change(document.getElementById('box-height') as HTMLInputElement, {
+      target: { value: '200' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /calcular|recalcular/i }))
+
+    fireEvent.click(screen.getByRole('button', { name: /contenedores/i }))
+    fireEvent.click(screen.getByRole('button', { name: /agregar pallet actual/i }))
+    fireEvent.click(screen.getByRole('button', { name: /compartir enlace/i }))
+
+    expect(window.location.search).not.toContain('mode=container')
+    expect(
+      screen.getByText(/modo consolidado no se serializa en enlace/i),
+    ).toBeInTheDocument()
   })
 })
