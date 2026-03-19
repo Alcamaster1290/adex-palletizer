@@ -113,6 +113,10 @@ describe('App input validation', () => {
         )
       }
 
+      if (url.includes('/api/auth/logout')) {
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+
       return Promise.resolve(
         new Response(JSON.stringify({ error: 'NOT_MOCKED' }), {
           status: 404,
@@ -136,7 +140,12 @@ describe('App input validation', () => {
     fireEvent.click(screen.getByRole('button', { name: /iniciar sesion/i }))
 
     expect(await screen.findByText(/pallet solver by alvaro cac/i)).toBeInTheDocument()
-    expect(screen.getByText(/sesion activa/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /abrir menu de usuario/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /abrir menu de usuario/i }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /cerrar sesion/i }))
+
+    expect(await screen.findByRole('button', { name: /iniciar sesion/i })).toBeInTheDocument()
 
     delete (window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
   })

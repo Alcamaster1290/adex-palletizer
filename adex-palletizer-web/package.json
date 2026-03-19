@@ -29,6 +29,7 @@
     "@react-three/fiber": "^9.5.0",
     "@vercel/functions": "^3.4.3",
     "fastify": "^5.8.2",
+    "lucide-react": "^0.577.0",
     "pg": "^8.20.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

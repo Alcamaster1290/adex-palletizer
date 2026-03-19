@@ -19,6 +19,7 @@ interface SceneProps {
   labelsBySku?: SkuLabelsBySku
   defaultSkuId?: string
   boxSkinMode?: BoxSkinMode
+  enablePan?: boolean
   onCanvasReady?: (canvas: HTMLCanvasElement) => void
 }
 
@@ -45,6 +46,7 @@ export function Scene({
   labelsBySku = {},
   defaultSkuId,
   boxSkinMode = 'box',
+  enablePan = false,
   onCanvasReady,
 }: SceneProps) {
   const boxes = useMemo(() => {
@@ -95,7 +97,7 @@ export function Scene({
         />
 
         <gridHelper args={[3000, 30, '#ba9f84', '#d8c5b2']} />
-        <OrbitControls makeDefault enableDamping dampingFactor={0.08} />
+        <OrbitControls makeDefault enableDamping dampingFactor={0.08} enablePan={enablePan} />
         <CanvasReporter onReady={onCanvasReady} />
       </Canvas>
     </div>

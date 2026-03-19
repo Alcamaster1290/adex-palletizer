@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AuthScreen } from './auth/AuthScreen'
+import { AuthProvider } from './auth/AuthContext'
 import {
   AuthApiError,
   fetchCurrentSession,
@@ -73,6 +74,8 @@ import { solveSingleAdvancedPacking } from './singleAdvancedPacking'
 import { TopViewLayer } from './top-view/TopViewLayer'
 import { solveMultiHeuristic } from './multiSolver'
 import { solveMultiHeuristicNoMix } from './multiSolverNoMix'
+import { EditToggleButton } from './components/3d/EditToggleButton'
+import { Header } from './components/ui/Header'
 import type {
   BoxSkinMode,
   ContainerInput,
@@ -904,18 +907,11 @@ function App() {
     testAuthBypass ? 'authenticated' : 'checking',
   )
   const [authUser, setAuthUser] = useState<AuthUser | null>(testAuthBypass ? TEST_AUTH_USER : null)
-  const [authSessionExpiresAt, setAuthSessionExpiresAt] = useState<string | null>(
-    testAuthBypass ? '2099-01-01T00:00:00.000Z' : null,
-  )
   const [authError, setAuthError] = useState<string | null>(null)
   const [authIdentifier, setAuthIdentifier] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
-  const [authNotice, setAuthNotice] = useState<string | null>(
-    testAuthBypass
-      ? 'Sesion de prueba inyectada por la suite automatizada.'
-      : null,
-  )
+  const [authLogoutSubmitting, setAuthLogoutSubmitting] = useState(false)
   const [skuLabelsBySku, setSkuLabelsBySku] = useState<SkuLabelsBySku>(() =>
     loadSkuLabels(),
   )
@@ -925,6 +921,8 @@ function App() {
   const [labelEditorOpen, setLabelEditorOpen] = useState(false)
   const [labelEditorMode, setLabelEditorMode] = useState<LabelEditorMode>('single')
   const [labelEditorSkuId, setLabelEditorSkuId] = useState<string>(SINGLE_BOX_SKU_ID)
+  const [singleEditMode, setSingleEditMode] = useState(false)
+  const [singleScenePanEnabled, setSingleScenePanEnabled] = useState(false)
 
   const [draftInput, setDraftInput] = useState<SolverInput>(() =>
     cloneInput(initialShareState.input),
@@ -1025,26 +1023,18 @@ function App() {
         }
 
         setAuthUser(sessionPayload.user)
-        setAuthSessionExpiresAt(sessionPayload.session.expiresAt)
         setAuthStatus('authenticated')
         setAuthError(null)
-        setAuthNotice(
-          sessionPayload.user.mustChangePassword
-            ? 'Sesion iniciada con credencial temporal. El cambio de contrasena se habilitara en el siguiente sprint.'
-            : null,
-        )
       } catch (error) {
         if (!isMounted) {
           return
         }
 
         setAuthUser(null)
-        setAuthSessionExpiresAt(null)
         setAuthStatus('unauthenticated')
         setAuthError(
           error instanceof AuthApiError && error.status !== 401 ? error.message : null,
         )
-        setAuthNotice(null)
       }
     }
 
@@ -1070,14 +1060,8 @@ function App() {
     try {
       const sessionPayload = await loginWithPassword(identifier, password)
       setAuthUser(sessionPayload.user)
-      setAuthSessionExpiresAt(sessionPayload.session.expiresAt)
       setAuthStatus('authenticated')
       setAuthPassword('')
-      setAuthNotice(
-        sessionPayload.user.mustChangePassword
-          ? 'Sesion iniciada con credencial temporal. Debes cambiarla cuando habilitemos ese flujo.'
-          : null,
-      )
     } catch (error) {
       setAuthError(
         error instanceof AuthApiError
@@ -1097,13 +1081,7 @@ function App() {
     try {
       const sessionPayload = await fetchCurrentSession()
       setAuthUser(sessionPayload.user)
-      setAuthSessionExpiresAt(sessionPayload.session.expiresAt)
       setAuthStatus('authenticated')
-      setAuthNotice(
-        sessionPayload.user.mustChangePassword
-          ? 'Sesion iniciada con credencial temporal. El cambio de contrasena se habilitara en el siguiente sprint.'
-          : null,
-      )
     } catch (error) {
       setAuthStatus('unauthenticated')
       setAuthError(
@@ -1113,15 +1091,15 @@ function App() {
   }
 
   const handleLogout = async () => {
+    setAuthLogoutSubmitting(true)
     try {
       await logoutSession()
     } finally {
       setAuthUser(null)
-      setAuthSessionExpiresAt(null)
       setAuthStatus('unauthenticated')
-      setAuthNotice(null)
       setAuthPassword('')
       setAuthError(null)
+      setAuthLogoutSubmitting(false)
     }
   }
 
@@ -1522,6 +1500,31 @@ function App() {
 
     setAppliedInput(cloneInput(draftInput))
     setSinglePackingModeApplied(singlePackingModeDraft)
+    setLastCalculatedAt(new Date())
+    setShareStatus(null)
+  }
+
+  const toggleSingleEditor = () => {
+    setSingleEditMode((current) => {
+      const next = !current
+      if (!next) {
+        setSingleScenePanEnabled(false)
+      }
+      return next
+    })
+  }
+
+  const focusSingleDimensions = () => {
+    const field = document.getElementById('box-length') as HTMLInputElement | null
+    field?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    field?.focus()
+  }
+
+  const toggleSingleRotationFromEditor = () => {
+    const next = cloneInput(draftInput)
+    next.allowRotation = !draftInput.allowRotation
+    setDraftInput(next)
+    setAppliedInput(next)
     setLastCalculatedAt(new Date())
     setShareStatus(null)
   }
@@ -2694,6 +2697,15 @@ function App() {
     )
   }
 
+  const authContextValue = useMemo(
+    () => ({
+      user: authUser ?? TEST_AUTH_USER,
+      logout: handleLogout,
+      logoutPending: authLogoutSubmitting,
+    }),
+    [authLogoutSubmitting, authUser],
+  )
+
   if (authStatus !== 'authenticated' || authUser === null) {
     return (
       <AuthScreen
@@ -2716,57 +2728,13 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
-      <header className="hero">
-        <p className="eyebrow">ADEX PALETIZACION Y CONTENERIZACION</p>
-        <h1>Pallet Solver by Alvaro Caceres</h1>
-        <p>
-          Resolver unitarizacion y contenedorizacion con visualizacion tecnica 2D/3D,
-          escenarios y enlaces compartibles.
-        </p>
-        <div className="hero-toolbar">
-          <label className="field compact" htmlFor="global-box-skin-mode">
-            <span>
-              Skin 3D global
-              <strong>visual</strong>
-            </span>
-            <select
-              id="global-box-skin-mode"
-              value={boxSkinMode}
-              onChange={(event) => setBoxSkinMode(event.target.value as BoxSkinMode)}
-            >
-              <option value="box">Caja tecnica</option>
-              <option value="sack">Saco warehouse</option>
-            </select>
-          </label>
-          <a
-            className="btn-secondary hero-link"
-            href={SISLOPE_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-            aria-label="Abrir Sistema Logistico del Peru"
-          >
-            Abrir Sistema Logistico del Peru
-          </a>
-          <div className="session-badge" aria-live="polite">
-            <span className="session-label">Sesion activa</span>
-            <strong>{authUser.username}</strong>
-            <small>
-              {authUser.role}
-              {authSessionExpiresAt ? ` Â· vence ${new Date(authSessionExpiresAt).toLocaleString('es-ES')}` : ''}
-            </small>
-          </div>
-          <button type="button" className="btn-secondary" onClick={() => void handleLogout()}>
-            Cerrar sesion
-          </button>
-        </div>
-      </header>
-
-      {authNotice && (
-        <div className="notice-box" role="status">
-          <p>{authNotice}</p>
-        </div>
-      )}
+    <AuthProvider value={authContextValue}>
+      <main className="app-shell">
+        <Header
+          sislopeUrl={SISLOPE_URL}
+          boxSkinMode={boxSkinMode}
+          onBoxSkinModeChange={setBoxSkinMode}
+        />
 
       {shareWarning && (
         <div className="notice-box" role="alert">
@@ -3023,25 +2991,54 @@ function App() {
 
             <article className="panel scene-panel">
               <div className="scene-toolbar">
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={openSingleLabelEditor}
-                  title="Editar caja maestra"
-                  aria-label="Editar caja maestra"
-                >
-                  âœŽ
-                </button>
+                <EditToggleButton active={singleEditMode} onClick={toggleSingleEditor} />
               </div>
-              <Scene
-                input={appliedInput}
-                result={result}
-                boxesOverride={singleBoxes}
-                labelsBySku={skuLabelsBySku}
-                defaultSkuId={SINGLE_BOX_SKU_ID}
-                boxSkinMode={boxSkinMode}
-                onCanvasReady={setSingleCanvas}
-              />
+              {singleEditMode && (
+                <div className="scene-edit-panel" role="region" aria-label="Herramientas del visor">
+                  <div className="scene-edit-grid">
+                    <button
+                      type="button"
+                      className={`scene-edit-action ${singleScenePanEnabled ? 'active' : ''}`}
+                      onClick={() => setSingleScenePanEnabled((current) => !current)}
+                    >
+                      {singleScenePanEnabled ? 'Paneo activo' : 'Mover vista'}
+                    </button>
+                    <button
+                      type="button"
+                      className={`scene-edit-action ${draftInput.allowRotation ? 'active' : ''}`}
+                      onClick={toggleSingleRotationFromEditor}
+                    >
+                      Rotacion 90
+                    </button>
+                    <button
+                      type="button"
+                      className="scene-edit-action"
+                      onClick={focusSingleDimensions}
+                    >
+                      Cambiar dimensiones
+                    </button>
+                    <button
+                      type="button"
+                      className="scene-edit-action"
+                      onClick={openSingleLabelEditor}
+                    >
+                      Editar caja maestra
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="scene-panel-stack">
+                <Scene
+                  input={appliedInput}
+                  result={result}
+                  boxesOverride={singleBoxes}
+                  labelsBySku={skuLabelsBySku}
+                  defaultSkuId={SINGLE_BOX_SKU_ID}
+                  boxSkinMode={boxSkinMode}
+                  enablePan={singleScenePanEnabled}
+                  onCanvasReady={setSingleCanvas}
+                />
+              </div>
             </article>
           </section>
 
@@ -3182,15 +3179,15 @@ function App() {
                   <td>{volumeUtilizationText}</td>
                 </tr>
                 <tr>
-                  <th>Area pallet (mÂ² / mmÂ²)</th>
+                  <th>Area pallet (mÃ‚Â² / mmÃ‚Â²)</th>
                   <td>{formatAreaDualFromMm2(singleDerivedMetrics.palletAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area ocupada por capa (mÂ² / mmÂ²)</th>
+                  <th>Area ocupada por capa (mÃ‚Â² / mmÃ‚Â²)</th>
                   <td>{formatAreaDualFromMm2(singleDerivedMetrics.usedAreaPerLayerMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area libre por capa (mÂ² / mmÂ²)</th>
+                  <th>Area libre por capa (mÃ‚Â² / mmÃ‚Â²)</th>
                   <td>{formatAreaDualFromMm2(singleDerivedMetrics.freeAreaPerLayerMm2)}</td>
                 </tr>
                 <tr>
@@ -3202,15 +3199,15 @@ function App() {
                   <td>{formatInt.format(result.freeHeight)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen total de cajas (mÂ³ / mmÂ³)</th>
+                  <th>Volumen total de cajas (mÃ‚Â³ / mmÃ‚Â³)</th>
                   <td>{formatVolumeDualFromMm3(singleDerivedMetrics.totalBoxesVolumeMm3)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen base de pallet (mÂ³ / mmÂ³)</th>
+                  <th>Volumen base de pallet (mÃ‚Â³ / mmÃ‚Â³)</th>
                   <td>{formatVolumeDualFromMm3(singleDerivedMetrics.palletBaseVolumeMm3)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen total unitarizado (mÂ³ / mmÂ³)</th>
+                  <th>Volumen total unitarizado (mÃ‚Â³ / mmÃ‚Â³)</th>
                   <td>{formatVolumeDualFromMm3(singleDerivedMetrics.totalUnitizedVolumeMm3)}</td>
                 </tr>
                 <tr>
@@ -4245,31 +4242,31 @@ function App() {
                   <td>{formatInt.format(containerResult.totalPallets)}</td>
                 </tr>
                 <tr>
-                  <th>Area interna contenedor (mÂ² / mmÂ²)</th>
+                  <th>Area interna contenedor (mÃ‚Â² / mmÃ‚Â²)</th>
                   <td>{formatAreaDualFromMm2(containerDerivedMetrics.containerAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area ocupada pallets - suma huellas (mÂ² / mmÂ²)</th>
+                  <th>Area ocupada pallets - suma huellas (mÃ‚Â² / mmÃ‚Â²)</th>
                   <td>{formatAreaDualFromMm2(containerDerivedMetrics.occupiedFootprintAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area ocupada pallets - bloque envolvente (mÂ² / mmÂ²)</th>
+                  <th>Area ocupada pallets - bloque envolvente (mÃ‚Â² / mmÃ‚Â²)</th>
                   <td>{formatAreaDualFromMm2(containerDerivedMetrics.occupiedBlockAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Area libre interna (mÂ² / mmÂ²)</th>
+                  <th>Area libre interna (mÃ‚Â² / mmÃ‚Â²)</th>
                   <td>{formatAreaDualFromMm2(containerDerivedMetrics.freeAreaMm2)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen interno contenedor (mÂ³ / mmÂ³)</th>
+                  <th>Volumen interno contenedor (mÃ‚Â³ / mmÃ‚Â³)</th>
                   <td>{formatVolumeDualFromMm3(containerDerivedMetrics.containerVolumeMm3)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen carga palletizada (mÂ³ / mmÂ³)</th>
+                  <th>Volumen carga palletizada (mÃ‚Â³ / mmÃ‚Â³)</th>
                   <td>{formatVolumeDualFromMm3(containerDerivedMetrics.loadVolumeMm3)}</td>
                 </tr>
                 <tr>
-                  <th>Volumen libre interno (mÂ³ / mmÂ³)</th>
+                  <th>Volumen libre interno (mÃ‚Â³ / mmÃ‚Â³)</th>
                   <td>{formatVolumeDualFromMm3(containerDerivedMetrics.freeVolumeMm3)}</td>
                 </tr>
                 <tr>
@@ -4471,7 +4468,8 @@ function App() {
         onSave={saveLabelConfig}
         onReset={resetLabelConfig}
       />
-    </main>
+      </main>
+    </AuthProvider>
   )
 }
 
