@@ -2962,98 +2962,106 @@ function App() {
               </p>
             </form>
 
-            <article className="panel scene-panel">
-              <div className="scene-toolbar">
-                <EditToggleButton onClick={openSingleLabelEditor} />
-              </div>
-              <div className="scene-panel-stack">
-                <Scene
-                  input={appliedInput}
-                  result={result}
-                  boxesOverride={singleBoxes}
-                  labelsBySku={skuLabelsBySku}
-                  defaultSkuId={SINGLE_BOX_SKU_ID}
-                  boxSkinMode={boxSkinMode}
-                  onCanvasReady={setSingleCanvas}
-                />
-              </div>
-            </article>
+            <div className="scene-column">
+              <article className="panel scene-panel">
+                <div className="scene-toolbar">
+                  <EditToggleButton onClick={openSingleLabelEditor} />
+                </div>
+                <div className="scene-panel-stack">
+                  <Scene
+                    input={appliedInput}
+                    result={result}
+                    boxesOverride={singleBoxes}
+                    labelsBySku={skuLabelsBySku}
+                    defaultSkuId={SINGLE_BOX_SKU_ID}
+                    boxSkinMode={boxSkinMode}
+                    onCanvasReady={setSingleCanvas}
+                  />
+                </div>
+              </article>
+
+              <article className="panel scene-summary-panel">
+                <div className="outputs-header">
+                  <h2>Resultados</h2>
+                  <div className="button-row">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => {
+                        void shareCurrentSingle()
+                      }}
+                    >
+                      Compartir enlace
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() =>
+                        exportJson({
+                          input: appliedInput,
+                          result,
+                          derivedMetrics: singleDerivedMetrics,
+                          labelsBySku: skuLabelsBySku,
+                          generatedAt: new Date().toISOString(),
+                        })
+                      }
+                    >
+                      Exportar JSON
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => exportPng(singleCanvas)}
+                      disabled={singleCanvas === null}
+                    >
+                      Exportar PNG
+                    </button>
+                  </div>
+                </div>
+
+                {shareStatus && <p className="meta-text">{shareStatus}</p>}
+
+                <div className="kpi-grid summary-kpi-grid">
+                  <article className="kpi">
+                    <span>Total cajas</span>
+                    <strong>{formatInt.format(singleTotalBoxes)}</strong>
+                  </article>
+                  <article className="kpi">
+                    <span>Cajas por capa</span>
+                    <strong>{formatInt.format(singlePerLayer)}</strong>
+                  </article>
+                  <article className="kpi">
+                    <span>Capas</span>
+                    <strong>{formatInt.format(result.layers)}</strong>
+                  </article>
+                  <article className="kpi">
+                    <span>Altura total</span>
+                    <strong>{formatInt.format(singleTotalHeight)} mm</strong>
+                  </article>
+                  <article className="kpi">
+                    <span>Area ocupada por capa</span>
+                    <strong>{formatAreaM2FromMm2(singleDerivedMetrics.usedAreaPerLayerMm2)}</strong>
+                  </article>
+                  <article className="kpi">
+                    <span>Volumen de cajas</span>
+                    <strong>{formatVolumeM3FromMm3(singleDerivedMetrics.totalBoxesVolumeMm3)}</strong>
+                  </article>
+                  <article className="kpi">
+                    <span>Peso total palletizado</span>
+                    <strong>
+                      {singlePalletizedWeightKg !== null
+                        ? `${formatKg.format(singlePalletizedWeightKg)} kg`
+                        : 'No definido'}
+                    </strong>
+                  </article>
+                </div>
+              </article>
+            </div>
           </section>
 
-          <section className="panel outputs-panel">
+          <section className="panel outputs-panel outputs-panel-technical">
             <div className="outputs-header">
-              <h2>Resultados</h2>
-              <div className="button-row">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => {
-                    void shareCurrentSingle()
-                  }}
-                >
-                  Compartir enlace
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() =>
-                    exportJson({
-                      input: appliedInput,
-                      result,
-                      derivedMetrics: singleDerivedMetrics,
-                      labelsBySku: skuLabelsBySku,
-                      generatedAt: new Date().toISOString(),
-                    })
-                  }
-                >
-                  Exportar JSON
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => exportPng(singleCanvas)}
-                  disabled={singleCanvas === null}
-                >
-                  Exportar PNG
-                </button>
-              </div>
-            </div>
-
-            {shareStatus && <p className="meta-text">{shareStatus}</p>}
-
-            <div className="kpi-grid">
-              <article className="kpi">
-                <span>Total cajas</span>
-                <strong>{formatInt.format(singleTotalBoxes)}</strong>
-              </article>
-              <article className="kpi">
-                <span>Cajas por capa</span>
-                <strong>{formatInt.format(singlePerLayer)}</strong>
-              </article>
-              <article className="kpi">
-                <span>Capas</span>
-                <strong>{formatInt.format(result.layers)}</strong>
-              </article>
-              <article className="kpi">
-                <span>Altura total</span>
-                <strong>{formatInt.format(singleTotalHeight)} mm</strong>
-              </article>
-              <article className="kpi">
-                <span>Area ocupada por capa</span>
-                <strong>{formatAreaM2FromMm2(singleDerivedMetrics.usedAreaPerLayerMm2)}</strong>
-              </article>
-              <article className="kpi">
-                <span>Volumen de cajas</span>
-                <strong>{formatVolumeM3FromMm3(singleDerivedMetrics.totalBoxesVolumeMm3)}</strong>
-              </article>
-              <article className="kpi">
-                <span>Peso total palletizado</span>
-                <strong>
-                  {singlePalletizedWeightKg !== null
-                    ? `${formatKg.format(singlePalletizedWeightKg)} kg`
-                    : 'No definido'}
-                </strong>
-              </article>
+              <h2>Dibujo tecnico y detalle</h2>
             </div>
 
             <TopViewLayer
