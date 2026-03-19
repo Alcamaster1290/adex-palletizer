@@ -1,22 +1,20 @@
 import { Edit3 } from 'lucide-react'
 
 interface EditToggleButtonProps {
-  active: boolean
   onClick: () => void
 }
 
-export function EditToggleButton({ active, onClick }: EditToggleButtonProps) {
+export function EditToggleButton({ onClick }: EditToggleButtonProps) {
   return (
     <button
       type="button"
-      className={`floating-edit-button ${active ? 'active' : ''}`}
+      className="floating-edit-button"
       onClick={onClick}
-      title="Editar modelo"
-      aria-label="Editar modelo"
-      aria-pressed={active}
+      title="Editar caja maestra"
+      aria-label="Editar caja maestra"
     >
       <Edit3 className="floating-edit-icon" aria-hidden="true" />
-      <span className="sr-only">Editar modelo</span>
+      <span className="sr-only">Editar caja maestra</span>
     </button>
   )
 }

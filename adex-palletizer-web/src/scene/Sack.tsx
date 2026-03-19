@@ -13,7 +13,7 @@ export interface SackTemplate {
   geometry: BufferGeometry
 }
 
-const WAREHOUSE_SACK_MODEL_URL = '/models/warehouse-sack.glb'
+const WAREHOUSE_SACK_MODEL_URL = '/models/gunny-sack.glb'
 
 let cachedSackGeometry: BufferGeometry | null = null
 let loadingSackGeometry: Promise<BufferGeometry | null> | null = null
@@ -95,6 +95,7 @@ export function SackFallback({
       <LateralLabelMaterial
         color={color}
         texture={texture}
+        textureMode="patch"
         roughness={0.62}
         metalness={0.02}
       />
@@ -173,6 +174,7 @@ export function SackMesh({
       <LateralLabelMaterial
         color={color}
         texture={texture}
+        textureMode="patch"
         roughness={0.72}
         metalness={0.01}
       />

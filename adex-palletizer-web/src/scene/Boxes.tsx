@@ -104,6 +104,7 @@ export function Boxes({
             <LateralLabelMaterial
               color={materialColor}
               texture={texture}
+              textureMode="full"
               roughness={0.55}
               metalness={0.02}
             />

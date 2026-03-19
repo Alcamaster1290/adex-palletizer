@@ -4,6 +4,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { InstancedMesh, Object3D } from 'three'
 import { VISUAL_GAP_MM } from '../constants'
 import { groupLoadBoxesForInstancing } from '../containerPalletLoad'
+import { SINGLE_BOX_SKU_ID } from '../labels/labelModel'
 import { getTextureForDataUrl, resolveSkuTextureDataUrl } from '../labels/labelTextures'
 import type {
   BoxSkinMode,
@@ -154,6 +155,7 @@ function InstancedBoxGroup({
       <LateralLabelMaterial
         color={color}
         texture={texture}
+        textureMode={useSack ? 'patch' : 'full'}
         roughness={0.55}
         metalness={0.02}
       />
@@ -317,7 +319,11 @@ export function SceneContainer({
               width: group.widthMm,
               height: group.heightMm,
               color: group.color,
-              textureDataUrl: resolveSkuTextureDataUrl(labelsBySku, group.skuId),
+              textureDataUrl: resolveSkuTextureDataUrl(
+                labelsBySku,
+                group.skuId,
+                load.source === 'single' ? SINGLE_BOX_SKU_ID : undefined,
+              ),
               applyVisualGap: false,
               instances: [],
             } satisfies LoadInstancedGroup)
@@ -415,7 +421,11 @@ export function SceneContainer({
         width: group.widthMm,
         height: group.heightMm,
         color: group.color,
-        textureDataUrl: resolveSkuTextureDataUrl(labelsBySku, group.skuId),
+        textureDataUrl: resolveSkuTextureDataUrl(
+          labelsBySku,
+          group.skuId,
+          palletLoad.source === 'single' ? SINGLE_BOX_SKU_ID : undefined,
+        ),
         applyVisualGap: false,
         instances,
       }

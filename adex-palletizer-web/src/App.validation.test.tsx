@@ -251,6 +251,18 @@ describe('App input validation', () => {
     expect(screen.getByTestId('scene-single').getAttribute('data-skin')).toBe('sack')
   })
 
+  it('el visor single expone solo el acceso directo a editar caja maestra', () => {
+    render(<App />)
+
+    expect(
+      screen.getByRole('button', { name: /^editar caja maestra$/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /herramientas del visor/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /mover vista/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /rotacion 90/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /cambiar dimensiones/i })).not.toBeInTheDocument()
+  })
+
   it('cambia preset de caja a custom cuando se edita manualmente una dimension', () => {
     render(<App />)
 

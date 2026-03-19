@@ -178,15 +178,18 @@ body {
 }
 
 .hero-header {
-  padding: 18px 20px;
+  padding: 14px 18px;
 }
 
 .hero-main {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  flex-wrap: wrap;
+}
+
+.hero-main-inline {
+  flex-wrap: nowrap;
 }
 
 .hero-brand {
@@ -195,17 +198,50 @@ body {
   max-width: 760px;
 }
 
+.hero-brand-inline {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  max-width: none;
+}
+
+.hero-kicker {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--line) 72%, var(--accent) 28%);
+  background: color-mix(in srgb, rgba(255, 252, 247, 0.92) 74%, var(--accent-soft) 26%);
+  color: color-mix(in srgb, var(--muted) 72%, var(--accent-strong) 28%);
+}
+
+.hero-title-block {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.hero-subtitle {
+  font-size: 13px;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--muted) 86%, var(--accent-strong) 14%);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .hero-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px;
   margin-left: auto;
 }
 
 .hero-select {
-  flex: 0 1 230px;
+  flex: 0 0 220px;
+  width: 220px;
 }
 
 .eyebrow {
@@ -218,8 +254,9 @@ body {
 
 .hero h1 {
   margin: 0;
-  line-height: 1.1;
-  font-size: clamp(24px, 2.2vw, 38px);
+  line-height: 1.02;
+  font-size: clamp(24px, 2vw, 34px);
+  white-space: nowrap;
 }
 
 .hero p {
@@ -242,13 +279,14 @@ body {
 }
 
 .hero-link {
-  align-self: end;
-  min-height: 46px;
+  align-self: center;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
   white-space: nowrap;
+  padding-inline: 14px;
 }
 
 .user-menu {
@@ -256,8 +294,8 @@ body {
 }
 
 .user-menu-button {
-  min-width: 52px;
-  min-height: 52px;
+  min-width: 48px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -401,6 +439,7 @@ body {
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(360px, 410px) minmax(0, 1fr);
+  align-items: start;
 }
 
 .panel {
@@ -645,7 +684,10 @@ button:disabled {
 .scene-panel {
   padding: 12px;
   min-height: 560px;
+  height: clamp(520px, 66vh, 760px);
   position: relative;
+  align-self: start;
+  display: grid;
   background:
     linear-gradient(168deg, rgba(255, 250, 241, 0.86), rgba(251, 244, 231, 0.92));
 }
@@ -653,7 +695,7 @@ button:disabled {
 .scene-frame {
   width: 100%;
   height: 100%;
-  min-height: 536px;
+  min-height: 0;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--line-soft);
@@ -668,7 +710,8 @@ button:disabled {
 }
 
 .scene-panel-stack {
-  min-height: 536px;
+  min-height: 0;
+  height: 100%;
 }
 
 .floating-edit-button {
@@ -688,57 +731,9 @@ button:disabled {
   background: #f5fbfc;
 }
 
-.floating-edit-button.active {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
-}
-
 .floating-edit-icon {
   width: 20px;
   height: 20px;
-}
-
-.scene-edit-panel {
-  position: absolute;
-  top: 78px;
-  right: 20px;
-  z-index: 2;
-  width: min(320px, calc(100% - 40px));
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 18px;
-  border: 1px solid var(--line-soft);
-  background: rgba(255, 252, 247, 0.96);
-  box-shadow: 0 18px 36px rgba(44, 28, 16, 0.14);
-}
-
-.scene-edit-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.scene-edit-action {
-  min-height: 44px;
-  padding: 0 12px;
-  border-radius: 14px;
-  border: 1px solid var(--line-soft);
-  background: #fffdfa;
-  color: var(--text);
-  text-align: left;
-  box-shadow: 0 4px 10px rgba(44, 28, 16, 0.05);
-}
-
-.scene-edit-action:hover {
-  background: color-mix(in srgb, var(--panel) 70%, var(--accent-soft) 30%);
-}
-
-.scene-edit-action.active {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
 }
 
 .icon-button {
@@ -1097,12 +1092,32 @@ td {
     grid-template-columns: 1fr;
   }
 
+  .hero-main-inline,
+  .hero-actions {
+    flex-wrap: wrap;
+  }
+
+  .hero-brand-inline {
+    align-items: flex-start;
+  }
+
+  .hero h1,
+  .hero-subtitle {
+    white-space: normal;
+  }
+
+  .hero-select {
+    flex: 1 1 220px;
+    width: auto;
+  }
+
   .top-grid {
     grid-template-columns: 1fr;
   }
 
   .scene-panel {
     min-height: 470px;
+    height: 470px;
   }
 
   .scene-frame {

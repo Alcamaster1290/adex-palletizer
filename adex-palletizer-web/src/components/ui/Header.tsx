@@ -10,20 +10,21 @@ interface HeaderProps {
 export function Header({ sislopeUrl, boxSkinMode, onBoxSkinModeChange }: HeaderProps) {
   return (
     <header className="hero hero-header">
-      <div className="hero-main">
-        <div className="hero-brand">
-          <p className="eyebrow">ADEX PALETIZACION Y CONTENERIZACION</p>
-          <h1>Pallet Solver by Alvaro Caceres</h1>
-          <p>
-            Resolver unitarizacion y contenedorizacion con visualizacion tecnica 2D/3D,
-            escenarios y enlaces compartibles.
-          </p>
+      <div className="hero-main hero-main-inline">
+        <div className="hero-brand hero-brand-inline">
+          <p className="eyebrow hero-kicker">ADEX</p>
+          <div className="hero-title-block">
+            <h1>Pallet Solver by Alvaro Caceres</h1>
+            <p className="hero-subtitle">
+              Paletizacion y contenedorizacion tecnica en una sola consola
+            </p>
+          </div>
         </div>
 
         <div className="hero-actions">
           <label className="field compact hero-select" htmlFor="global-box-skin-mode">
             <span>
-              Skin 3D global
+              Visual 3D
               <strong>visual</strong>
             </span>
             <select
@@ -43,7 +44,7 @@ export function Header({ sislopeUrl, boxSkinMode, onBoxSkinModeChange }: HeaderP
             rel="noreferrer noopener"
             aria-label="Abrir Sistema Logistico del Peru"
           >
-            Abrir Sistema Logistico del Peru
+            SisLoPe
           </a>
 
           <UserMenu />

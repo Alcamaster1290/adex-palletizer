@@ -921,8 +921,6 @@ function App() {
   const [labelEditorOpen, setLabelEditorOpen] = useState(false)
   const [labelEditorMode, setLabelEditorMode] = useState<LabelEditorMode>('single')
   const [labelEditorSkuId, setLabelEditorSkuId] = useState<string>(SINGLE_BOX_SKU_ID)
-  const [singleEditMode, setSingleEditMode] = useState(false)
-  const [singleScenePanEnabled, setSingleScenePanEnabled] = useState(false)
 
   const [draftInput, setDraftInput] = useState<SolverInput>(() =>
     cloneInput(initialShareState.input),
@@ -1500,31 +1498,6 @@ function App() {
 
     setAppliedInput(cloneInput(draftInput))
     setSinglePackingModeApplied(singlePackingModeDraft)
-    setLastCalculatedAt(new Date())
-    setShareStatus(null)
-  }
-
-  const toggleSingleEditor = () => {
-    setSingleEditMode((current) => {
-      const next = !current
-      if (!next) {
-        setSingleScenePanEnabled(false)
-      }
-      return next
-    })
-  }
-
-  const focusSingleDimensions = () => {
-    const field = document.getElementById('box-length') as HTMLInputElement | null
-    field?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    field?.focus()
-  }
-
-  const toggleSingleRotationFromEditor = () => {
-    const next = cloneInput(draftInput)
-    next.allowRotation = !draftInput.allowRotation
-    setDraftInput(next)
-    setAppliedInput(next)
     setLastCalculatedAt(new Date())
     setShareStatus(null)
   }
@@ -2991,42 +2964,8 @@ function App() {
 
             <article className="panel scene-panel">
               <div className="scene-toolbar">
-                <EditToggleButton active={singleEditMode} onClick={toggleSingleEditor} />
+                <EditToggleButton onClick={openSingleLabelEditor} />
               </div>
-              {singleEditMode && (
-                <div className="scene-edit-panel" role="region" aria-label="Herramientas del visor">
-                  <div className="scene-edit-grid">
-                    <button
-                      type="button"
-                      className={`scene-edit-action ${singleScenePanEnabled ? 'active' : ''}`}
-                      onClick={() => setSingleScenePanEnabled((current) => !current)}
-                    >
-                      {singleScenePanEnabled ? 'Paneo activo' : 'Mover vista'}
-                    </button>
-                    <button
-                      type="button"
-                      className={`scene-edit-action ${draftInput.allowRotation ? 'active' : ''}`}
-                      onClick={toggleSingleRotationFromEditor}
-                    >
-                      Rotacion 90
-                    </button>
-                    <button
-                      type="button"
-                      className="scene-edit-action"
-                      onClick={focusSingleDimensions}
-                    >
-                      Cambiar dimensiones
-                    </button>
-                    <button
-                      type="button"
-                      className="scene-edit-action"
-                      onClick={openSingleLabelEditor}
-                    >
-                      Editar caja maestra
-                    </button>
-                  </div>
-                </div>
-              )}
               <div className="scene-panel-stack">
                 <Scene
                   input={appliedInput}
@@ -3035,7 +2974,6 @@ function App() {
                   labelsBySku={skuLabelsBySku}
                   defaultSkuId={SINGLE_BOX_SKU_ID}
                   boxSkinMode={boxSkinMode}
-                  enablePan={singleScenePanEnabled}
                   onCanvasReady={setSingleCanvas}
                 />
               </div>

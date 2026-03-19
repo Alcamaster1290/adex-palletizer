@@ -23,7 +23,6 @@ describe('App label designer', () => {
   it('abre modal en single, guarda etiqueta y persiste en storage', async () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: /editar modelo/i }))
     fireEvent.click(screen.getByRole('button', { name: /^editar caja maestra$/i }))
 
     const dialog = screen.getByRole('dialog', { name: /editar caja maestra/i })
@@ -86,7 +85,6 @@ describe('App label designer', () => {
     )
 
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: /editar modelo/i }))
     fireEvent.click(screen.getByRole('button', { name: /^editar caja maestra$/i }))
     const dialog = screen.getByRole('dialog', { name: /editar caja maestra/i })
     await waitFor(() =>
