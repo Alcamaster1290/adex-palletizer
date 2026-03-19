@@ -13,7 +13,7 @@ export interface SackTemplate {
   geometry: BufferGeometry
 }
 
-const WAREHOUSE_SACK_MODEL_URL = '/models/gunny-sack.glb'
+const WAREHOUSE_SACK_MODEL_URL = '/models/warehouse-sack.glb'
 
 let cachedSackGeometry: BufferGeometry | null = null
 let loadingSackGeometry: Promise<BufferGeometry | null> | null = null
