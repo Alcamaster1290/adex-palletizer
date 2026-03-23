@@ -31,9 +31,9 @@ def limpiar_datos(file):
 
     # Columnas numéricas
     cols_float = ["Kg Bruto", "Kg Neto", "Qty 1", "Qty 2", "U$ FOB Tot", "U$ FOB Und 1", "U$ FOB Und 2"]
-    for col in cols_float:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+    cols_to_convert = [c for c in cols_float if c in df.columns]
+    if cols_to_convert:
+        df[cols_to_convert] = df[cols_to_convert].apply(pd.to_numeric, errors="coerce")
 
     # Fecha
     if "Fecha" in df.columns:

@@ -27,8 +27,7 @@ df["Cod. Tributario"] = df["Cod. Tributario"].astype(str).str.strip()
 
 # Valores numéricos (flotantes o enteros según convenga)
 cols_float = ["Kg Bruto", "Kg Neto", "Qty 1", "Qty 2", "U$ FOB Tot", "U$ FOB Und 1", "U$ FOB Und 2"]
-for col in cols_float:
-    df[col] = pd.to_numeric(df[col], errors="coerce")
+df[cols_float] = df[cols_float].apply(pd.to_numeric, errors="coerce")
 
 # Guardar DataFrame limpio
 df.to_excel("peru_chile_2025_limpio.xlsx", index=False)
