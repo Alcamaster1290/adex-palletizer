@@ -30,6 +30,7 @@ import type pg from 'pg'
 export function buildApp(config: AppConfig, pool: pg.Pool) {
   const app = Fastify({
     logger: true,
+    trustProxy: true,
   })
 
   app.register(cookie)
