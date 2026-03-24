@@ -130,6 +130,7 @@ describe('App input validation', () => {
     render(<App />)
 
     expect(await screen.findByRole('button', { name: /iniciar sesion/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /registrate/i })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/usuario o correo/i), {
       target: { value: 'admin' },
@@ -146,6 +147,187 @@ describe('App input validation', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: /cerrar sesion/i }))
 
     expect(await screen.findByRole('button', { name: /iniciar sesion/i })).toBeInTheDocument()
+
+    delete (window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
+  })
+
+  it('permite cambiar a modo registro, valida campos y crea la cuenta con auto login', async () => {
+    ;(window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__ = true
+
+    const registeredPayload = {
+      user: {
+        id: 'user-2',
+        username: 'ana.logistica',
+        email: 'ana@empresa.com',
+        role: 'analyst',
+        status: 'active',
+        mustChangePassword: false,
+      },
+      session: {
+        id: 'session-2',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+      },
+    }
+
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url
+
+      if (url.includes('/api/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'UNAUTHENTICATED' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/api/auth/register')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(registeredPayload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/api/auth/logout')) {
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ error: 'NOT_MOCKED' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /registrate/i }))
+
+    expect(screen.getByRole('button', { name: /crear cuenta/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ya tengo cuenta/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }))
+
+    expect(await screen.findByText(/corrige los campos marcados/i)).toBeInTheDocument()
+    expect(screen.getByText(/ingresa tu nombre completo/i)).toBeInTheDocument()
+    expect(screen.getByText(/ingresa un correo de trabajo valido/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/nombre completo/i), {
+      target: { value: 'Ana Perez' },
+    })
+    fireEvent.change(screen.getByLabelText(/correo de trabajo/i), {
+      target: { value: 'ana@empresa.com' },
+    })
+    fireEvent.change(screen.getByLabelText(/^empresa/i), {
+      target: { value: 'Empresa Demo' },
+    })
+    fireEvent.change(screen.getByLabelText(/caso de uso/i), {
+      target: { value: 'container_loading' },
+    })
+    fireEvent.change(screen.getByLabelText(/volumen estimado/i), {
+      target: { value: 'between_10_50' },
+    })
+    fireEvent.change(screen.getByLabelText(/^contrasena/i), {
+      target: { value: 'clave-super-segura' },
+    })
+    fireEvent.change(screen.getByLabelText(/confirmar contrasena/i), {
+      target: { value: 'clave-super-segura' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }))
+
+    expect(await screen.findByText(/pallet solver by alvaro cac/i)).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auth/register',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+      }),
+    )
+
+    delete (window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
+  })
+
+  it('muestra un error claro si el correo ya existe durante el registro', async () => {
+    ;(window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__ = true
+
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url
+
+      if (url.includes('/api/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'UNAUTHENTICATED' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/api/auth/register')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'EMAIL_ALREADY_REGISTERED' }), {
+            status: 409,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ error: 'NOT_MOCKED' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: /registrate/i }))
+
+    fireEvent.change(screen.getByLabelText(/nombre completo/i), {
+      target: { value: 'Ana Perez' },
+    })
+    fireEvent.change(screen.getByLabelText(/correo de trabajo/i), {
+      target: { value: 'ana@empresa.com' },
+    })
+    fireEvent.change(screen.getByLabelText(/^empresa/i), {
+      target: { value: 'Empresa Demo' },
+    })
+    fireEvent.change(screen.getByLabelText(/caso de uso/i), {
+      target: { value: 'single_palletization' },
+    })
+    fireEvent.change(screen.getByLabelText(/volumen estimado/i), {
+      target: { value: 'lt_10' },
+    })
+    fireEvent.change(screen.getByLabelText(/^contrasena/i), {
+      target: { value: 'clave-super-segura' },
+    })
+    fireEvent.change(screen.getByLabelText(/confirmar contrasena/i), {
+      target: { value: 'clave-super-segura' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }))
+
+    expect(
+      await screen.findByText(/ya existe una cuenta con ese correo/i),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ya tengo cuenta/i })).toBeInTheDocument()
 
     delete (window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
   })

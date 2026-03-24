@@ -4,10 +4,21 @@ import { AuthProvider } from './auth/AuthContext'
 import {
   AuthApiError,
   fetchCurrentSession,
+  isRetryableAuthError,
   loginWithPassword,
+  registerWithPassword,
   logoutSession,
   type AuthUser,
 } from './auth/authApi'
+import {
+  createEmptyRegistrationDraft,
+  validateRegistrationDraft,
+  type AuthMode,
+  type RegistrationField,
+  type RegistrationFieldErrors,
+  type RegistrationUseCase,
+  type RegistrationVolumeBand,
+} from './auth/registrationModel'
 import {
   BOX_PRESET_OPTIONS,
   detectBoxPreset,
@@ -906,10 +917,14 @@ function App() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>(
     testAuthBypass ? 'authenticated' : 'checking',
   )
+  const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [authUser, setAuthUser] = useState<AuthUser | null>(testAuthBypass ? TEST_AUTH_USER : null)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [authShowRetryConnection, setAuthShowRetryConnection] = useState(false)
   const [authIdentifier, setAuthIdentifier] = useState('')
   const [authPassword, setAuthPassword] = useState('')
+  const [registerDraft, setRegisterDraft] = useState(createEmptyRegistrationDraft)
+  const [registerErrors, setRegisterErrors] = useState<RegistrationFieldErrors>({})
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [authLogoutSubmitting, setAuthLogoutSubmitting] = useState(false)
   const [skuLabelsBySku, setSkuLabelsBySku] = useState<SkuLabelsBySku>(() =>
@@ -1023,6 +1038,7 @@ function App() {
         setAuthUser(sessionPayload.user)
         setAuthStatus('authenticated')
         setAuthError(null)
+        setAuthShowRetryConnection(false)
       } catch (error) {
         if (!isMounted) {
           return
@@ -1030,6 +1046,7 @@ function App() {
 
         setAuthUser(null)
         setAuthStatus('unauthenticated')
+        setAuthShowRetryConnection(isRetryableAuthError(error))
         setAuthError(
           error instanceof AuthApiError && error.status !== 401 ? error.message : null,
         )
@@ -1049,18 +1066,22 @@ function App() {
 
     if (!identifier || !password) {
       setAuthError('Ingresa usuario/correo y contrasena para continuar.')
+      setAuthShowRetryConnection(false)
       return
     }
 
     setAuthSubmitting(true)
     setAuthError(null)
+    setAuthShowRetryConnection(false)
 
     try {
       const sessionPayload = await loginWithPassword(identifier, password)
       setAuthUser(sessionPayload.user)
       setAuthStatus('authenticated')
       setAuthPassword('')
+      setAuthShowRetryConnection(false)
     } catch (error) {
+      setAuthShowRetryConnection(isRetryableAuthError(error))
       setAuthError(
         error instanceof AuthApiError
           ? error.message
@@ -1072,16 +1093,108 @@ function App() {
     }
   }
 
+  const handleRegisterFieldChange = (field: RegistrationField, value: string) => {
+    setRegisterDraft((current) => ({
+      ...current,
+      [field]: value,
+    }))
+    setAuthError(null)
+    setAuthShowRetryConnection(false)
+
+    setRegisterErrors((current) => {
+      if (!current[field]) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+
+  const handleAuthIdentifierChange = (value: string) => {
+    setAuthIdentifier(value)
+    setAuthError(null)
+    setAuthShowRetryConnection(false)
+  }
+
+  const handleAuthPasswordChange = (value: string) => {
+    setAuthPassword(value)
+    setAuthError(null)
+    setAuthShowRetryConnection(false)
+  }
+
+  const runAuthRegister = async () => {
+    const nextErrors = validateRegistrationDraft(registerDraft)
+    if (Object.keys(nextErrors).length > 0) {
+      setRegisterErrors(nextErrors)
+      setAuthError('Corrige los campos marcados para crear tu cuenta.')
+      setAuthShowRetryConnection(false)
+      return
+    }
+
+    setAuthSubmitting(true)
+    setAuthError(null)
+    setRegisterErrors({})
+    setAuthShowRetryConnection(false)
+
+    try {
+      const sessionPayload = await registerWithPassword({
+        fullName: registerDraft.fullName.trim(),
+        email: registerDraft.email.trim(),
+        companyName: registerDraft.companyName.trim(),
+        useCase: registerDraft.useCase as RegistrationUseCase,
+        monthlyVolumeBand: registerDraft.monthlyVolumeBand as RegistrationVolumeBand,
+        password: registerDraft.password,
+      })
+
+      setAuthUser(sessionPayload.user)
+      setAuthStatus('authenticated')
+      setAuthMode('login')
+      setAuthIdentifier(registerDraft.email.trim())
+      setAuthPassword('')
+      setRegisterDraft(createEmptyRegistrationDraft())
+      setRegisterErrors({})
+      setAuthShowRetryConnection(false)
+    } catch (error) {
+      setAuthShowRetryConnection(isRetryableAuthError(error))
+      setAuthError(
+        error instanceof AuthApiError
+          ? error.message
+          : 'No se pudo crear la cuenta. Intenta nuevamente en unos segundos.',
+      )
+      setAuthStatus('unauthenticated')
+    } finally {
+      setAuthSubmitting(false)
+    }
+  }
+
+  const handleAuthModeChange = (nextMode: AuthMode) => {
+    setAuthMode(nextMode)
+    setAuthError(null)
+    setAuthShowRetryConnection(false)
+
+    if (nextMode === 'login') {
+      setRegisterErrors({})
+      return
+    }
+
+    setAuthPassword('')
+  }
+
   const retryAuthSession = async () => {
     setAuthStatus('checking')
     setAuthError(null)
+    setAuthShowRetryConnection(false)
 
     try {
       const sessionPayload = await fetchCurrentSession()
       setAuthUser(sessionPayload.user)
       setAuthStatus('authenticated')
+      setAuthShowRetryConnection(false)
     } catch (error) {
       setAuthStatus('unauthenticated')
+      setAuthShowRetryConnection(isRetryableAuthError(error))
       setAuthError(
         error instanceof AuthApiError && error.status !== 401 ? error.message : null,
       )
@@ -1095,8 +1208,12 @@ function App() {
     } finally {
       setAuthUser(null)
       setAuthStatus('unauthenticated')
+      setAuthMode('login')
       setAuthPassword('')
+      setRegisterDraft(createEmptyRegistrationDraft())
+      setRegisterErrors({})
       setAuthError(null)
+      setAuthShowRetryConnection(false)
       setAuthLogoutSubmitting(false)
     }
   }
@@ -2683,14 +2800,27 @@ function App() {
     return (
       <AuthScreen
         status={authStatus === 'checking' ? 'checking' : 'unauthenticated'}
+        mode={authMode}
         identifier={authIdentifier}
         password={authPassword}
+        registerDraft={registerDraft}
+        registerErrors={registerErrors}
         error={authError}
+        showRetryConnection={authShowRetryConnection}
         submitting={authSubmitting}
-        onIdentifierChange={setAuthIdentifier}
-        onPasswordChange={setAuthPassword}
+        onIdentifierChange={handleAuthIdentifierChange}
+        onPasswordChange={handleAuthPasswordChange}
+        onRegisterFieldChange={handleRegisterFieldChange}
         onSubmit={() => {
+          if (authMode === 'register') {
+            void runAuthRegister()
+            return
+          }
+
           void runAuthLogin()
+        }}
+        onModeChange={(nextMode) => {
+          handleAuthModeChange(nextMode)
         }}
         onRetrySession={() => {
           void retryAuthSession()

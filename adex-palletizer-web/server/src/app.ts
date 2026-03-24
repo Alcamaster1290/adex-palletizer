@@ -8,7 +8,9 @@ import {
   changePassword,
   clearSessionCookie,
   createSession,
+  EmailAlreadyRegisteredError,
   findUserByIdentifier,
+  findUserByEmail,
   generateRawToken,
   getRequestIp,
   getSessionFromCookie,
@@ -17,6 +19,8 @@ import {
   markSuccessfulLogin,
   parseChangePasswordPayload,
   parseLoginPayload,
+  parseRegisterPayload,
+  registerSelfServeUser,
   revokeAllSessionsForUser,
   revokeSession,
   rotateSessionToken,
@@ -145,6 +149,82 @@ export function buildApp(config: AppConfig, pool: pg.Pool) {
         expiresAt: session.expiresAt,
       },
     })
+  })
+
+  app.post('/api/auth/register', async (request, reply) => {
+    const payload = parseRegisterPayload(request.body)
+    const normalizedEmail = payload.email.trim().toLowerCase()
+    const ipAddress = getRequestIp(request)
+    const userAgent = request.headers['user-agent'] ?? null
+    const client = await pool.connect()
+
+    try {
+      await client.query('BEGIN')
+
+      const existingUser = await findUserByEmail(client, normalizedEmail)
+      if (existingUser) {
+        await client.query('ROLLBACK')
+        return reply.status(409).send({
+          error: 'EMAIL_ALREADY_REGISTERED',
+        })
+      }
+
+      const user = await registerSelfServeUser(client, {
+        ...payload,
+        email: normalizedEmail,
+      })
+
+      await markSuccessfulLogin(client, user.id, ipAddress)
+
+      const rawToken = generateRawToken()
+      const refreshTokenHash = hashToken(rawToken)
+      const session = await createSession(
+        client,
+        config,
+        user.id,
+        refreshTokenHash,
+        ipAddress,
+        userAgent,
+      )
+
+      await client.query('COMMIT')
+
+      setSessionCookie(reply, config, rawToken, session.expiresAt)
+
+      await writeAuditLog(pool, {
+        userId: user.id,
+        sessionId: session.id,
+        eventType: 'auth.register.success',
+        ipAddress,
+        userAgent,
+        payload: {
+          signupSource: 'self_serve',
+          useCase: payload.useCase,
+          monthlyVolumeBand: payload.monthlyVolumeBand,
+          companyName: payload.companyName,
+        },
+      })
+
+      return reply.send({
+        user,
+        session: {
+          id: session.id,
+          expiresAt: session.expiresAt,
+        },
+      })
+    } catch (error) {
+      await client.query('ROLLBACK')
+
+      if (error instanceof EmailAlreadyRegisteredError) {
+        return reply.status(409).send({
+          error: 'EMAIL_ALREADY_REGISTERED',
+        })
+      }
+
+      throw error
+    } finally {
+      client.release()
+    }
   })
 
   app.get('/api/auth/me', async (request, reply) => {

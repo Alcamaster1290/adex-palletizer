@@ -10,6 +10,7 @@ const projectRoot = path.resolve(__dirname, '..', '..')
 const migrationFiles = [
   path.join(projectRoot, 'docs', 'database', '001_auth_usuarios_postgres.sql'),
   path.join(projectRoot, 'docs', 'database', '002_backend_foundation_postgres.sql'),
+  path.join(projectRoot, 'docs', 'database', '003_auth_self_serve_profile_postgres.sql'),
 ]
 
 async function run() {

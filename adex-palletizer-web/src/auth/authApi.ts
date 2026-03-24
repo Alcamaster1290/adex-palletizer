@@ -1,3 +1,8 @@
+import type {
+  RegistrationUseCase,
+  RegistrationVolumeBand,
+} from './registrationModel'
+
 export interface AuthUser {
   id: string
   username: string
@@ -13,6 +18,15 @@ export interface AuthSessionPayload {
     id: string
     expiresAt: string
   }
+}
+
+export interface RegisterPayload {
+  fullName: string
+  email: string
+  companyName: string
+  useCase: RegistrationUseCase
+  monthlyVolumeBand: RegistrationVolumeBand
+  password: string
 }
 
 interface ErrorPayload {
@@ -44,6 +58,14 @@ export class AuthApiError extends Error {
     this.status = status
     this.code = code
   }
+}
+
+export function isRetryableAuthError(error: unknown): boolean {
+  if (!(error instanceof AuthApiError)) {
+    return false
+  }
+
+  return error.code === 'NETWORK_ERROR' || error.status >= 500
 }
 
 async function readErrorPayload(response: Response): Promise<ErrorPayload> {
@@ -85,9 +107,11 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     const message =
       errorCode === 'INVALID_CREDENTIALS'
         ? 'Usuario, correo o contrasena incorrectos.'
+        : errorCode === 'EMAIL_ALREADY_REGISTERED'
+          ? 'Ya existe una cuenta con ese correo. Inicia sesion o usa otro correo.'
         : payload.message ??
           payload.error ??
-          'No se pudo completar el inicio de sesion. Intenta nuevamente.'
+          'No se pudo completar el acceso. Intenta nuevamente.'
 
     throw new AuthApiError(
       message,
@@ -116,6 +140,13 @@ export async function loginWithPassword(identifier: string, password: string) {
       identifier,
       password,
     }),
+  })
+}
+
+export async function registerWithPassword(payload: RegisterPayload) {
+  return requestJson<AuthSessionPayload>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   })
 }
 

@@ -136,8 +136,8 @@ Formula base del solver de contenedor (fila homogenea):
   - `username: admin`
   - `email/identifier: admin`
   - `password inicial: admin`
-- Este sprint solo deja preparado el esquema de datos.
-- El frontend actual todavia no implementa login real ni recuperacion de contrasena.
+- El esquema tambien soporta registro self-serve con perfil comercial minimo 1:1.
+- El frontend actual ya implementa login real y registro inmediato. La recuperacion de contrasena por email sigue pendiente.
 
 ## Blueprint de backend
 
@@ -146,6 +146,7 @@ Formula base del solver de contenedor (fila homogenea):
 - Migraciones SQL base:
   - `docs/database/001_auth_usuarios_postgres.sql`
   - `docs/database/002_backend_foundation_postgres.sql`
+  - `docs/database/003_auth_self_serve_profile_postgres.sql`
 - El blueprint cubre:
   - autenticacion
   - sesiones
@@ -176,6 +177,7 @@ VITE_API_BASE_URL=http://localhost:8787
 - Endpoints incluidos:
   - `GET /api/health`
   - `POST /api/auth/login`
+  - `POST /api/auth/register`
   - `GET /api/auth/me`
   - `POST /api/auth/refresh`
   - `POST /api/auth/logout`
@@ -183,11 +185,12 @@ VITE_API_BASE_URL=http://localhost:8787
 - Requiere ejecutar antes:
   - `docs/database/001_auth_usuarios_postgres.sql`
   - `docs/database/002_backend_foundation_postgres.sql`
+  - `docs/database/003_auth_self_serve_profile_postgres.sql`
 - Bootstrap actual:
   - `identifier: admin`
   - `password: admin`
 - Nota:
-  - este backend ya permite arrancar autenticacion real basica con sesiones seguras, pero todavia no incluye email de recuperacion ni CRUD de usuarios.
+  - este backend ya permite login real y registro self-serve con sesiones seguras, pero todavia no incluye email de recuperacion ni CRUD de usuarios.
 
 ### Docker Desktop
 
@@ -234,6 +237,7 @@ curl http://localhost:8787/api/integrations/sislope/health
   - `SISLOPE_URL=https://sis-lo-pe.vercel.app`
 - La URL de autenticacion en produccion queda bajo el mismo dominio del app:
   - `/api/auth/login`
+  - `/api/auth/register`
   - `/api/auth/me`
 - Migraciones de PostgreSQL/Neon:
   ```bash
