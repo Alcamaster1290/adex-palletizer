@@ -234,12 +234,18 @@ export function rectPack2d(
     }
   }
 
-  const validItems = items.filter(
-    (item) => isPositiveInteger(item.w) && isPositiveInteger(item.h) && item.id.length > 0,
-  )
-  const droppedItems = items.filter((item) => !validItems.includes(item))
+  const validItems: RectPackItemInput[] = []
+  const unplaced: RectPackItemInput[] = []
+
+  for (const item of items) {
+    if (isPositiveInteger(item.w) && isPositiveInteger(item.h) && item.id.length > 0) {
+      validItems.push(item)
+    } else {
+      unplaced.push(item)
+    }
+  }
+
   const placements: RectPackPlacement[] = []
-  const unplaced: RectPackItemInput[] = [...droppedItems]
   let usedArea = 0
 
   let freeRects: FreeRect[] = [{ x: 0, y: 0, w: binWidth, h: binHeight }]
