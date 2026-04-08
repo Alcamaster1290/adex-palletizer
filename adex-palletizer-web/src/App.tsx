@@ -16,6 +16,7 @@ import {
   type AuthMode,
   type RegistrationField,
   type RegistrationFieldErrors,
+  type RegistrationJobTitle,
   type RegistrationUseCase,
   type RegistrationVolumeBand,
 } from './auth/registrationModel'
@@ -1145,6 +1146,8 @@ function App() {
         companyName: registerDraft.companyName.trim(),
         useCase: registerDraft.useCase as RegistrationUseCase,
         monthlyVolumeBand: registerDraft.monthlyVolumeBand as RegistrationVolumeBand,
+        phone: registerDraft.phone.trim() || undefined,
+        jobTitle: (registerDraft.jobTitle as RegistrationJobTitle) || undefined,
         password: registerDraft.password,
       })
 

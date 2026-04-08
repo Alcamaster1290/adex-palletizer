@@ -12,12 +12,21 @@ export type RegistrationVolumeBand =
   | 'between_51_200'
   | 'gt_200'
 
+export type RegistrationJobTitle =
+  | 'logistics_manager'
+  | 'operations_director'
+  | 'ceo_founder'
+  | 'it_developer'
+  | 'other'
+
 export interface RegistrationDraft {
   fullName: string
   email: string
   companyName: string
+  jobTitle: RegistrationJobTitle | ''
   useCase: RegistrationUseCase | ''
   monthlyVolumeBand: RegistrationVolumeBand | ''
+  phone: string
   password: string
   confirmPassword: string
 }
@@ -45,13 +54,26 @@ export const REGISTRATION_VOLUME_OPTIONS: Array<{
   { value: 'gt_200', label: 'Mas de 200 pallets/mes' },
 ]
 
+export const REGISTRATION_JOB_TITLE_OPTIONS: Array<{
+  value: RegistrationJobTitle
+  label: string
+}> = [
+  { value: 'logistics_manager', label: 'Gerente / Jefe de Logística' },
+  { value: 'operations_director', label: 'Director de Operaciones' },
+  { value: 'ceo_founder', label: 'CEO / Fundador' },
+  { value: 'it_developer', label: 'Desarrollador / IT' },
+  { value: 'other', label: 'Otro cargo' },
+]
+
 export function createEmptyRegistrationDraft(): RegistrationDraft {
   return {
     fullName: '',
     email: '',
     companyName: '',
+    jobTitle: '',
     useCase: '',
     monthlyVolumeBand: '',
+    phone: '',
     password: '',
     confirmPassword: '',
   }
@@ -76,6 +98,10 @@ export function validateRegistrationDraft(
 
   if (draft.companyName.trim().length < 2) {
     errors.companyName = 'Ingresa el nombre de tu empresa.'
+  }
+
+  if (draft.phone.trim() && !/^\+[1-9]\d{6,14}$/.test(draft.phone.trim())) {
+    errors.phone = 'Ingresa el teléfono en formato E.164 (ej. +51 987654321 sin espacios).'
   }
 
   if (!draft.useCase) {

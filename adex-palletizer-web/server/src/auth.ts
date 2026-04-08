@@ -31,6 +31,13 @@ const registerSchema = z.object({
   companyName: z.string().trim().min(2).max(160),
   useCase: z.enum(REGISTER_USE_CASES),
   monthlyVolumeBand: z.enum(REGISTER_VOLUME_BANDS),
+  phone: z
+    .string()
+    .regex(/^\+[1-9]\d{6,14}$/, 'El teléfono debe estar en formato E.164 (ej. +51987654321)')
+    .optional(),
+  jobTitle: z
+    .enum(['logistics_manager', 'operations_director', 'ceo_founder', 'it_developer', 'other'])
+    .optional(),
   password: z.string().min(12).max(128),
 })
 
@@ -246,9 +253,11 @@ export async function registerSelfServeUser(
             company_name,
             use_case,
             monthly_volume_band,
+            phone,
+            job_title,
             signup_source
           )
-          VALUES ($1, $2, $3, $4, $5, 'self_serve')
+          VALUES ($1, $2, $3, $4, $5, $6, $7, 'self_serve')
         `,
         [
           user.id,
@@ -256,6 +265,8 @@ export async function registerSelfServeUser(
           payload.companyName.trim(),
           payload.useCase,
           payload.monthlyVolumeBand,
+          payload.phone ?? null,
+          payload.jobTitle ?? null,
         ],
       )
 
@@ -276,6 +287,9 @@ export async function registerSelfServeUser(
   throw new Error('No se pudo generar un username unico para el registro.')
 }
 
+const LOCKOUT_THRESHOLD = 5
+const LOCKOUT_DURATION_MINUTES = 15
+
 export async function incrementFailedLogin(pool: pg.Pool, userId: string) {
   await pool.query(
     `
@@ -287,6 +301,70 @@ export async function incrementFailedLogin(pool: pg.Pool, userId: string) {
   )
 }
 
+interface LockStateRow {
+  lockedUntil: string | null
+  failedLoginAttempts: number
+  status: string
+}
+
+export async function getAccountLockState(pool: pg.Pool, userId: string) {
+  const result = await pool.query<LockStateRow>(
+    `
+      SELECT
+        locked_until AS "lockedUntil",
+        failed_login_attempts AS "failedLoginAttempts",
+        status
+      FROM public.usuarios
+      WHERE id = $1
+    `,
+    [userId],
+  )
+
+  const row = result.rows[0]
+  if (!row) {
+    return { isLocked: false, lockedUntil: null as Date | null, failedAttempts: 0 }
+  }
+
+  const hardLocked = row.status === 'locked'
+  const tempLocked = row.lockedUntil !== null && new Date(row.lockedUntil) > new Date()
+
+  return {
+    isLocked: hardLocked || tempLocked,
+    lockedUntil: row.lockedUntil ? new Date(row.lockedUntil) : null,
+    failedAttempts: row.failedLoginAttempts,
+  }
+}
+
+interface LockoutUpdateRow {
+  failedLoginAttempts: number
+  lockedUntil: string | null
+}
+
+export async function incrementFailedLoginWithLockout(pool: pg.Pool, userId: string) {
+  const result = await pool.query<LockoutUpdateRow>(
+    `
+      UPDATE public.usuarios
+      SET failed_login_attempts = failed_login_attempts + 1,
+          locked_until = CASE
+            WHEN (failed_login_attempts + 1) >= $2
+            THEN NOW() + make_interval(mins => $3::int)
+            ELSE locked_until
+          END
+      WHERE id = $1
+      RETURNING
+        failed_login_attempts AS "failedLoginAttempts",
+        locked_until AS "lockedUntil"
+    `,
+    [userId, LOCKOUT_THRESHOLD, LOCKOUT_DURATION_MINUTES],
+  )
+
+  const row = result.rows[0]
+  const nowLocked =
+    (row?.failedLoginAttempts ?? 0) >= LOCKOUT_THRESHOLD && row?.lockedUntil !== null
+
+  return { nowLocked: nowLocked ?? false }
+}
+
 export async function markSuccessfulLogin(
   queryable: SqlQueryable,
   userId: string,
@@ -296,6 +374,7 @@ export async function markSuccessfulLogin(
     `
       UPDATE public.usuarios
       SET failed_login_attempts = 0,
+          locked_until = NULL,
           last_login_at = NOW(),
           last_login_ip = $2
       WHERE id = $1

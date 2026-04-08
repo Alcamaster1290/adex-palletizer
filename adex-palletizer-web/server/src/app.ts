@@ -12,10 +12,11 @@ import {
   findUserByIdentifier,
   findUserByEmail,
   generateRawToken,
+  getAccountLockState,
   getRequestIp,
   getSessionFromCookie,
   hashToken,
-  incrementFailedLogin,
+  incrementFailedLoginWithLockout,
   markSuccessfulLogin,
   parseChangePasswordPayload,
   parseLoginPayload,
@@ -45,6 +46,13 @@ export function buildApp(config: AppConfig, pool: pg.Pool) {
   app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
+  })
+
+  app.addHook('onSend', (_request, reply, _payload, done) => {
+    void reply.header('X-Content-Type-Options', 'nosniff')
+    void reply.header('X-Frame-Options', 'DENY')
+    void reply.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+    done()
   })
 
   app.setErrorHandler((error, _request, reply) => {
@@ -93,26 +101,55 @@ export function buildApp(config: AppConfig, pool: pg.Pool) {
     }
   })
 
-  app.post('/api/auth/login', async (request, reply) => {
+  app.post('/api/auth/login', {
+    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
+  }, async (request, reply) => {
     const payload = parseLoginPayload(request.body)
     const identifier = payload.identifier.trim()
     const ipAddress = getRequestIp(request)
     const userAgent = request.headers['user-agent'] ?? null
 
     const user = await findUserByIdentifier(pool, identifier, payload.password)
+
+    if (user?.id) {
+      const lockState = await getAccountLockState(pool, user.id)
+      if (lockState.isLocked) {
+        await writeAuditLog(pool, {
+          userId: user.id,
+          eventType: 'auth.login.blocked_locked',
+          eventSeverity: 'warning',
+          ipAddress,
+          userAgent,
+          payload: { identifier, lockedUntil: lockState.lockedUntil?.toISOString() ?? null },
+        })
+        return reply.status(423).send({
+          error: 'ACCOUNT_LOCKED',
+          lockedUntil: lockState.lockedUntil?.toISOString() ?? null,
+        })
+      }
+    }
+
     if (!user || user.status !== 'active' || !user.passwordMatches) {
       if (user?.id) {
-        await incrementFailedLogin(pool, user.id)
+        const { nowLocked } = await incrementFailedLoginWithLockout(pool, user.id)
+        await writeAuditLog(pool, {
+          userId: user.id,
+          eventType: nowLocked ? 'auth.account.locked' : 'auth.login.failure',
+          eventSeverity: nowLocked ? 'critical' : 'warning',
+          ipAddress,
+          userAgent,
+          payload: { identifier },
+        })
+      } else {
+        await writeAuditLog(pool, {
+          userId: null,
+          eventType: 'auth.login.failure',
+          eventSeverity: 'warning',
+          ipAddress,
+          userAgent,
+          payload: { identifier },
+        })
       }
-
-      await writeAuditLog(pool, {
-        userId: user?.id ?? null,
-        eventType: 'auth.login.failure',
-        eventSeverity: 'warning',
-        ipAddress,
-        userAgent,
-        payload: { identifier },
-      })
 
       return reply.status(401).send({
         error: 'INVALID_CREDENTIALS',
@@ -152,7 +189,9 @@ export function buildApp(config: AppConfig, pool: pg.Pool) {
     })
   })
 
-  app.post('/api/auth/register', async (request, reply) => {
+  app.post('/api/auth/register', {
+    config: { rateLimit: { max: 3, timeWindow: '15 minutes' } },
+  }, async (request, reply) => {
     const payload = parseRegisterPayload(request.body)
     const normalizedEmail = payload.email.trim().toLowerCase()
     const ipAddress = getRequestIp(request)

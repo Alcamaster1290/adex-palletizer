@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from './authApi'
 import {
+  REGISTRATION_JOB_TITLE_OPTIONS,
   REGISTRATION_USE_CASE_OPTIONS,
   REGISTRATION_VOLUME_OPTIONS,
   type AuthMode,
@@ -104,6 +105,7 @@ export function AuthScreen({
         >
           {isRegisterMode ? (
             <div className="auth-form-grid">
+              {/* Row 1: name + email */}
               <label className="field" htmlFor="auth-full-name">
                 <span>
                   Nombre completo
@@ -140,6 +142,7 @@ export function AuthScreen({
                 ) : null}
               </label>
 
+              {/* Row 2: company + job title */}
               <label className="field" htmlFor="auth-company-name">
                 <span>
                   Empresa
@@ -155,6 +158,44 @@ export function AuthScreen({
                 />
                 {registerErrors.companyName ? (
                   <span className="field-error">{registerErrors.companyName}</span>
+                ) : null}
+              </label>
+
+              <label className="field" htmlFor="auth-job-title">
+                <span>
+                  Cargo
+                  <strong>opcional</strong>
+                </span>
+                <select
+                  id="auth-job-title"
+                  value={registerDraft.jobTitle}
+                  onChange={(event) => onRegisterFieldChange('jobTitle', event.target.value)}
+                >
+                  <option value="">Tu cargo (opcional)</option>
+                  {REGISTRATION_JOB_TITLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Row 3: phone + use case */}
+              <label className="field" htmlFor="auth-phone">
+                <span>
+                  Teléfono
+                  <strong>opcional</strong>
+                </span>
+                <input
+                  id="auth-phone"
+                  type="tel"
+                  value={registerDraft.phone}
+                  onChange={(event) => onRegisterFieldChange('phone', event.target.value)}
+                  autoComplete="tel"
+                  placeholder="+51 987654321"
+                />
+                {registerErrors.phone ? (
+                  <span className="field-error">{registerErrors.phone}</span>
                 ) : null}
               </label>
 
@@ -180,6 +221,7 @@ export function AuthScreen({
                 ) : null}
               </label>
 
+              {/* Row 4: volume band + password */}
               <label className="field" htmlFor="auth-volume-band">
                 <span>
                   Volumen estimado
@@ -222,7 +264,8 @@ export function AuthScreen({
                 ) : null}
               </label>
 
-              <label className="field" htmlFor="auth-register-password-confirm">
+              {/* Row 5: confirm password (full width via CSS) */}
+              <label className="field field--full" htmlFor="auth-register-password-confirm">
                 <span>
                   Confirmar contrasena
                   <strong>seguridad</strong>

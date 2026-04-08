@@ -1,4 +1,5 @@
 import type {
+  RegistrationJobTitle,
   RegistrationUseCase,
   RegistrationVolumeBand,
 } from './registrationModel'
@@ -26,6 +27,8 @@ export interface RegisterPayload {
   companyName: string
   useCase: RegistrationUseCase
   monthlyVolumeBand: RegistrationVolumeBand
+  phone?: string
+  jobTitle?: RegistrationJobTitle
   password: string
 }
 
@@ -106,12 +109,14 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     const errorCode = payload.error ?? 'HTTP_ERROR'
     const message =
       errorCode === 'INVALID_CREDENTIALS'
-        ? 'Usuario, correo o contrasena incorrectos.'
-        : errorCode === 'EMAIL_ALREADY_REGISTERED'
-          ? 'Ya existe una cuenta con ese correo. Inicia sesion o usa otro correo.'
-        : payload.message ??
-          payload.error ??
-          'No se pudo completar el acceso. Intenta nuevamente.'
+        ? 'Usuario, correo o contraseña incorrectos.'
+        : errorCode === 'ACCOUNT_LOCKED'
+          ? 'Cuenta bloqueada por múltiples intentos fallidos. Intenta en 15 minutos.'
+          : errorCode === 'EMAIL_ALREADY_REGISTERED'
+            ? 'Ya existe una cuenta con ese correo. Inicia sesión o usa otro correo.'
+            : payload.message ??
+              payload.error ??
+              'No se pudo completar el acceso. Intenta nuevamente.'
 
     throw new AuthApiError(
       message,
@@ -144,9 +149,12 @@ export async function loginWithPassword(identifier: string, password: string) {
 }
 
 export async function registerWithPassword(payload: RegisterPayload) {
+  const body: Record<string, unknown> = { ...payload }
+  if (!body.phone) delete body.phone
+  if (!body.jobTitle) delete body.jobTitle
   return requestJson<AuthSessionPayload>('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   })
 }
 

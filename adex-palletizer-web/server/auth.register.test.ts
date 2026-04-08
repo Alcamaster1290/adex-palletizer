@@ -83,6 +83,8 @@ describe('auth self-serve register', () => {
         'Empresa Demo',
         'container_loading',
         'between_10_50',
+        null,
+        null,
       ],
     )
   })
