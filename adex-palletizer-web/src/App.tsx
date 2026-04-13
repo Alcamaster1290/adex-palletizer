@@ -120,6 +120,9 @@ const DEFAULT_INPUT: SolverInput = {
 const SISLOPE_URL =
   import.meta.env.VITE_SISLOPE_URL?.trim() || 'https://sis-lo-pe.vercel.app'
 
+const IMPORT_CALC_URL =
+  import.meta.env.VITE_IMPORT_CALC_URL?.trim() || 'http://localhost:8501'
+
 const CONTAINER_PRESET_OPTIONS: Array<{
   key: ContainerPresetKey
   label: string
@@ -2838,6 +2841,7 @@ function App() {
       <main className="app-shell">
         <Header
           sislopeUrl={SISLOPE_URL}
+          importCalcUrl={IMPORT_CALC_URL}
           boxSkinMode={boxSkinMode}
           onBoxSkinModeChange={setBoxSkinMode}
         />

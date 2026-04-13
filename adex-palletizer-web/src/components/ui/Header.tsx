@@ -3,11 +3,12 @@ import { UserMenu } from './UserMenu'
 
 interface HeaderProps {
   sislopeUrl: string
+  importCalcUrl: string
   boxSkinMode: BoxSkinMode
   onBoxSkinModeChange: (mode: BoxSkinMode) => void
 }
 
-export function Header({ sislopeUrl, boxSkinMode, onBoxSkinModeChange }: HeaderProps) {
+export function Header({ sislopeUrl, importCalcUrl, boxSkinMode, onBoxSkinModeChange }: HeaderProps) {
   return (
     <header className="hero hero-header">
       <div className="hero-main hero-main-inline">
@@ -36,6 +37,16 @@ export function Header({ sislopeUrl, boxSkinMode, onBoxSkinModeChange }: HeaderP
               <option value="sack">Saco warehouse</option>
             </select>
           </label>
+
+          <a
+            className="btn-secondary hero-link"
+            href={importCalcUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label="Abrir Calculadora de Costos de Importacion y Exportacion"
+          >
+            Costos Import/Export
+          </a>
 
           <a
             className="btn-secondary hero-link"
