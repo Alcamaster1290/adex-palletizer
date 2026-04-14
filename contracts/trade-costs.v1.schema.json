@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datatrade.adex.pe/contracts/trade-costs.v1.schema.json",
+  "title": "Trade Costs v1",
+  "description": "Contrato versionado que describe los costos calculados de una operacion de importacion/exportacion. Producido por import_cost_calculator, consumido por SisLoPe y dashboards.",
+  "type": "object",
+  "required": ["version", "caseId", "currency", "exchangeRate", "generatedAt"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": "trade-costs.v1",
+      "description": "Identificador de version del contrato."
+    },
+    "caseId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Referencia al trade-case.v1 que origino este calculo."
+    },
+    "currency": {
+      "type": "string",
+      "default": "USD",
+      "description": "Moneda base de los montos."
+    },
+    "localCurrency": {
+      "type": "string",
+      "default": "PEN",
+      "description": "Moneda local de destino."
+    },
+    "exchangeRate": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.?[0-9]*$",
+      "description": "Tipo de cambio USD/moneda local. String para precision decimal."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha/hora de generacion del calculo."
+    },
+    "regulatoryBasis": {
+      "$ref": "#/$defs/RegulatoryBasis",
+      "description": "Supuestos regulatorios y vigencia de tasas."
+    },
+    "rates": {
+      "$ref": "#/$defs/ImportRates",
+      "description": "Tasas aplicadas al calculo."
+    },
+    "customs": {
+      "$ref": "#/$defs/CustomsResult",
+      "description": "Resultado de tributos aduaneros."
+    },
+    "expenses": {
+      "$ref": "#/$defs/ExpensesResult",
+      "description": "Gastos de importacion."
+    },
+    "allocationsBySku": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SkuAllocation" },
+      "description": "Prorrateo de costos por SKU."
+    },
+    "pricing": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SkuPricing" },
+      "description": "Precio de venta por SKU."
+    },
+    "exportCosts": {
+      "$ref": "#/$defs/ExportCostsResult",
+      "description": "Costos de exportacion (si aplica)."
+    },
+    "sourceModule": {
+      "type": "string",
+      "description": "Modulo que genero este calculo."
+    }
+  },
+  "$defs": {
+    "RegulatoryBasis": {
+      "type": "object",
+      "properties": {
+        "country": {
+          "type": "string",
+          "description": "Pais cuya normativa se aplica (ISO 3166-1 alpha-2)."
+        },
+        "ratesValidAsOf": {
+          "type": "string",
+          "format": "date",
+          "description": "Fecha de vigencia de las tasas aplicadas."
+        },
+        "legalReferences": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Normativa de referencia."
+        },
+        "exchangeRateSource": {
+          "type": "string",
+          "description": "Fuente del tipo de cambio (ej: SBS, SUNAT)."
+        }
+      }
+    },
+    "DecimalString": {
+      "type": "string",
+      "pattern": "^-?[0-9]+\\.?[0-9]*$",
+      "description": "Valor numerico como string para preservar precision decimal."
+    },
+    "ImportRates": {
+      "type": "object",
+      "properties": {
+        "adValoremRate": { "$ref": "#/$defs/DecimalString" },
+        "iscRate": { "$ref": "#/$defs/DecimalString" },
+        "igvRate": { "$ref": "#/$defs/DecimalString" },
+        "ipmRate": { "$ref": "#/$defs/DecimalString" },
+        "insuranceRate": { "$ref": "#/$defs/DecimalString" },
+        "insuranceFeeRate": { "$ref": "#/$defs/DecimalString" },
+        "brokerCommissionRate": { "$ref": "#/$defs/DecimalString" },
+        "brokerMinUsd": { "$ref": "#/$defs/DecimalString" },
+        "igvPerceptionRate": { "$ref": "#/$defs/DecimalString" },
+        "standardIgv": { "$ref": "#/$defs/DecimalString" }
+      }
+    },
+    "CustomsResult": {
+      "type": "object",
+      "properties": {
+        "fob": { "$ref": "#/$defs/DecimalString" },
+        "freight": { "$ref": "#/$defs/DecimalString" },
+        "cfr": { "$ref": "#/$defs/DecimalString" },
+        "insurance": { "$ref": "#/$defs/DecimalString" },
+        "insurancePremium": { "$ref": "#/$defs/DecimalString" },
+        "cif": { "$ref": "#/$defs/DecimalString" },
+        "adValorem": { "$ref": "#/$defs/DecimalString" },
+        "isc": { "$ref": "#/$defs/DecimalString" },
+        "igv": { "$ref": "#/$defs/DecimalString" },
+        "ipm": { "$ref": "#/$defs/DecimalString" },
+        "totalTaxes": { "$ref": "#/$defs/DecimalString" },
+        "igvPerception": { "$ref": "#/$defs/DecimalString" },
+        "brokerFee": { "$ref": "#/$defs/DecimalString" },
+        "totalDeudaAduanera": { "$ref": "#/$defs/DecimalString" }
+      }
+    },
+    "ExpenseLine": {
+      "type": "object",
+      "required": ["key", "label", "amountUsd"],
+      "properties": {
+        "key": { "type": "string" },
+        "label": { "type": "string" },
+        "amountUsd": { "$ref": "#/$defs/DecimalString" }
+      }
+    },
+    "ExpensesResult": {
+      "type": "object",
+      "properties": {
+        "lines": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ExpenseLine" }
+        },
+        "subtotalExpenses": { "$ref": "#/$defs/DecimalString" },
+        "igvOnExpenses": { "$ref": "#/$defs/DecimalString" },
+        "totalExpenses": { "$ref": "#/$defs/DecimalString" }
+      }
+    },
+    "SkuAllocation": {
+      "type": "object",
+      "required": ["skuId", "skuName"],
+      "properties": {
+        "skuId": { "type": "string" },
+        "skuName": { "type": "string" },
+        "unit": { "type": "string", "description": "Unidad de medida del SKU." },
+        "quantity": { "$ref": "#/$defs/DecimalString" },
+        "fobUnitPrice": { "$ref": "#/$defs/DecimalString", "description": "Precio FOB unitario." },
+        "fobTotal": { "$ref": "#/$defs/DecimalString" },
+        "proportion": { "$ref": "#/$defs/DecimalString" },
+        "allocatedCif": { "$ref": "#/$defs/DecimalString" },
+        "allocatedTaxes": { "$ref": "#/$defs/DecimalString" },
+        "allocatedExpenses": { "$ref": "#/$defs/DecimalString" },
+        "totalCost": { "$ref": "#/$defs/DecimalString" },
+        "unitCost": { "$ref": "#/$defs/DecimalString" }
+      }
+    },
+    "SkuPricing": {
+      "type": "object",
+      "required": ["skuId", "skuName"],
+      "properties": {
+        "skuId": { "type": "string", "description": "Identificador del SKU." },
+        "skuName": { "type": "string" },
+        "unitCost": { "$ref": "#/$defs/DecimalString" },
+        "marginPercent": { "$ref": "#/$defs/DecimalString" },
+        "retailPriceExIgv": { "$ref": "#/$defs/DecimalString" },
+        "igvOnPrice": { "$ref": "#/$defs/DecimalString" },
+        "retailPriceIncIgv": { "$ref": "#/$defs/DecimalString" },
+        "profitPerUnit": { "$ref": "#/$defs/DecimalString" }
+      }
+    },
+    "ExportExpenseLine": {
+      "type": "object",
+      "required": ["key", "label", "amountUsd"],
+      "properties": {
+        "key": { "type": "string" },
+        "label": { "type": "string" },
+        "amountUsd": { "$ref": "#/$defs/DecimalString" }
+      }
+    },
+    "ExportCostsResult": {
+      "type": "object",
+      "properties": {
+        "fobTotal": { "$ref": "#/$defs/DecimalString" },
+        "lines": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ExportExpenseLine" }
+        },
+        "totalLogistics": { "$ref": "#/$defs/DecimalString" },
+        "totalDocumentation": { "$ref": "#/$defs/DecimalString" },
+        "totalExportCost": { "$ref": "#/$defs/DecimalString" },
+        "fobNet": { "$ref": "#/$defs/DecimalString" },
+        "numSkus": {
+          "type": "integer",
+          "description": "Numero de SKUs en la operacion de exportacion."
+        },
+        "allocationsBySku": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "skuId": { "type": "string", "description": "Identificador del SKU." },
+              "skuName": { "type": "string" },
+              "unit": { "type": "string" },
+              "quantity": { "$ref": "#/$defs/DecimalString" },
+              "allocatedExportCost": { "$ref": "#/$defs/DecimalString" },
+              "unitExportCost": { "$ref": "#/$defs/DecimalString" },
+              "fobNetPerUnit": { "$ref": "#/$defs/DecimalString" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

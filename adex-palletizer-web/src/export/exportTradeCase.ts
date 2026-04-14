@@ -56,8 +56,8 @@ export interface TradeCaseV1 {
   palletSummary: TradeCasePalletSummary
   containerSummary?: TradeCaseContainerSummary
   company?: string
-  origin?: string
-  destination?: string
+  originCountry?: string
+  destinationCountry?: string
   incoterm?: string
   modePreference?: string
   sourceModule: 'adex-palletizer'
