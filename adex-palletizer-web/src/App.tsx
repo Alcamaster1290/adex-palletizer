@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuthScreen } from './auth/AuthScreen'
 import { AuthProvider } from './auth/AuthContext'
 import {
@@ -44,6 +44,11 @@ import {
   exportContainerPlanJson,
 } from './export/exportContainerPlan'
 import { exportJson } from './export/exportJson'
+import {
+  buildTradeCaseMulti,
+  buildTradeCaseSingle,
+  downloadTradeCase,
+} from './export/exportTradeCase'
 import { exportPng } from './export/exportPng'
 import { exportTopViewPng } from './export/exportTopView'
 import { LabelDesignerModal } from './labels/LabelDesignerModal'
@@ -1326,6 +1331,26 @@ function App() {
   const singleHasValidationErrors = Object.keys(singleFieldErrors).length > 0
   const multiHasValidationErrors = Object.keys(multiFieldErrors).length > 0
   const containerHasValidationErrors = Object.keys(containerFieldErrors).length > 0
+
+  const handleExportTradeCase = useCallback(() => {
+    if (activeTab === 'multi') {
+      const tradeCase = buildTradeCaseMulti(
+        { input: multiAppliedInput, result: multiResult },
+        containerApplied,
+        containerResult,
+        containerWeightMetrics,
+      )
+      downloadTradeCase(tradeCase)
+    } else {
+      const tradeCase = buildTradeCaseSingle(
+        { input: appliedInput, result },
+        containerApplied,
+        containerResult,
+        containerWeightMetrics,
+      )
+      downloadTradeCase(tradeCase)
+    }
+  }, [activeTab, appliedInput, result, multiAppliedInput, multiResult, containerApplied, containerResult, containerWeightMetrics])
 
   const hasPendingSingle = useMemo(
     () =>
@@ -2844,6 +2869,7 @@ function App() {
           importCalcUrl={IMPORT_CALC_URL}
           boxSkinMode={boxSkinMode}
           onBoxSkinModeChange={setBoxSkinMode}
+          onExportTradeCase={handleExportTradeCase}
         />
 
       {shareWarning && (
