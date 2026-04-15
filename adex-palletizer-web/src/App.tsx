@@ -126,7 +126,7 @@ const SISLOPE_URL =
   import.meta.env.VITE_SISLOPE_URL?.trim() || 'https://sis-lo-pe.vercel.app'
 
 const IMPORT_CALC_URL =
-  import.meta.env.VITE_IMPORT_CALC_URL?.trim() || 'http://localhost:8501'
+  import.meta.env.VITE_IMPORT_CALC_URL?.trim() || 'https://alvin-comex.streamlit.app'
 
 const CONTAINER_PRESET_OPTIONS: Array<{
   key: ContainerPresetKey
