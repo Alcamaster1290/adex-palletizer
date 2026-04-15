@@ -1,0 +1,74 @@
+{
+  "version": "trade-case.v1",
+  "caseId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "createdAt": "2026-04-13T15:30:00.000Z",
+  "company": "Importaciones Andinas SAC",
+  "operationType": "import",
+  "originCountry": "CN",
+  "destinationCountry": "PE",
+  "incoterm": "FOB",
+  "modePreference": "maritime",
+  "skus": [
+    {
+      "skuId": "SKU-001",
+      "name": "Camisetas algodon estampadas",
+      "unit": "UND",
+      "quantity": 5000,
+      "fobUnitPrice": 2.50,
+      "weightKg": 0.18,
+      "dimensions": {
+        "lengthMm": 300,
+        "widthMm": 250,
+        "heightMm": 30
+      },
+      "hsCode": "6109.10.00.39"
+    },
+    {
+      "skuId": "SKU-002",
+      "name": "Pantalones jeans basicos",
+      "unit": "UND",
+      "quantity": 2000,
+      "fobUnitPrice": 5.80,
+      "weightKg": 0.45,
+      "dimensions": {
+        "lengthMm": 350,
+        "widthMm": 280,
+        "heightMm": 50
+      },
+      "hsCode": "6203.42.10.00"
+    }
+  ],
+  "packagingSummary": {
+    "totalBoxes": 140,
+    "totalWeightKg": 1800,
+    "totalVolumeMm3": 5040000000
+  },
+  "palletSummary": {
+    "palletSpec": {
+      "lengthMm": 1200,
+      "widthMm": 1000,
+      "heightMm": 150
+    },
+    "palletsRequired": 4,
+    "boxesPerPallet": 35,
+    "layersPerPallet": 5,
+    "utilizationPercent": 87.5,
+    "totalHeightMm": 1150,
+    "weightPerPalletKg": 450
+  },
+  "containerSummary": {
+    "containerType": "20gp",
+    "containerSpec": {
+      "lengthMm": 5898,
+      "widthMm": 2352,
+      "heightMm": 2393
+    },
+    "palletsPerContainer": 10,
+    "containersRequired": 1,
+    "areaUtilizationPercent": 86.4,
+    "volumeUtilizationPercent": 72.1,
+    "totalLoadWeightKg": 1800,
+    "payloadLimitKg": 21770
+  },
+  "sourceModule": "adex-palletizer"
+}

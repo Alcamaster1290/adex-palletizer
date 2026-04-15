@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://datatrade.adex.pe/contracts/trade-case.v1.schema.json",
+  "title": "Trade Case v1",
+  "description": "Contrato versionado que describe un caso comercial de importacion/exportacion. Producido por ADEX Palletizer, consumido por import_cost_calculator y SisLoPe.",
+  "type": "object",
+  "required": ["version", "caseId", "createdAt", "operationType", "skus"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": "trade-case.v1",
+      "description": "Identificador de version del contrato."
+    },
+    "caseId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador unico del caso comercial."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha/hora de creacion en ISO 8601."
+    },
+    "company": {
+      "type": "string",
+      "description": "Nombre de la empresa operadora."
+    },
+    "operationType": {
+      "type": "string",
+      "enum": ["import", "export"],
+      "description": "Tipo de operacion comercial."
+    },
+    "originCountry": {
+      "type": "string",
+      "description": "Pais de origen (codigo ISO 3166-1 alpha-2)."
+    },
+    "destinationCountry": {
+      "type": "string",
+      "description": "Pais de destino (codigo ISO 3166-1 alpha-2)."
+    },
+    "incoterm": {
+      "type": "string",
+      "enum": ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"],
+      "description": "Incoterm pactado (Incoterms 2020)."
+    },
+    "modePreference": {
+      "type": "string",
+      "enum": ["maritime", "air", "land", "multimodal"],
+      "description": "Modalidad de transporte preferida."
+    },
+    "skus": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "$ref": "#/$defs/Sku"
+      },
+      "description": "Lista de productos/SKUs del caso."
+    },
+    "packagingSummary": {
+      "$ref": "#/$defs/PackagingSummary",
+      "description": "Resumen de embalaje por SKU (generado por Palletizer)."
+    },
+    "palletSummary": {
+      "$ref": "#/$defs/PalletSummary",
+      "description": "Resumen de paletizacion (generado por Palletizer)."
+    },
+    "containerSummary": {
+      "$ref": "#/$defs/ContainerSummary",
+      "description": "Resumen de contenedorizacion (generado por Palletizer)."
+    },
+    "sourceModule": {
+      "type": "string",
+      "description": "Modulo que genero este caso (ej: adex-palletizer, manual)."
+    }
+  },
+  "$defs": {
+    "Sku": {
+      "type": "object",
+      "required": ["skuId", "name", "quantity"],
+      "additionalProperties": false,
+      "properties": {
+        "skuId": {
+          "type": "string",
+          "description": "Identificador unico del SKU dentro del caso."
+        },
+        "name": {
+          "type": "string",
+          "description": "Nombre o descripcion del producto."
+        },
+        "unit": {
+          "type": "string",
+          "default": "UND",
+          "description": "Unidad de medida (UND, KG, LT, MT, PAR, DOC, CJ, BLS, TN)."
+        },
+        "quantity": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Cantidad total."
+        },
+        "fobUnitPrice": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Precio FOB unitario en USD."
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Peso unitario en kg."
+        },
+        "dimensions": {
+          "type": "object",
+          "properties": {
+            "lengthMm": { "type": "number" },
+            "widthMm": { "type": "number" },
+            "heightMm": { "type": "number" }
+          },
+          "description": "Dimensiones unitarias en mm (del Palletizer)."
+        },
+        "hsCode": {
+          "type": "string",
+          "description": "Partida arancelaria (codigo SA/HS)."
+        }
+      }
+    },
+    "PackagingSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "totalBoxes": {
+          "type": "integer",
+          "description": "Total de cajas/bultos."
+        },
+        "totalWeightKg": {
+          "type": ["number", "null"],
+          "description": "Peso bruto total en kg (null si no se conoce)."
+        },
+        "totalVolumeMm3": {
+          "type": "number",
+          "description": "Volumen total de cajas en mm3."
+        }
+      }
+    },
+    "PalletSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "palletSpec": {
+          "type": "object",
+          "properties": {
+            "lengthMm": { "type": "number" },
+            "widthMm": { "type": "number" },
+            "heightMm": { "type": "number" }
+          },
+          "description": "Dimensiones del pallet usado."
+        },
+        "palletsRequired": {
+          "type": "integer",
+          "description": "Numero de pallets necesarios."
+        },
+        "boxesPerPallet": {
+          "type": "integer",
+          "description": "Cajas por pallet."
+        },
+        "layersPerPallet": {
+          "type": "integer",
+          "description": "Capas por pallet."
+        },
+        "utilizationPercent": {
+          "type": "number",
+          "description": "Porcentaje de utilizacion de area del pallet."
+        },
+        "totalHeightMm": {
+          "type": "number",
+          "description": "Altura total pallet + carga en mm."
+        },
+        "weightPerPalletKg": {
+          "type": ["number", "null"],
+          "description": "Peso por pallet cargado en kg (null si no se conoce)."
+        }
+      }
+    },
+    "ContainerSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "containerType": {
+          "type": "string",
+          "enum": ["20gp", "40gp", "40hc", "custom"],
+          "description": "Tipo de contenedor."
+        },
+        "containerSpec": {
+          "type": "object",
+          "properties": {
+            "lengthMm": { "type": "number" },
+            "widthMm": { "type": "number" },
+            "heightMm": { "type": "number" }
+          },
+          "description": "Dimensiones internas del contenedor."
+        },
+        "palletsPerContainer": {
+          "type": "integer",
+          "description": "Pallets por contenedor."
+        },
+        "containersRequired": {
+          "type": "integer",
+          "description": "Contenedores necesarios."
+        },
+        "areaUtilizationPercent": {
+          "type": "number",
+          "description": "Utilizacion de area del contenedor (%)."
+        },
+        "volumeUtilizationPercent": {
+          "type": "number",
+          "description": "Utilizacion de volumen del contenedor (%)."
+        },
+        "totalLoadWeightKg": {
+          "type": ["number", "null"],
+          "description": "Peso total de carga en kg (null si no se conoce)."
+        },
+        "payloadLimitKg": {
+          "type": ["number", "null"],
+          "description": "Limite de carga del contenedor en kg (null si no se conoce)."
+        }
+      }
+    }
+  }
+}

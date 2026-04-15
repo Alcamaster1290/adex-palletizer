@@ -1,0 +1,108 @@
+{
+  "version": "trade-costs.v1",
+  "caseId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "currency": "USD",
+  "localCurrency": "PEN",
+  "exchangeRate": "3.72",
+  "generatedAt": "2026-04-13T16:00:00.000Z",
+  "regulatoryBasis": {
+    "country": "PE",
+    "ratesValidAsOf": "2026-04-13",
+    "legalReferences": [
+      "Ley General de Aduanas (D.L. 1053)",
+      "Reglamento LGA (D.S. 010-2009-EF)",
+      "Arancel de Aduanas (D.S. 342-2016-EF)",
+      "TUO Ley IGV e ISC (D.S. 055-99-EF)",
+      "Regimen de Percepciones (Ley 29173)"
+    ],
+    "exchangeRateSource": "SBS"
+  },
+  "rates": {
+    "adValoremRate": "0.06",
+    "iscRate": "0",
+    "igvRate": "0.16",
+    "ipmRate": "0.02",
+    "insuranceRate": "0.012",
+    "insuranceFeeRate": "0.015",
+    "brokerCommissionRate": "0.01",
+    "brokerMinUsd": "100",
+    "igvPerceptionRate": "0.035",
+    "standardIgv": "0.18"
+  },
+  "customs": {
+    "fob": "24100.00",
+    "freight": "1500.00",
+    "cfr": "25600.00",
+    "insurance": "307.20",
+    "insurancePremium": "4.61",
+    "cif": "25907.20",
+    "adValorem": "1554",
+    "isc": "0",
+    "igv": "4394",
+    "ipm": "549",
+    "totalTaxes": "6497",
+    "igvPerception": "1134.15",
+    "brokerFee": "259.07",
+    "totalDeudaAduanera": "7631.15"
+  },
+  "expenses": {
+    "lines": [
+      { "key": "handling", "label": "Handling", "amountUsd": "120.00" },
+      { "key": "transporte_interno", "label": "Transporte Interno", "amountUsd": "350.00" },
+      { "key": "almacenaje", "label": "Almacenaje", "amountUsd": "80.00" }
+    ],
+    "subtotalExpenses": "550.00",
+    "igvOnExpenses": "99.00",
+    "totalExpenses": "649.00"
+  },
+  "allocationsBySku": [
+    {
+      "skuId": "SKU-001",
+      "skuName": "Camisetas algodon estampadas",
+      "quantity": "5000",
+      "fobTotal": "12500.00",
+      "proportion": "0.5187",
+      "allocatedCif": "13432.26",
+      "allocatedTaxes": "3957.85",
+      "allocatedExpenses": "336.68",
+      "totalCost": "17726.79",
+      "unitCost": "3.5454"
+    },
+    {
+      "skuId": "SKU-002",
+      "skuName": "Pantalones jeans basicos",
+      "quantity": "2000",
+      "fobTotal": "11600.00",
+      "proportion": "0.4813",
+      "allocatedCif": "12474.94",
+      "allocatedTaxes": "3673.30",
+      "allocatedExpenses": "312.32",
+      "totalCost": "16460.56",
+      "unitCost": "8.2303"
+    }
+  ],
+  "pricing": [
+    {
+      "skuId": "SKU-001",
+      "skuName": "Camisetas algodon estampadas",
+      "unitCost": "3.5454",
+      "marginPercent": "0.40",
+      "retailPriceExIgv": "5.9090",
+      "igvOnPrice": "1.0636",
+      "retailPriceIncIgv": "6.9726",
+      "profitPerUnit": "2.3636"
+    },
+    {
+      "skuId": "SKU-002",
+      "skuName": "Pantalones jeans basicos",
+      "unitCost": "8.2303",
+      "marginPercent": "0.40",
+      "retailPriceExIgv": "13.7172",
+      "igvOnPrice": "2.4691",
+      "retailPriceIncIgv": "16.1863",
+      "profitPerUnit": "5.4869"
+    }
+  ],
+  "exportCosts": null,
+  "sourceModule": "import-cost-calculator"
+}

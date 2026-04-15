@@ -6,9 +6,10 @@ interface HeaderProps {
   importCalcUrl: string
   boxSkinMode: BoxSkinMode
   onBoxSkinModeChange: (mode: BoxSkinMode) => void
+  onExportTradeCase?: () => void
 }
 
-export function Header({ sislopeUrl, importCalcUrl, boxSkinMode, onBoxSkinModeChange }: HeaderProps) {
+export function Header({ sislopeUrl, importCalcUrl, boxSkinMode, onBoxSkinModeChange, onExportTradeCase }: HeaderProps) {
   return (
     <header className="hero hero-header">
       <div className="hero-main hero-main-inline">
@@ -37,6 +38,17 @@ export function Header({ sislopeUrl, importCalcUrl, boxSkinMode, onBoxSkinModeCh
               <option value="sack">Saco warehouse</option>
             </select>
           </label>
+
+          {onExportTradeCase && (
+            <button
+              type="button"
+              className="btn-primary hero-link"
+              onClick={onExportTradeCase}
+              aria-label="Enviar caso a Costos de Importacion"
+            >
+              Enviar a Costos
+            </button>
+          )}
 
           <a
             className="btn-secondary hero-link"
