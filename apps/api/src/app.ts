@@ -11,6 +11,7 @@ import {
   createEventTracker,
   getJsonByteLength,
   hashIpAddress,
+  sanitizeMetadata,
   trackEventBodySchema,
   type TrackEventInput,
   type TrackedEvent,
@@ -103,6 +104,8 @@ export async function buildApp(options: BuildAppOptions) {
 
   app.setErrorHandler((error, request, reply) => {
     const requestId = request.dataTradeRequestId ?? randomUUID();
+    const errorCode = error instanceof Error ? (error as Error & { code?: string }).code : undefined;
+    const errorMessage = error instanceof Error ? error.message : "";
 
     if (error instanceof ZodError) {
       return reply.status(400).send(buildErrorBody(
@@ -112,7 +115,7 @@ export async function buildApp(options: BuildAppOptions) {
       ));
     }
 
-    if ((error as { code?: string }).code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+    if (errorCode === "FST_ERR_CTP_BODY_TOO_LARGE") {
       return reply.status(413).send(buildErrorBody(
         "PAYLOAD_TOO_LARGE",
         "Request body exceeds the configured size limit.",
@@ -120,7 +123,7 @@ export async function buildApp(options: BuildAppOptions) {
       ));
     }
 
-    if (error.message === "ORIGIN_NOT_ALLOWED") {
+    if (errorMessage === "ORIGIN_NOT_ALLOWED") {
       return reply.status(403).send(buildErrorBody(
         "ORIGIN_NOT_ALLOWED",
         "Request origin is not allowed.",
@@ -135,6 +138,12 @@ export async function buildApp(options: BuildAppOptions) {
       requestId,
     ));
   });
+
+  app.setNotFoundHandler((request, reply) => reply.status(404).send(buildErrorBody(
+    "NOT_FOUND",
+    "Route not found.",
+    request.dataTradeRequestId,
+  )));
 
   const readyCheck =
     options.readyCheck ??
@@ -181,7 +190,8 @@ export async function buildApp(options: BuildAppOptions) {
     }
 
     const payload = trackEventBodySchema.parse(request.body);
-    const metadataBytes = getJsonByteLength(payload.metadata);
+    const metadata = sanitizeMetadata(payload.metadata);
+    const metadataBytes = getJsonByteLength(metadata);
     if (metadataBytes > config.eventMetadataMaxBytes) {
       return reply.status(413).send(buildErrorBody(
         "METADATA_TOO_LARGE",
@@ -210,6 +220,7 @@ export async function buildApp(options: BuildAppOptions) {
 
     const event = await trackEvent({
       ...payload,
+      metadata,
       userAgent: typeof userAgent === "string" ? userAgent : null,
       ipHash,
     });

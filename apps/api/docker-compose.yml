@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: data-trade-api-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: data_trade
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "55432:5432"
+    volumes:
+      - data_trade_api_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d data_trade"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  data_trade_api_postgres:

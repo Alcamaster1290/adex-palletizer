@@ -311,7 +311,8 @@ VALUES
   ('adex_palletizer', 'ADEX Palletizer', '{"category":"palletization"}'::jsonb),
   ('data_trade_analytics', 'Data Trade Analytics', '{"category":"analytics"}'::jsonb),
   ('alvin', 'ALVIN Cost Calculator', '{"category":"trade-costs"}'::jsonb),
-  ('admin', 'Data Trade Admin', '{"category":"administration"}'::jsonb)
+  ('admin', 'Data Trade Admin', '{"category":"administration"}'::jsonb),
+  ('api', 'Data Trade API', '{"category":"backend"}'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
 COMMIT;

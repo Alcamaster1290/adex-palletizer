@@ -342,4 +342,25 @@ describe("Data Trade API", () => {
 
     await app.close();
   });
+
+  it("returns uniform not found errors", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/missing",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error).toMatchObject({
+      code: "NOT_FOUND",
+    });
+
+    await app.close();
+  });
 });
