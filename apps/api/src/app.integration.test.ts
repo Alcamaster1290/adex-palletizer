@@ -5,12 +5,13 @@ import { buildApp } from "./app.js";
 import { createAuthService } from "./auth.js";
 import type { AppConfig } from "./config.js";
 import { createDatabase } from "./db/client.js";
-import { authAccounts } from "./db/schema.js";
+import { authAccounts, authSessions } from "./db/schema.js";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim();
 
 const config: AppConfig = {
   nodeEnv: "test",
+  appEnv: "test",
   host: "127.0.0.1",
   port: 0,
   databaseUrl: testDatabaseUrl || "postgres://postgres:postgres@localhost:55432/data_trade",
@@ -20,6 +21,7 @@ const config: AppConfig = {
   authCookieSecure: false,
   sessionTtlDays: 30,
   authAccessTokenSecret: "test-access-token-secret",
+  authRefreshTokenSecret: "test-refresh-token-secret",
   authAccessTokenTtlSeconds: 900,
   authRateLimitMax: 10,
   authRateLimitWindowMs: 60_000,
@@ -165,7 +167,9 @@ describe.skipIf(!testDatabaseUrl)("Data Trade API database integration", () => {
         },
       });
       expect(modules.statusCode).toBe(200);
-      expect(modules.json().modules.map((entry: { key: string }) => entry.key)).toContain("sislope");
+      const moduleKeys = modules.json().modules.map((entry: { key: string }) => entry.key);
+      expect(moduleKeys).toContain("sislope");
+      expect(moduleKeys).not.toContain("admin");
 
       const refresh = await app.inject({
         method: "POST",
@@ -177,6 +181,26 @@ describe.skipIf(!testDatabaseUrl)("Data Trade API database integration", () => {
       expect(refresh.statusCode).toBe(200);
       const refreshed = refresh.json();
       expect(refreshed.refreshToken).not.toBe(loggedIn.refreshToken);
+
+      const oldRefreshReuse = await app.inject({
+        method: "POST",
+        url: "/auth/refresh",
+        payload: {
+          refreshToken: loggedIn.refreshToken,
+        },
+      });
+      expect(oldRefreshReuse.statusCode).toBe(401);
+
+      const storedSession = await connection.db
+        .select({
+          refreshTokenHash: authSessions.refreshTokenHash,
+        })
+        .from(authSessions)
+        .where(eq(authSessions.id, refreshed.session.id))
+        .limit(1);
+      expect(storedSession[0]?.refreshTokenHash).toBeTruthy();
+      expect(storedSession[0]?.refreshTokenHash).not.toBe(refreshed.refreshToken);
+      expect(storedSession[0]?.refreshTokenHash).not.toContain(refreshed.refreshToken);
 
       const tracked = await app.inject({
         method: "POST",
@@ -205,6 +229,15 @@ describe.skipIf(!testDatabaseUrl)("Data Trade API database integration", () => {
         },
       });
       expect(logout.statusCode).toBe(204);
+
+      const revokedRefresh = await app.inject({
+        method: "POST",
+        url: "/auth/refresh",
+        payload: {
+          refreshToken: refreshed.refreshToken,
+        },
+      });
+      expect(revokedRefresh.statusCode).toBe(401);
 
       const afterLogout = await app.inject({
         method: "GET",
@@ -241,6 +274,27 @@ describe.skipIf(!testDatabaseUrl)("Data Trade API database integration", () => {
       expect(firstSeed.created).toBe(true);
       expect(secondSeed.created).toBe(false);
       expect(secondSeed.userId).toBe(firstSeed.userId);
+
+      const adminLogin = await app.inject({
+        method: "POST",
+        url: "/auth/login",
+        payload: {
+          email: adminEmail,
+          password: "ValidAdminPassword123",
+        },
+      });
+      expect(adminLogin.statusCode).toBe(200);
+      const adminModules = await app.inject({
+        method: "GET",
+        url: "/auth/modules",
+        headers: {
+          authorization: `Bearer ${adminLogin.json().accessToken}`,
+        },
+      });
+      expect(adminModules.statusCode).toBe(200);
+      expect(adminModules.json().modules.map((entry: { key: string }) => entry.key)).toEqual(
+        expect.arrayContaining(["admin", "api"]),
+      );
     } finally {
       await app.close();
       await connection.close();

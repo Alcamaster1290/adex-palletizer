@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { and, eq, gt, inArray, isNull } from "drizzle-orm";
-import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
 import type { AppConfig } from "./config.js";
@@ -189,16 +189,12 @@ export function generateRefreshToken(): string {
   return randomBytes(48).toString("base64url");
 }
 
-export function hashRefreshToken(rawToken: string): string {
-  return createHash("sha256").update(rawToken).digest("hex");
+export function hashRefreshToken(rawToken: string, secret: string): string {
+  return createHmac("sha256", secret).update(rawToken).digest("hex");
 }
 
 function encodeBase64Url(value: Buffer | string): string {
   return Buffer.from(value).toString("base64url");
-}
-
-function decodeBase64UrlJson(value: string): unknown {
-  return JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
 }
 
 function signTokenSegments(header: string, payload: string, secret: string): string {
@@ -246,7 +242,12 @@ export function verifyAccessToken(token: string, secret: string): AuthTokenPaylo
     return null;
   }
 
-  const parsed = decodeBase64UrlJson(payload);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
   const result = z
     .object({
       sub: z.string().uuid(),
@@ -407,7 +408,7 @@ async function createSessionResponse(
   context: AuthRequestContext,
 ): Promise<AuthResponse> {
   const refreshToken = generateRefreshToken();
-  const refreshTokenHash = hashRefreshToken(refreshToken);
+  const refreshTokenHash = hashRefreshToken(refreshToken, config.authRefreshTokenSecret);
   const sessionRows = await db
     .insert(authSessions)
     .values({
@@ -607,7 +608,7 @@ export function createAuthService(db: DataTradeDatabase, config: AppConfig): Aut
     },
 
     async refresh(input, context) {
-      const refreshTokenHash = hashRefreshToken(input.refreshToken);
+      const refreshTokenHash = hashRefreshToken(input.refreshToken, config.authRefreshTokenSecret);
       const rows = await db
         .select({
           sessionId: authSessions.id,
@@ -635,7 +636,7 @@ export function createAuthService(db: DataTradeDatabase, config: AppConfig): Aut
       }
 
       const newRefreshToken = generateRefreshToken();
-      const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
+      const newRefreshTokenHash = hashRefreshToken(newRefreshToken, config.authRefreshTokenSecret);
       const newExpiresAt = addDaysIso(config.sessionTtlDays);
       await db
         .update(authSessions)
@@ -683,7 +684,7 @@ export function createAuthService(db: DataTradeDatabase, config: AppConfig): Aut
     async logout(input, context, accessToken) {
       const updates: string[] = [];
       if (input.refreshToken) {
-        const refreshTokenHash = hashRefreshToken(input.refreshToken);
+        const refreshTokenHash = hashRefreshToken(input.refreshToken, config.authRefreshTokenSecret);
         const result = await db
           .update(authSessions)
           .set({

@@ -69,6 +69,21 @@ const MAX_METADATA_DEPTH = 6;
 const MAX_METADATA_KEYS_PER_OBJECT = 50;
 const MAX_METADATA_ARRAY_ITEMS = 100;
 const MAX_METADATA_STRING_LENGTH = 2_000;
+const RESERVED_IDENTITY_METADATA_KEYS = new Set(["user_id", "userId"]);
+
+export function containsReservedIdentityMetadata(value: unknown): boolean {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsReservedIdentityMetadata(entry));
+  }
+
+  return Object.entries(value).some(([key, entry]) =>
+    RESERVED_IDENTITY_METADATA_KEYS.has(key) || containsReservedIdentityMetadata(entry),
+  );
+}
 
 function sanitizeValue(value: unknown, depth: number): unknown {
   if (value === null || typeof value === "boolean" || typeof value === "number") {

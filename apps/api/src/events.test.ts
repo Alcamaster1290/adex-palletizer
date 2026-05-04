@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { hashIpAddress, sanitizeMetadata, trackEventBodySchema } from "./events.js";
+import {
+  containsReservedIdentityMetadata,
+  hashIpAddress,
+  sanitizeMetadata,
+  trackEventBodySchema,
+} from "./events.js";
 
 describe("event utilities", () => {
   it("hashes an IP without returning the raw value", () => {
@@ -32,5 +37,14 @@ describe("event utilities", () => {
 
     expect(String(metadata.long)).toHaveLength(2_000);
     expect(((metadata.nested as Record<string, unknown>).value as Record<string, unknown>).items).toHaveLength(100);
+  });
+
+  it("detects reserved identity fields in metadata", () => {
+    expect(containsReservedIdentityMetadata({
+      nested: {
+        userId: "11111111-1111-4111-8111-111111111111",
+      },
+    })).toBe(true);
+    expect(containsReservedIdentityMetadata({ safe: "value" })).toBe(false);
   });
 });

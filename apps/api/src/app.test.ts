@@ -9,6 +9,7 @@ import type { TrackEventInput } from "./events.js";
 
 const config: AppConfig = {
   nodeEnv: "test",
+  appEnv: "test",
   host: "127.0.0.1",
   port: 0,
   databaseUrl: "postgres://postgres:postgres@localhost:5432/data_trade",
@@ -18,6 +19,7 @@ const config: AppConfig = {
   authCookieSecure: false,
   sessionTtlDays: 30,
   authAccessTokenSecret: "test-access-token-secret",
+  authRefreshTokenSecret: "test-refresh-token-secret",
   authAccessTokenTtlSeconds: 900,
   authRateLimitMax: 10,
   authRateLimitWindowMs: 60_000,
@@ -499,6 +501,134 @@ describe("Data Trade API", () => {
     expect(second.json().error).toMatchObject({
       code: "AUTH_RATE_LIMITED",
     });
+
+    await app.close();
+  });
+
+  it("rate limits refresh attempts", async () => {
+    const authService = createAuthService();
+    const app = await buildApp({
+      config: {
+        ...config,
+        authRateLimitMax: 1,
+      },
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService,
+      logger: false,
+    });
+
+    const payload = {
+      refreshToken: authResponse.refreshToken,
+    };
+    const first = await app.inject({
+      method: "POST",
+      url: "/auth/refresh",
+      payload,
+    });
+    const second = await app.inject({
+      method: "POST",
+      url: "/auth/refresh",
+      payload,
+    });
+
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(429);
+    expect(second.json().error).toMatchObject({
+      code: "AUTH_RATE_LIMITED",
+    });
+
+    await app.close();
+  });
+
+  it("returns only modules supplied by auth permissions", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAuthService({
+        getModules: vi.fn(async () => [
+          {
+            key: "sislope",
+            displayName: "SisLoPe",
+            accessLevel: "user",
+          },
+        ]),
+      }),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/auth/modules",
+      headers: {
+        authorization: "Bearer valid-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().modules.map((entry: { key: string }) => entry.key)).toEqual(["sislope"]);
+
+    await app.close();
+  });
+
+  it("rejects event user_id impersonation with an invalid bearer token", async () => {
+    const trackEvent = vi.fn();
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent,
+      authService: createAuthService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/events/track",
+      headers: {
+        authorization: "Bearer invalid-token",
+      },
+      payload: {
+        userId: randomUUID(),
+        anonymousId: "anon-with-invalid-token",
+        module: "api",
+        eventName: "module_opened",
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(trackEvent).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it("rejects user identity fields inside event metadata", async () => {
+    const trackEvent = vi.fn();
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/events/track",
+      payload: {
+        anonymousId: "anon-metadata-impersonation",
+        module: "api",
+        eventName: "module_opened",
+        metadata: {
+          user_id: randomUUID(),
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toMatchObject({
+      code: "RESERVED_METADATA_FIELD",
+    });
+    expect(trackEvent).not.toHaveBeenCalled();
 
     await app.close();
   });

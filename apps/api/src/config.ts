@@ -25,9 +25,19 @@ const booleanFlag = z
   .optional()
   .transform((value) => value === true || value === "true" || value === "1");
 
+function isStrongSecret(value: string | undefined): boolean {
+  return Boolean(
+    value &&
+      value.length >= 32 &&
+      !value.includes("replace-with") &&
+      !value.includes("development"),
+  );
+}
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    APP_ENV: z.enum(["development", "test", "production"]).optional(),
     HOST: z.string().trim().default(DEFAULT_HOST),
     PORT: z.coerce.number().int().positive().default(DEFAULT_PORT),
     DATABASE_URL: z.string().trim().min(1, "DATABASE_URL is required"),
@@ -38,6 +48,7 @@ const envSchema = z
     SESSION_TTL_DAYS: z.coerce.number().int().positive().default(DEFAULT_SESSION_TTL_DAYS),
     IP_HASH_SECRET: z.string().trim().optional(),
     AUTH_ACCESS_TOKEN_SECRET: z.string().trim().optional(),
+    AUTH_REFRESH_TOKEN_SECRET: z.string().trim().optional(),
     AUTH_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_AUTH_ACCESS_TOKEN_TTL_SECONDS),
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(DEFAULT_AUTH_RATE_LIMIT_MAX),
     AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(DEFAULT_AUTH_RATE_LIMIT_WINDOW_MS),
@@ -51,18 +62,34 @@ const envSchema = z
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   })
   .superRefine((env, ctx) => {
-    if (env.NODE_ENV === "production" && !env.IP_HASH_SECRET) {
+    const isProduction = env.NODE_ENV === "production" || env.APP_ENV === "production";
+
+    if (parseOrigins(env.FRONTEND_ORIGINS).includes("*")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["FRONTEND_ORIGINS"],
+        message: "FRONTEND_ORIGINS cannot include wildcard '*' while CORS credentials are enabled",
+      });
+    }
+    if (isProduction && !isStrongSecret(env.IP_HASH_SECRET)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["IP_HASH_SECRET"],
-        message: "IP_HASH_SECRET is required in production",
+        message: "A strong IP_HASH_SECRET is required in production",
       });
     }
-    if (env.NODE_ENV === "production" && !env.AUTH_ACCESS_TOKEN_SECRET) {
+    if (isProduction && !isStrongSecret(env.AUTH_ACCESS_TOKEN_SECRET)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["AUTH_ACCESS_TOKEN_SECRET"],
-        message: "AUTH_ACCESS_TOKEN_SECRET is required in production",
+        message: "A strong AUTH_ACCESS_TOKEN_SECRET is required in production",
+      });
+    }
+    if (isProduction && !isStrongSecret(env.AUTH_REFRESH_TOKEN_SECRET)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["AUTH_REFRESH_TOKEN_SECRET"],
+        message: "A strong AUTH_REFRESH_TOKEN_SECRET is required in production",
       });
     }
     if (env.DATA_TRADE_ADMIN_EMAIL && !env.DATA_TRADE_ADMIN_PASSWORD) {
@@ -76,6 +103,7 @@ const envSchema = z
 
 export interface AppConfig {
   nodeEnv: "development" | "test" | "production";
+  appEnv: "development" | "test" | "production";
   host: string;
   port: number;
   databaseUrl: string;
@@ -85,6 +113,7 @@ export interface AppConfig {
   authCookieSecure: boolean;
   sessionTtlDays: number;
   authAccessTokenSecret: string;
+  authRefreshTokenSecret: string;
   authAccessTokenTtlSeconds: number;
   authRateLimitMax: number;
   authRateLimitWindowMs: number;
@@ -105,15 +134,17 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
 
   return {
     nodeEnv: parsed.NODE_ENV,
+    appEnv: parsed.APP_ENV ?? parsed.NODE_ENV,
     host: parsed.HOST,
     port: parsed.PORT,
     databaseUrl: parsed.DATABASE_URL,
     frontendOrigins: parseOrigins(parsed.FRONTEND_ORIGINS),
     authCookieName: parsed.AUTH_COOKIE_NAME,
     authCookieDomain: parsed.AUTH_COOKIE_DOMAIN || null,
-    authCookieSecure: parsed.AUTH_COOKIE_SECURE || isVercelRuntime || parsed.NODE_ENV === "production",
+    authCookieSecure: parsed.AUTH_COOKIE_SECURE || isVercelRuntime || parsed.NODE_ENV === "production" || parsed.APP_ENV === "production",
     sessionTtlDays: parsed.SESSION_TTL_DAYS,
     authAccessTokenSecret: parsed.AUTH_ACCESS_TOKEN_SECRET || "data-trade-development-access-token-secret",
+    authRefreshTokenSecret: parsed.AUTH_REFRESH_TOKEN_SECRET || "data-trade-development-refresh-token-secret",
     authAccessTokenTtlSeconds: parsed.AUTH_ACCESS_TOKEN_TTL_SECONDS,
     authRateLimitMax: parsed.AUTH_RATE_LIMIT_MAX,
     authRateLimitWindowMs: parsed.AUTH_RATE_LIMIT_WINDOW_MS,

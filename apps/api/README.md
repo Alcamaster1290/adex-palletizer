@@ -47,6 +47,7 @@ Correr API:
 $env:DATABASE_URL = "postgres://postgres:postgres@localhost:55432/data_trade"
 $env:IP_HASH_SECRET = "replace-with-32-byte-local-dev-secret"
 $env:AUTH_ACCESS_TOKEN_SECRET = "replace-with-32-byte-local-auth-secret"
+$env:AUTH_REFRESH_TOKEN_SECRET = "replace-with-32-byte-local-refresh-secret"
 npm run dev
 ```
 
@@ -186,6 +187,7 @@ npm run docker:db:reset
 - Limite final de `metadata` por `EVENT_METADATA_MAX_BYTES`.
 - Rate limit basico in-memory por `anonymousId`, `userId` o hash de IP.
 - No se guarda IP plana; solo `ip_hash` HMAC con `IP_HASH_SECRET`.
+- Rechaza `metadata.user_id` y `metadata.userId` para evitar suplantacion por metadata.
 - Errores uniformes con `code`, `message`, `requestId` y `timestamp`.
 - `x-request-id` por request.
 - Si llega Bearer token valido, `POST /events/track` asocia `user_id`.
@@ -194,22 +196,41 @@ npm run docker:db:reset
 ## Seguridad actual de auth
 
 - PostgreSQL `data_trade` es la fuente central de identidad.
-- Passwords con bcrypt; no se guardan passwords planos.
+- Passwords con `bcryptjs` usando bcrypt cost 12; no se guardan passwords planos. En produccion se debe evaluar `argon2id` o `bcrypt` nativo si el runtime lo permite.
 - Access token Bearer corto firmado con `AUTH_ACCESS_TOKEN_SECRET`.
-- Refresh token aleatorio; solo se guarda hash SHA-256 en `data_trade.auth_sessions`.
+- Refresh token aleatorio; solo se guarda HMAC-SHA-256 con `AUTH_REFRESH_TOKEN_SECRET` en `data_trade.auth_sessions`.
 - Refresh rota el token y extiende expiracion.
+- Un refresh token reutilizado despues de rotacion falla.
 - Logout revoca la sesion.
+- Refresh despues de logout falla.
 - Rate limit in-memory para register, login y refresh.
 - Validacion Zod estricta.
 - Errores uniformes con `requestId`.
 - No se loguean passwords, access tokens, refresh tokens ni secretos.
 - CORS usa `FRONTEND_ORIGINS`.
+- `APP_ENV=production` exige secretos fuertes y falla al iniciar si falta alguno.
+- `FRONTEND_ORIGINS` no acepta `*` porque CORS tiene credenciales habilitadas.
+
+## CORS y Frontends
+
+Configurar origenes exactos separados por coma:
+
+```text
+https://sis-lo-pe.vercel.app
+https://adex-palletizer.vercel.app
+https://app.datatrade.pe
+https://palletizer.datatrade.pe
+```
+
+`api.datatrade.pe` es el host del backend y no necesita aparecer como origen frontend salvo que sirva una UI. Vercel preview debe agregarse explicitamente; no se permite wildcard.
+
+La estrategia inicial para frontends separados es `Authorization: Bearer`. Mantener access token idealmente en memoria, manejar refresh token de forma controlada y evitar `localStorage` para refresh token. Si se usa `localStorage` temporalmente, tratarlo como riesgo hasta migrar a cookies `HttpOnly` bajo `.datatrade.pe`.
 
 ## Variables
 
-Ver `.env.example`. En produccion `IP_HASH_SECRET` y `AUTH_ACCESS_TOKEN_SECRET` deben estar definidos, ser largos y no compartirse entre ambientes.
+Ver `.env.example`. En produccion `IP_HASH_SECRET`, `AUTH_ACCESS_TOKEN_SECRET` y `AUTH_REFRESH_TOKEN_SECRET` deben estar definidos, ser largos y no compartirse entre ambientes.
 
-`FRONTEND_ORIGINS` debe listar origenes exactos separados por coma. Evitar `*` en produccion.
+`FRONTEND_ORIGINS` debe listar origenes exactos separados por coma. No usar `*`.
 
 ## Migraciones y seeds
 

@@ -22,6 +22,7 @@ import {
   createEventTracker,
   getJsonByteLength,
   hashIpAddress,
+  containsReservedIdentityMetadata,
   sanitizeMetadata,
   trackEventBodySchema,
   type TrackEventInput,
@@ -370,6 +371,14 @@ export async function buildApp(options: BuildAppOptions) {
     }
 
     const payload = trackEventBodySchema.parse(request.body);
+    if (containsReservedIdentityMetadata(payload.metadata)) {
+      return reply.status(400).send(buildErrorBody(
+        "RESERVED_METADATA_FIELD",
+        "Event metadata cannot include user identity fields.",
+        request.dataTradeRequestId,
+      ));
+    }
+
     const token = getBearerToken(request.headers.authorization);
     const authSession = token && authService ? await authService.getSession(token) : null;
     if (!authSession && payload.userId) {
