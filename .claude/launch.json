@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "alvin",
+      "runtimeExecutable": "streamlit",
+      "runtimeArgs": ["run", "alvin/app.py", "--server.headless", "true"],
+      "port": 8501
+    },
+    {
+      "name": "adex-palletizer",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "adex-palletizer-web"],
+      "port": 5173
+    }
+  ]
+}
