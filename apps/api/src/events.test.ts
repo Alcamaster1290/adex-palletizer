@@ -10,14 +10,14 @@ describe("event utilities", () => {
     expect(hash).not.toContain("203.0.113.7");
   });
 
-  it("requires either userId or anonymousId", () => {
+  it("allows identity to be supplied by bearer auth at route level", () => {
     const parsed = trackEventBodySchema.safeParse({
       module: "sislope",
       eventName: "module_opened",
       metadata: {},
     });
 
-    expect(parsed.success).toBe(false);
+    expect(parsed.success).toBe(true);
   });
 
   it("sanitizes large nested metadata values", () => {

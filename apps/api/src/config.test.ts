@@ -18,15 +18,25 @@ describe("loadConfig", () => {
     expect(config.frontendOrigins).toEqual(["http://localhost:5173", "https://app.datatrade.pe"]);
     expect(config.port).toBe(8788);
     expect(config.authCookieName).toBe("data_trade_refresh_token");
+    expect(config.authAccessTokenTtlSeconds).toBe(900);
     expect(config.requestBodyLimitBytes).toBe(64 * 1024);
     expect(config.eventMetadataMaxBytes).toBe(8 * 1024);
   });
 
-  it("requires IP_HASH_SECRET in production", () => {
+  it("requires auth and IP secrets in production", () => {
     expect(() =>
       loadConfig({
         ...baseEnv,
         NODE_ENV: "production",
+      }),
+    ).toThrow();
+  });
+
+  it("requires admin password when admin email is configured", () => {
+    expect(() =>
+      loadConfig({
+        ...baseEnv,
+        DATA_TRADE_ADMIN_EMAIL: "admin@datatrade.local",
       }),
     ).toThrow();
   });

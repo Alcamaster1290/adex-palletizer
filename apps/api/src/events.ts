@@ -39,11 +39,7 @@ export const trackEventBodySchema = z
     metadata: z.record(z.string(), z.unknown()).default({}),
     path: z.string().trim().max(2048).optional(),
   })
-  .strict()
-  .refine((value) => value.userId || value.anonymousId, {
-    message: "userId or anonymousId is required",
-    path: ["anonymousId"],
-  });
+  .strict();
 
 export type TrackEventInput = z.infer<typeof trackEventBodySchema> & {
   userAgent?: string | null;

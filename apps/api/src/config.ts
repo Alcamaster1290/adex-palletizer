@@ -9,6 +9,9 @@ const DEFAULT_REQUEST_BODY_LIMIT_BYTES = 64 * 1024;
 const DEFAULT_EVENT_METADATA_MAX_BYTES = 8 * 1024;
 const DEFAULT_EVENT_RATE_LIMIT_MAX = 120;
 const DEFAULT_EVENT_RATE_LIMIT_WINDOW_MS = 60_000;
+const DEFAULT_AUTH_ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+const DEFAULT_AUTH_RATE_LIMIT_MAX = 10;
+const DEFAULT_AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60_000;
 
 function parseOrigins(value: string): string[] {
   return value
@@ -34,8 +37,13 @@ const envSchema = z
     AUTH_COOKIE_SECURE: booleanFlag,
     SESSION_TTL_DAYS: z.coerce.number().int().positive().default(DEFAULT_SESSION_TTL_DAYS),
     IP_HASH_SECRET: z.string().trim().optional(),
-    ADMIN_BOOTSTRAP_EMAIL: z.string().trim().email().optional(),
-    ADMIN_BOOTSTRAP_PASSWORD_HASH: z.string().trim().optional(),
+    AUTH_ACCESS_TOKEN_SECRET: z.string().trim().optional(),
+    AUTH_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(DEFAULT_AUTH_ACCESS_TOKEN_TTL_SECONDS),
+    AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(DEFAULT_AUTH_RATE_LIMIT_MAX),
+    AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(DEFAULT_AUTH_RATE_LIMIT_WINDOW_MS),
+    DATA_TRADE_ADMIN_EMAIL: z.string().trim().email().optional(),
+    DATA_TRADE_ADMIN_PASSWORD: z.string().optional(),
+    DATA_TRADE_ADMIN_NAME: z.string().trim().optional(),
     REQUEST_BODY_LIMIT_BYTES: z.coerce.number().int().positive().default(DEFAULT_REQUEST_BODY_LIMIT_BYTES),
     EVENT_METADATA_MAX_BYTES: z.coerce.number().int().positive().default(DEFAULT_EVENT_METADATA_MAX_BYTES),
     EVENT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(DEFAULT_EVENT_RATE_LIMIT_MAX),
@@ -50,6 +58,20 @@ const envSchema = z
         message: "IP_HASH_SECRET is required in production",
       });
     }
+    if (env.NODE_ENV === "production" && !env.AUTH_ACCESS_TOKEN_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["AUTH_ACCESS_TOKEN_SECRET"],
+        message: "AUTH_ACCESS_TOKEN_SECRET is required in production",
+      });
+    }
+    if (env.DATA_TRADE_ADMIN_EMAIL && !env.DATA_TRADE_ADMIN_PASSWORD) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["DATA_TRADE_ADMIN_PASSWORD"],
+        message: "DATA_TRADE_ADMIN_PASSWORD is required when DATA_TRADE_ADMIN_EMAIL is set",
+      });
+    }
   });
 
 export interface AppConfig {
@@ -62,9 +84,14 @@ export interface AppConfig {
   authCookieDomain: string | null;
   authCookieSecure: boolean;
   sessionTtlDays: number;
+  authAccessTokenSecret: string;
+  authAccessTokenTtlSeconds: number;
+  authRateLimitMax: number;
+  authRateLimitWindowMs: number;
   ipHashSecret: string;
-  adminBootstrapEmail: string | null;
-  adminBootstrapPasswordHash: string | null;
+  dataTradeAdminEmail: string | null;
+  dataTradeAdminPassword: string | null;
+  dataTradeAdminName: string | null;
   requestBodyLimitBytes: number;
   eventMetadataMaxBytes: number;
   eventRateLimitMax: number;
@@ -86,9 +113,14 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     authCookieDomain: parsed.AUTH_COOKIE_DOMAIN || null,
     authCookieSecure: parsed.AUTH_COOKIE_SECURE || isVercelRuntime || parsed.NODE_ENV === "production",
     sessionTtlDays: parsed.SESSION_TTL_DAYS,
+    authAccessTokenSecret: parsed.AUTH_ACCESS_TOKEN_SECRET || "data-trade-development-access-token-secret",
+    authAccessTokenTtlSeconds: parsed.AUTH_ACCESS_TOKEN_TTL_SECONDS,
+    authRateLimitMax: parsed.AUTH_RATE_LIMIT_MAX,
+    authRateLimitWindowMs: parsed.AUTH_RATE_LIMIT_WINDOW_MS,
     ipHashSecret: parsed.IP_HASH_SECRET || "data-trade-development-ip-hash-secret",
-    adminBootstrapEmail: parsed.ADMIN_BOOTSTRAP_EMAIL || null,
-    adminBootstrapPasswordHash: parsed.ADMIN_BOOTSTRAP_PASSWORD_HASH || null,
+    dataTradeAdminEmail: parsed.DATA_TRADE_ADMIN_EMAIL || null,
+    dataTradeAdminPassword: parsed.DATA_TRADE_ADMIN_PASSWORD || null,
+    dataTradeAdminName: parsed.DATA_TRADE_ADMIN_NAME || null,
     requestBodyLimitBytes: parsed.REQUEST_BODY_LIMIT_BYTES,
     eventMetadataMaxBytes: parsed.EVENT_METADATA_MAX_BYTES,
     eventRateLimitMax: parsed.EVENT_RATE_LIMIT_MAX,
