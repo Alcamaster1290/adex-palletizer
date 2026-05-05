@@ -186,8 +186,59 @@ body {
 
 @keyframes auth-spin {
   to {
-    transform: rotate(360deg);
+  transform: rotate(360deg);
   }
+}
+
+.data-trade-auth-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.9);
+}
+
+.data-trade-auth-panel > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.data-trade-auth-panel strong {
+  color: var(--accent-ink);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.data-trade-auth-panel span,
+.data-trade-auth-message {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.data-trade-auth-actions,
+.data-trade-auth-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.data-trade-auth-form input {
+  width: min(220px, 100%);
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 10px;
+  background: #fffdf8;
+  color: var(--text);
+  font: inherit;
+}
+
+.data-trade-auth-message {
+  margin: 0;
 }
 
 .hero {

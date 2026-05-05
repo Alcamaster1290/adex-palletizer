@@ -65,3 +65,14 @@ Implementado en `apps/api`:
 - `GET /auth/session`
 
 `POST /events/track` sigue aceptando `anonymousId`; si llega Bearer token valido asocia `user_id` automaticamente.
+
+## Estado Fase 3
+
+Fase 3 agrega integracion opt-in en los frontends:
+
+- `VITE_DATA_TRADE_AUTH_ENABLED=false` por defecto.
+- `VITE_DATA_TRADE_TRACKING_ENABLED=false` por defecto.
+- `VITE_DATA_TRADE_API_URL` apunta al backend comun.
+- `VITE_DATA_TRADE_MODULE_CODE` identifica `adex_palletizer` o `sislope`.
+
+El access token y refresh token Data Trade viven en memoria. No se reemplaza auth legacy ni se comparte cookie entre dominios Vercel. El paso siguiente, cuando exista dominio comun, es mover refresh a cookie `HttpOnly`, `Secure`, `SameSite=Lax`, `Domain=.datatrade.pe`.
