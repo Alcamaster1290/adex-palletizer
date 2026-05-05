@@ -93,6 +93,8 @@ import { solveMultiHeuristic } from './multiSolver'
 import { solveMultiHeuristicNoMix } from './multiSolverNoMix'
 import { EditToggleButton } from './components/3d/EditToggleButton'
 import { Header } from './components/ui/Header'
+import { DataTradeAuthPanel } from './dataTrade/DataTradeAuthPanel'
+import { trackDataTradeEvent } from './dataTrade/runtime'
 import type {
   BoxSkinMode,
   ContainerInput,
@@ -1069,6 +1071,17 @@ function App() {
     }
   }, [testAuthBypass])
 
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || authUser === null) {
+      return
+    }
+
+    void trackDataTradeEvent('module_opened', {
+      surface: 'adex_palletizer',
+      legacyAuthRole: authUser.role,
+    })
+  }, [authStatus, authUser])
+
   const runAuthLogin = async () => {
     const identifier = authIdentifier.trim()
     const password = authPassword
@@ -1648,6 +1661,12 @@ function App() {
     setSinglePackingModeApplied(singlePackingModeDraft)
     setLastCalculatedAt(new Date())
     setShareStatus(null)
+    void trackDataTradeEvent('palletizer_calculation_created', {
+      mode: 'single',
+      packingMode: singlePackingModeDraft,
+      hasBoxWeight: draftInput.boxUnitWeightKg !== undefined,
+      hasPalletWeight: draftInput.palletWeightKg !== undefined,
+    })
   }
 
   const resetSingle = () => {
@@ -1824,6 +1843,12 @@ function App() {
     }
     setLastContainerCalculatedAt(new Date())
     setShareStatus(null)
+    void trackDataTradeEvent('palletizer_calculation_created', {
+      mode: 'container',
+      preset: nextInput.preset,
+      catalogSize: nextInput.pallets?.length ?? 0,
+      allowStacking: nextInput.allowStacking ?? false,
+    })
   }
 
   const resolveCurrentPalletLoadFromSource = (
@@ -2491,6 +2516,12 @@ function App() {
           ? 'La heuristica no-mix encontro errores. No se aplico vista previa.'
           : null,
       )
+      void trackDataTradeEvent('palletizer_calculation_created', {
+        mode: 'multi',
+        algorithm: 'heuristic_no_mix',
+        skuCount: multiDraft.skus.length,
+        hasErrors: result.errors.length > 0,
+      })
       return
     }
 
@@ -2499,6 +2530,12 @@ function App() {
     setMultiHeuristicResult(null)
     setLastGeneratedAt(new Date())
     setShareStatus(null)
+    void trackDataTradeEvent('palletizer_calculation_created', {
+      mode: 'multi',
+      algorithm: 'preview',
+      skuCount: multiDraft.skus.length,
+      hasErrors: false,
+    })
   }
 
   const solveMulti3DHeuristic = () => {
@@ -2526,6 +2563,12 @@ function App() {
             ? 'La heuristica no-mix encontro errores. Se mantiene el resultado no-mix para revision.'
             : null,
         )
+        void trackDataTradeEvent('palletizer_calculation_created', {
+          mode: 'multi',
+          algorithm: 'heuristic_no_mix',
+          skuCount: multiDraft.skus.length,
+          hasErrors: result.errors.length > 0,
+        })
         return
       }
 
@@ -2541,6 +2584,12 @@ function App() {
       setScenarioNotice(null)
       setLastGeneratedAt(new Date())
       setShareStatus(null)
+      void trackDataTradeEvent('palletizer_calculation_created', {
+        mode: 'multi',
+        algorithm: 'heuristic',
+        skuCount: multiDraft.skus.length,
+        hasErrors: false,
+      })
     } catch {
       if (multiDraft.noMixedSkuStacking) {
         setMultiApplied(cloneMultiState(multiDraft))
@@ -2871,6 +2920,7 @@ function App() {
           onBoxSkinModeChange={setBoxSkinMode}
           onExportTradeCase={handleExportTradeCase}
         />
+        <DataTradeAuthPanel />
 
       {shareWarning && (
         <div className="notice-box" role="alert">

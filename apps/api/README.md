@@ -226,6 +226,21 @@ https://palletizer.datatrade.pe
 
 La estrategia inicial para frontends separados es `Authorization: Bearer`. Mantener access token idealmente en memoria, manejar refresh token de forma controlada y evitar `localStorage` para refresh token. Si se usa `localStorage` temporalmente, tratarlo como riesgo hasta migrar a cookies `HttpOnly` bajo `.datatrade.pe`.
 
+## Frontend opt-in Fase 3
+
+ADEX Palletizer y SisLoPe pueden conectarse sin reemplazar auth legacy mediante estos flags de Vite:
+
+```text
+VITE_DATA_TRADE_AUTH_ENABLED=false
+VITE_DATA_TRADE_API_URL=
+VITE_DATA_TRADE_TRACKING_ENABLED=false
+VITE_DATA_TRADE_MODULE_CODE=adex_palletizer
+```
+
+SisLoPe debe usar `VITE_DATA_TRADE_MODULE_CODE=sislope`.
+
+Con flags apagados no hay llamadas a `apps/api`. Con flags activos, los frontends usan `Authorization: Bearer`, consultan `/auth/me` y `/auth/modules`, y envian `/events/track` autenticado o anonimo. Ver `docs/DATA_TRADE_FRONTEND_INTEGRATION_GUIDE.md`.
+
 ## Variables
 
 Ver `.env.example`. En produccion `IP_HASH_SECRET`, `AUTH_ACCESS_TOKEN_SECRET` y `AUTH_REFRESH_TOKEN_SECRET` deben estar definidos, ser largos y no compartirse entre ambientes.
