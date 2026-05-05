@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { hashIpAddress, sanitizeMetadata, trackEventBodySchema } from "./events.js";
+import {
+  containsReservedIdentityMetadata,
+  hashIpAddress,
+  sanitizeMetadata,
+  trackEventBodySchema,
+} from "./events.js";
 
 describe("event utilities", () => {
   it("hashes an IP without returning the raw value", () => {
@@ -10,14 +15,14 @@ describe("event utilities", () => {
     expect(hash).not.toContain("203.0.113.7");
   });
 
-  it("requires either userId or anonymousId", () => {
+  it("allows identity to be supplied by bearer auth at route level", () => {
     const parsed = trackEventBodySchema.safeParse({
       module: "sislope",
       eventName: "module_opened",
       metadata: {},
     });
 
-    expect(parsed.success).toBe(false);
+    expect(parsed.success).toBe(true);
   });
 
   it("sanitizes large nested metadata values", () => {
@@ -32,5 +37,14 @@ describe("event utilities", () => {
 
     expect(String(metadata.long)).toHaveLength(2_000);
     expect(((metadata.nested as Record<string, unknown>).value as Record<string, unknown>).items).toHaveLength(100);
+  });
+
+  it("detects reserved identity fields in metadata", () => {
+    expect(containsReservedIdentityMetadata({
+      nested: {
+        userId: "11111111-1111-4111-8111-111111111111",
+      },
+    })).toBe(true);
+    expect(containsReservedIdentityMetadata({ safe: "value" })).toBe(false);
   });
 });

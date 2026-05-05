@@ -4,6 +4,17 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { ZodError } from "zod";
 
+import {
+  AuthError,
+  createAuthService,
+  getBearerToken,
+  loginBodySchema,
+  logoutBodySchema,
+  refreshBodySchema,
+  registerBodySchema,
+  type AuthRequestContext,
+  type AuthService,
+} from "./auth.js";
 import type { AppConfig } from "./config.js";
 import type { DataTradeDatabase } from "./db/client.js";
 import { buildErrorBody } from "./errors.js";
@@ -11,6 +22,7 @@ import {
   createEventTracker,
   getJsonByteLength,
   hashIpAddress,
+  containsReservedIdentityMetadata,
   sanitizeMetadata,
   trackEventBodySchema,
   type TrackEventInput,
@@ -29,6 +41,7 @@ interface BuildAppOptions {
   db?: DataTradeDatabase;
   readyCheck?: () => Promise<void>;
   trackEvent?: (input: TrackEventInput) => Promise<TrackedEvent>;
+  authService?: AuthService;
   logger?: boolean;
 }
 
@@ -65,6 +78,10 @@ export async function buildApp(options: BuildAppOptions) {
   const eventRateLimiter = createInMemoryRateLimiter({
     max: config.eventRateLimitMax,
     windowMs: config.eventRateLimitWindowMs,
+  });
+  const authRateLimiter = createInMemoryRateLimiter({
+    max: config.authRateLimitMax,
+    windowMs: config.authRateLimitWindowMs,
   });
   const app = Fastify({
     bodyLimit: config.requestBodyLimitBytes,
@@ -131,6 +148,14 @@ export async function buildApp(options: BuildAppOptions) {
       ));
     }
 
+    if (error instanceof AuthError) {
+      return reply.status(error.statusCode).send(buildErrorBody(
+        error.code,
+        error.message,
+        requestId,
+      ));
+    }
+
     app.log.error(error);
     return reply.status(500).send(buildErrorBody(
       "INTERNAL_SERVER_ERROR",
@@ -155,6 +180,47 @@ export async function buildApp(options: BuildAppOptions) {
     });
 
   const trackEvent = options.trackEvent ?? (db ? createEventTracker(db) : null);
+  const authService = options.authService ?? (db ? createAuthService(db, config) : null);
+
+  function buildAuthContext(request: { headers: Record<string, unknown>; ip: string }): AuthRequestContext {
+    const rawIp = getRequestIp(request);
+    const userAgent = request.headers["user-agent"];
+
+    return {
+      ipHash: hashIpAddress(rawIp, config.ipHashSecret),
+      userAgent: typeof userAgent === "string" ? userAgent : null,
+    };
+  }
+
+  function checkAuthRateLimit(
+    key: string,
+    requestId: string,
+    reply: { status: (statusCode: number) => { send: (payload: unknown) => unknown } },
+  ) {
+    const rateLimit = authRateLimiter(key);
+    if (!rateLimit.allowed) {
+      return reply.status(429).send(buildErrorBody(
+        "AUTH_RATE_LIMITED",
+        "Too many authentication requests.",
+        requestId,
+      ));
+    }
+
+    return null;
+  }
+
+  async function requireAuthSession(request: { headers: Record<string, unknown> }) {
+    if (!authService) {
+      throw new AuthError("AUTH_UNAVAILABLE", 503, "Authentication service is not available.");
+    }
+
+    const token = getBearerToken(request.headers.authorization as string | string[] | undefined);
+    if (!token) {
+      throw new AuthError("UNAUTHENTICATED", 401);
+    }
+
+    return authService.getSession(token);
+  }
 
   app.get("/health", async () => ({
     status: "ok",
@@ -180,6 +246,121 @@ export async function buildApp(options: BuildAppOptions) {
     });
   });
 
+  app.post("/auth/register", async (request, reply) => {
+    if (!authService) {
+      return reply.status(503).send(buildErrorBody(
+        "AUTH_UNAVAILABLE",
+        "Authentication service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const payload = registerBodySchema.parse(request.body);
+    const rateLimited = checkAuthRateLimit(
+      `auth:register:${payload.email.toLowerCase()}:${buildAuthContext(request).ipHash ?? "unknown"}`,
+      request.dataTradeRequestId,
+      reply,
+    );
+    if (rateLimited) {
+      return rateLimited;
+    }
+
+    const auth = await authService.register(payload, buildAuthContext(request));
+    return reply.status(201).send(auth);
+  });
+
+  app.post("/auth/login", async (request, reply) => {
+    if (!authService) {
+      return reply.status(503).send(buildErrorBody(
+        "AUTH_UNAVAILABLE",
+        "Authentication service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const payload = loginBodySchema.parse(request.body);
+    const identifier = (payload.email ?? payload.identifier ?? "unknown").toLowerCase();
+    const rateLimited = checkAuthRateLimit(
+      `auth:login:${identifier}:${buildAuthContext(request).ipHash ?? "unknown"}`,
+      request.dataTradeRequestId,
+      reply,
+    );
+    if (rateLimited) {
+      return rateLimited;
+    }
+
+    return reply.send(await authService.login(payload, buildAuthContext(request)));
+  });
+
+  app.post("/auth/refresh", async (request, reply) => {
+    if (!authService) {
+      return reply.status(503).send(buildErrorBody(
+        "AUTH_UNAVAILABLE",
+        "Authentication service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const payload = refreshBodySchema.parse(request.body);
+    const rateLimited = checkAuthRateLimit(
+      `auth:refresh:${buildAuthContext(request).ipHash ?? "unknown"}`,
+      request.dataTradeRequestId,
+      reply,
+    );
+    if (rateLimited) {
+      return rateLimited;
+    }
+
+    return reply.send(await authService.refresh(payload, buildAuthContext(request)));
+  });
+
+  app.post("/auth/logout", async (request, reply) => {
+    if (!authService) {
+      return reply.status(503).send(buildErrorBody(
+        "AUTH_UNAVAILABLE",
+        "Authentication service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const payload = logoutBodySchema.parse(request.body ?? {});
+    const token = getBearerToken(request.headers.authorization);
+    await authService.logout(payload, buildAuthContext(request), token);
+    return reply.status(204).send();
+  });
+
+  app.get("/auth/me", async (request, reply) => {
+    const session = await requireAuthSession(request);
+    return reply.send(session);
+  });
+
+  app.get("/auth/session", async (request, reply) => {
+    const session = await requireAuthSession(request);
+    return reply.send({
+      session: session.session,
+      user: session.user,
+    });
+  });
+
+  app.get("/auth/modules", async (request, reply) => {
+    if (!authService) {
+      return reply.status(503).send(buildErrorBody(
+        "AUTH_UNAVAILABLE",
+        "Authentication service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const token = getBearerToken(request.headers.authorization);
+    if (!token) {
+      throw new AuthError("UNAUTHENTICATED", 401);
+    }
+
+    return reply.send({
+      modules: await authService.getModules(token),
+    });
+  });
+
   app.post("/events/track", async (request, reply) => {
     if (!trackEvent) {
       return reply.status(503).send(buildErrorBody(
@@ -190,6 +371,31 @@ export async function buildApp(options: BuildAppOptions) {
     }
 
     const payload = trackEventBodySchema.parse(request.body);
+    if (containsReservedIdentityMetadata(payload.metadata)) {
+      return reply.status(400).send(buildErrorBody(
+        "RESERVED_METADATA_FIELD",
+        "Event metadata cannot include user identity fields.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const token = getBearerToken(request.headers.authorization);
+    const authSession = token && authService ? await authService.getSession(token) : null;
+    if (!authSession && payload.userId) {
+      return reply.status(401).send(buildErrorBody(
+        "UNAUTHENTICATED",
+        "A valid bearer token is required to associate user_id with an event.",
+        request.dataTradeRequestId,
+      ));
+    }
+    if (!authSession && !payload.anonymousId) {
+      return reply.status(400).send(buildErrorBody(
+        "VALIDATION_ERROR",
+        "anonymousId is required when no bearer token is provided.",
+        request.dataTradeRequestId,
+      ));
+    }
+
     const metadata = sanitizeMetadata(payload.metadata);
     const metadataBytes = getJsonByteLength(metadata);
     if (metadataBytes > config.eventMetadataMaxBytes) {
@@ -203,7 +409,7 @@ export async function buildApp(options: BuildAppOptions) {
     const rawIp = getRequestIp(request);
     const ipHash = hashIpAddress(rawIp, config.ipHashSecret);
     const userAgent = request.headers["user-agent"];
-    const rateLimitKey = payload.anonymousId ?? ipHash ?? payload.userId ?? "unknown";
+    const rateLimitKey = payload.anonymousId ?? authSession?.user.id ?? ipHash ?? "unknown";
     const rateLimit = eventRateLimiter(`events:${rateLimitKey}`);
 
     void reply.header("x-ratelimit-limit", String(config.eventRateLimitMax));
@@ -220,6 +426,7 @@ export async function buildApp(options: BuildAppOptions) {
 
     const event = await trackEvent({
       ...payload,
+      userId: authSession?.user.id ?? payload.userId,
       metadata,
       userAgent: typeof userAgent === "string" ? userAgent : null,
       ipHash,

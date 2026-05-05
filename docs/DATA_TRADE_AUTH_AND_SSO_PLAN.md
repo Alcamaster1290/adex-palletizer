@@ -17,6 +17,8 @@ api.datatrade.pe
 
 Con ese esquema, la cookie puede usar `Domain=.datatrade.pe`, `HttpOnly`, `Secure`, `SameSite=Lax`.
 
+Fase 2 implementa primero Bearer tokens porque ADEX y SisLoPe siguen en dominios Vercel separados. Esto evita asumir cookie compartida entre hosts `*.vercel.app`.
+
 ## Si continuan dominios Vercel separados
 
 Usar identidad centralizada con flujo de login redirigido o token por app. No asumir que `sis-lo-pe.vercel.app` y `adex-palletizer.vercel.app` comparten cookie.
@@ -30,16 +32,36 @@ Usar identidad centralizada con flujo de login redirigido o token por app. No as
 - `AUTH_COOKIE_SECURE`
 - `SESSION_TTL_DAYS`
 - `IP_HASH_SECRET`
-- `ADMIN_BOOTSTRAP_EMAIL`
-- `ADMIN_BOOTSTRAP_PASSWORD_HASH`
+- `AUTH_ACCESS_TOKEN_SECRET`
+- `AUTH_ACCESS_TOKEN_TTL_SECONDS`
+- `AUTH_RATE_LIMIT_MAX`
+- `AUTH_RATE_LIMIT_WINDOW_MS`
+- `DATA_TRADE_ADMIN_EMAIL`
+- `DATA_TRADE_ADMIN_PASSWORD`
+- `DATA_TRADE_ADMIN_NAME`
 
 ## Bootstrap admin
 
-No crear `admin/admin`. El primer admin debe provenir de variables de entorno o seed seguro con password ya hasheado. El seed debe ser idempotente y auditable.
+No crear `admin/admin`. El primer admin se crea con `npm run db:seed:admin`, leyendo `DATA_TRADE_ADMIN_EMAIL`, `DATA_TRADE_ADMIN_PASSWORD` y `DATA_TRADE_ADMIN_NAME`. El password se recibe por variable de entorno, se hashea con bcrypt y no se imprime. El seed es idempotente y auditable.
 
 ## Migracion
 
 1. Crear tablas `users`, `roles`, `memberships`, `auth_accounts`, `auth_sessions`.
-2. Migrar usuarios legacy desde `usuarios` a `users`.
-3. Hacer que ADEX y SisLoPe consulten `apps/api`.
-4. Retirar copias de auth por app cuando haya paridad.
+2. Implementar endpoints centrales `/auth/*` con Bearer tokens.
+3. Migrar usuarios legacy desde `usuarios` a `users`.
+4. Hacer que ADEX y SisLoPe consulten `apps/api`.
+5. Retirar copias de auth por app cuando haya paridad.
+
+## Estado Fase 2
+
+Implementado en `apps/api`:
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `POST /auth/refresh`
+- `GET /auth/me`
+- `GET /auth/modules`
+- `GET /auth/session`
+
+`POST /events/track` sigue aceptando `anonymousId`; si llega Bearer token valido asocia `user_id` automaticamente.
