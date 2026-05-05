@@ -93,6 +93,7 @@ import { solveMultiHeuristic } from './multiSolver'
 import { solveMultiHeuristicNoMix } from './multiSolverNoMix'
 import { EditToggleButton } from './components/3d/EditToggleButton'
 import { Header } from './components/ui/Header'
+import { DataTradeAdminDashboard } from './dataTrade/DataTradeAdminDashboard'
 import { DataTradeAuthPanel } from './dataTrade/DataTradeAuthPanel'
 import { trackDataTradeEvent } from './dataTrade/runtime'
 import type {
@@ -2921,6 +2922,7 @@ function App() {
           onExportTradeCase={handleExportTradeCase}
         />
         <DataTradeAuthPanel />
+        <DataTradeAdminDashboard />
 
       {shareWarning && (
         <div className="notice-box" role="alert">

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
 import { buildApp } from "./app.js";
+import type { AdminService } from "./admin.js";
 import { AuthError, type AuthResponse, type AuthService, type AuthSessionPayload } from "./auth.js";
 import type { AppConfig } from "./config.js";
 import type { TrackEventInput } from "./events.js";
@@ -51,6 +52,23 @@ const authSession: AuthSessionPayload = {
   },
 };
 
+const adminUser = {
+  ...authUser,
+  id: randomUUID(),
+  email: "admin@datatrade.local",
+  username: "admin",
+  displayName: "Data Trade Admin",
+  roles: ["user", "admin"],
+};
+
+const adminSession: AuthSessionPayload = {
+  user: adminUser,
+  session: {
+    id: randomUUID(),
+    expiresAt: "2026-05-05T00:00:00.000Z",
+  },
+};
+
 const authResponse: AuthResponse = {
   ...authSession,
   accessToken: "valid-token",
@@ -82,6 +100,107 @@ function createAuthService(overrides: Partial<AuthService> = {}): AuthService {
       created: false,
       userId: authUser.id,
       email: authUser.email,
+    })),
+    ...overrides,
+  };
+}
+
+function createAdminAuthService(overrides: Partial<AuthService> = {}): AuthService {
+  return createAuthService({
+    getSession: vi.fn(async (token: string) => {
+      if (token !== "admin-token") {
+        throw new AuthError("UNAUTHENTICATED", 401);
+      }
+      return adminSession;
+    }),
+    getModules: vi.fn(async () => [
+      {
+        key: "admin",
+        displayName: "Admin",
+        accessLevel: "admin",
+      },
+    ]),
+    ...overrides,
+  });
+}
+
+function createAdminService(overrides: Partial<AdminService> = {}): AdminService {
+  return {
+    getOverview: vi.fn(async () => ({
+      total_users: 2,
+      active_users_24h: 1,
+      active_users_7d: 1,
+      active_users_30d: 1,
+      total_events: 3,
+      events_24h: 1,
+      events_7d: 2,
+      events_30d: 3,
+      total_modules: 4,
+      top_module_by_events: "adex_palletizer",
+      latest_event_at: "2026-05-04T00:00:00.000Z",
+    })),
+    listUsers: vi.fn(async () => ({
+      users: [
+        {
+          id: adminUser.id,
+          email: adminUser.email,
+          name: adminUser.displayName,
+          role: "admin",
+          created_at: "2026-05-04T00:00:00.000Z",
+          last_seen_at: "2026-05-04T00:00:00.000Z",
+          event_count: 2,
+          module_count: 1,
+        },
+      ],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    })),
+    getUserActivity: vi.fn(async () => ({
+      latest_events: [],
+      modules_used: [],
+      last_login_at: null,
+      latest_tracking_event_at: null,
+      event_name_counts: [],
+    })),
+    listEvents: vi.fn(async (query) => ({
+      events: [
+        {
+          id: "event-1",
+          user_id: adminUser.id,
+          anonymous_id: null,
+          module: query.module ?? "adex_palletizer",
+          event_name: query.event_name ?? "module_opened",
+          metadata: {},
+          path: "/",
+          created_at: "2026-05-04T00:00:00.000Z",
+        },
+      ],
+      total: 3,
+      limit: query.limit,
+      offset: query.offset,
+    })),
+    getModulesUsage: vi.fn(async () => ({
+      modules: [
+        {
+          module_code: "adex_palletizer",
+          module_name: "ADEX Palletizer",
+          events_count: 3,
+          unique_users: 1,
+          anonymous_users: 1,
+          last_event_at: "2026-05-04T00:00:00.000Z",
+        },
+      ],
+    })),
+    getRetention: vi.fn(async () => ({
+      new_users_7d: 0,
+      returning_users_7d: 0,
+      new_users_30d: 0,
+      returning_users_30d: 0,
+      stickiness_7d_30d: 0,
+    })),
+    getErrors: vi.fn(async () => ({
+      errors: [],
     })),
     ...overrides,
   };
@@ -814,6 +933,282 @@ describe("Data Trade API", () => {
     expect(response.statusCode).toBe(413);
     expect(response.json().error).toMatchObject({
       code: "PAYLOAD_TOO_LARGE",
+    });
+
+    await app.close();
+  });
+
+  it("allows admins to access metrics overview", async () => {
+    const adminService = createAdminService();
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/metrics/overview",
+      headers: {
+        authorization: "Bearer admin-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      total_users: 2,
+      top_module_by_events: "adex_palletizer",
+    });
+    expect(adminService.getOverview).toHaveBeenCalledOnce();
+
+    await app.close();
+  });
+
+  it("rejects normal users from admin endpoints", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAuthService(),
+      adminService: createAdminService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/metrics/overview",
+      headers: {
+        authorization: "Bearer valid-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error).toMatchObject({
+      code: "FORBIDDEN",
+    });
+
+    await app.close();
+  });
+
+  it("requires bearer tokens for admin endpoints", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService: createAdminService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/metrics/overview",
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().error).toMatchObject({
+      code: "UNAUTHENTICATED",
+    });
+
+    await app.close();
+  });
+
+  it("does not expose password hashes from /admin/users", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService: createAdminService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/users",
+      headers: {
+        authorization: "Bearer admin-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(JSON.stringify(body)).not.toContain("password_hash");
+    expect(JSON.stringify(body)).not.toContain("refresh");
+    expect(body.users[0]).toMatchObject({
+      email: adminUser.email,
+      role: "admin",
+    });
+
+    await app.close();
+  });
+
+  it("passes pagination to /admin/events", async () => {
+    const adminService = createAdminService();
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/events?limit=10&offset=5",
+      headers: {
+        authorization: "Bearer admin-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      limit: 10,
+      offset: 5,
+    });
+    expect(adminService.listEvents).toHaveBeenCalledWith(expect.objectContaining({
+      limit: 10,
+      offset: 5,
+    }));
+
+    await app.close();
+  });
+
+  it("filters /admin/events by module and event_name", async () => {
+    const adminService = createAdminService();
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/events?module=adex_palletizer&event_name=module_opened",
+      headers: {
+        authorization: "Bearer admin-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(adminService.listEvents).toHaveBeenCalledWith(expect.objectContaining({
+      module: "adex_palletizer",
+      event_name: "module_opened",
+    }));
+
+    await app.close();
+  });
+
+  it("returns grouped module usage", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService: createAdminService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/modules/usage",
+      headers: {
+        authorization: "Bearer admin-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().modules[0]).toMatchObject({
+      module_code: "adex_palletizer",
+      events_count: 3,
+    });
+
+    await app.close();
+  });
+
+  it("returns retention metrics even without data", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService: createAdminService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/retention",
+      headers: {
+        authorization: "Bearer admin-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      new_users_7d: 0,
+      stickiness_7d_30d: 0,
+    });
+
+    await app.close();
+  });
+
+  it("returns an empty errors list when no api_error events exist", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService: createAdminService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/errors",
+      headers: {
+        authorization: "Bearer admin-token",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      errors: [],
+    });
+
+    await app.close();
+  });
+
+  it("rejects invalid admin filters with request_id", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService: createAdminService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/admin/events?limit=1000&module=unknown_admin_module",
+      headers: {
+        authorization: "Bearer admin-token",
+        "x-request-id": "admin-filter-request",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      requestId: "admin-filter-request",
     });
 
     await app.close();

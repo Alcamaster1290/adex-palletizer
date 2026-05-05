@@ -1,6 +1,7 @@
 export interface DataTradeFrontendConfig {
   authEnabled: boolean
   trackingEnabled: boolean
+  adminDashboardEnabled: boolean
   apiUrl: string
   moduleCode: string
 }
@@ -19,6 +20,7 @@ export function getDataTradeConfig(): DataTradeFrontendConfig {
   return {
     authEnabled: parseBooleanFlag(import.meta.env.VITE_DATA_TRADE_AUTH_ENABLED),
     trackingEnabled: parseBooleanFlag(import.meta.env.VITE_DATA_TRADE_TRACKING_ENABLED),
+    adminDashboardEnabled: parseBooleanFlag(import.meta.env.VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED),
     apiUrl,
     moduleCode:
       import.meta.env.VITE_DATA_TRADE_MODULE_CODE?.trim() || 'adex_palletizer',
@@ -31,4 +33,8 @@ export function isDataTradeAuthEnabled() {
 
 export function isDataTradeTrackingEnabled() {
   return getDataTradeConfig().trackingEnabled
+}
+
+export function isDataTradeAdminDashboardEnabled() {
+  return getDataTradeConfig().adminDashboardEnabled
 }

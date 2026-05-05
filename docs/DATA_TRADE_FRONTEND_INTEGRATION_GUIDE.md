@@ -39,6 +39,7 @@ Resultado esperado: la app funciona como antes y no llama a `apps/api`.
 cd "C:\Users\Alvaro\Proyectos\Data Trade\adex-palletizer-web"
 $env:VITE_DATA_TRADE_AUTH_ENABLED = "true"
 $env:VITE_DATA_TRADE_TRACKING_ENABLED = "true"
+$env:VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED = "false"
 $env:VITE_DATA_TRADE_API_URL = "http://127.0.0.1:8788"
 $env:VITE_DATA_TRADE_MODULE_CODE = "adex_palletizer"
 npm run dev
@@ -86,6 +87,7 @@ Variables para ADEX:
 VITE_DATA_TRADE_AUTH_ENABLED=false
 VITE_DATA_TRADE_API_URL=https://api.datatrade.pe
 VITE_DATA_TRADE_TRACKING_ENABLED=false
+VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=false
 VITE_DATA_TRADE_MODULE_CODE=adex_palletizer
 ```
 
@@ -95,6 +97,7 @@ Variables para SisLoPe:
 VITE_DATA_TRADE_AUTH_ENABLED=false
 VITE_DATA_TRADE_API_URL=https://api.datatrade.pe
 VITE_DATA_TRADE_TRACKING_ENABLED=false
+VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=false
 VITE_DATA_TRADE_MODULE_CODE=sislope
 ```
 
@@ -117,6 +120,12 @@ El cliente implementa:
 - `GET /auth/me`
 - `GET /auth/modules`
 - `POST /events/track`
+- `GET /admin/metrics/overview`
+- `GET /admin/users`
+- `GET /admin/events`
+- `GET /admin/modules/usage`
+
+Los endpoints admin solo deben usarse cuando `VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=true` y el usuario tenga rol `admin`.
 
 Tracking autenticado agrega `Authorization: Bearer` si hay access token en memoria. Tracking anonimo manda `anonymousId`. El cliente elimina claves sensibles de metadata como `token`, `password`, `accessToken`, `refreshToken`, `userId` y `user_id`.
 
@@ -127,6 +136,23 @@ Para desactivar completamente:
 ```text
 VITE_DATA_TRADE_AUTH_ENABLED=false
 VITE_DATA_TRADE_TRACKING_ENABLED=false
+VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=false
 ```
 
 No requiere revertir codigo ni modificar auth legacy.
+
+## Admin Dashboard ADEX
+
+Para probar el panel admin minimo en ADEX:
+
+```powershell
+cd "C:\Users\Alvaro\Proyectos\Data Trade\adex-palletizer-web"
+$env:VITE_DATA_TRADE_AUTH_ENABLED = "true"
+$env:VITE_DATA_TRADE_TRACKING_ENABLED = "true"
+$env:VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED = "true"
+$env:VITE_DATA_TRADE_API_URL = "http://127.0.0.1:8788"
+$env:VITE_DATA_TRADE_MODULE_CODE = "adex_palletizer"
+npm run dev
+```
+
+El panel solo carga cards y tablas si el usuario Data Trade tiene rol `admin`. Usuarios normales ven acceso no autorizado. Si el backend cae, la app ADEX sigue funcionando y el panel muestra error controlado.
