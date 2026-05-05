@@ -6,6 +6,6 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./src/db/migrations",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/data_trade",
+    url: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:55432/data_trade",
   },
 });

@@ -178,7 +178,7 @@ export const userModuleAccess = dataTrade.table(
     uniqueIndex("user_module_access_user_module_org_uq").on(
       table.userId,
       table.moduleId,
-      table.organizationId,
+      sql`COALESCE(${table.organizationId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
     ),
     index("user_module_access_module_idx").on(table.moduleId),
   ],

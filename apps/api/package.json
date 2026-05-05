@@ -13,7 +13,11 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:verify": "tsx src/db/verify.ts",
+    "docker:db:up": "docker compose up -d postgres",
+    "docker:db:down": "docker compose down",
+    "docker:db:reset": "docker compose down -v"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",

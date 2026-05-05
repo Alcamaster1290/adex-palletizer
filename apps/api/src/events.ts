@@ -69,8 +69,54 @@ export function getJsonByteLength(value: unknown): number {
   return Buffer.byteLength(JSON.stringify(value), "utf8");
 }
 
+const MAX_METADATA_DEPTH = 6;
+const MAX_METADATA_KEYS_PER_OBJECT = 50;
+const MAX_METADATA_ARRAY_ITEMS = 100;
+const MAX_METADATA_STRING_LENGTH = 2_000;
+
+function sanitizeValue(value: unknown, depth: number): unknown {
+  if (value === null || typeof value === "boolean" || typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return value.length > MAX_METADATA_STRING_LENGTH
+      ? value.slice(0, MAX_METADATA_STRING_LENGTH)
+      : value;
+  }
+
+  if (Array.isArray(value)) {
+    if (depth >= MAX_METADATA_DEPTH) {
+      return "[max_depth]";
+    }
+
+    return value
+      .slice(0, MAX_METADATA_ARRAY_ITEMS)
+      .map((entry) => sanitizeValue(entry, depth + 1));
+  }
+
+  if (value && typeof value === "object") {
+    if (depth >= MAX_METADATA_DEPTH) {
+      return "[max_depth]";
+    }
+
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value).slice(0, MAX_METADATA_KEYS_PER_OBJECT)) {
+      sanitized[key.slice(0, 160)] = sanitizeValue(entry, depth + 1);
+    }
+    return sanitized;
+  }
+
+  return null;
+}
+
+export function sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
+  return sanitizeValue(metadata, 0) as Record<string, unknown>;
+}
+
 export function createEventTracker(db: DataTradeDatabase) {
   return async function trackEvent(input: TrackEventInput): Promise<TrackedEvent> {
+    const metadata = sanitizeMetadata(input.metadata);
     const inserted = await db
       .insert(events)
       .values({
@@ -78,7 +124,7 @@ export function createEventTracker(db: DataTradeDatabase) {
         anonymousId: input.anonymousId ?? null,
         module: input.module,
         eventName: input.eventName,
-        metadata: input.metadata,
+        metadata,
         path: input.path ?? null,
         userAgent: input.userAgent ?? null,
         ipHash: input.ipHash ?? null,
