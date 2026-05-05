@@ -9,7 +9,7 @@ import {
   type DataTradeAuthApi,
   type DataTradeSessionState,
 } from './client'
-import { dataTradeClient, subscribeDataTradeSession } from './runtime'
+import { dataTradeClient, subscribeDataTradeSession, trackDataTradeEvent } from './runtime'
 
 interface AdminDashboardClient {
   getSessionSnapshot: DataTradeAuthApi['getSessionSnapshot']
@@ -29,6 +29,7 @@ interface AdminDashboardData {
 interface DataTradeAdminDashboardProps {
   client?: AdminDashboardClient
   config?: DataTradeFrontendConfig
+  trackEvent?: typeof trackDataTradeEvent
 }
 
 function formatDate(value: string | null) {
@@ -52,6 +53,7 @@ function hasAdminAccess(session: DataTradeSessionState) {
 export function DataTradeAdminDashboard({
   client = dataTradeClient,
   config,
+  trackEvent = trackDataTradeEvent,
 }: DataTradeAdminDashboardProps) {
   const runtimeConfig = useMemo(() => config ?? getDataTradeConfig(), [config])
   const [session, setSession] = useState<DataTradeSessionState>(() =>
@@ -84,6 +86,10 @@ export function DataTradeAdminDashboard({
     let mounted = true
     setLoading(true)
     setError(null)
+    void trackEvent('admin_dashboard_opened', {
+      surface: 'adex_palletizer',
+      sections: ['overview', 'users', 'events', 'modules'],
+    })
 
     Promise.all([
       client.getAdminOverview(),
@@ -102,6 +108,13 @@ export function DataTradeAdminDashboard({
           events: events.events,
           modules: modules.modules,
         })
+        void trackEvent('admin_metric_viewed', {
+          surface: 'adex_palletizer',
+          metric: 'overview',
+          users_visible: users.users.length,
+          events_visible: events.events.length,
+          modules_visible: modules.modules.length,
+        })
       })
       .catch((nextError) => {
         if (!mounted) {
@@ -110,6 +123,11 @@ export function DataTradeAdminDashboard({
 
         setData(null)
         setError(nextError instanceof Error ? nextError.message : 'No se pudo cargar el dashboard admin.')
+        void trackEvent('api_error', {
+          surface: 'adex_palletizer',
+          path: '/admin/dashboard',
+          message: nextError instanceof Error ? nextError.message : 'Admin dashboard API error',
+        })
       })
       .finally(() => {
         if (mounted) {
@@ -120,7 +138,7 @@ export function DataTradeAdminDashboard({
     return () => {
       mounted = false
     }
-  }, [client, runtimeConfig.adminDashboardEnabled, runtimeConfig.apiUrl, session.status])
+  }, [client, runtimeConfig.adminDashboardEnabled, runtimeConfig.apiUrl, session.status, trackEvent])
 
   if (!runtimeConfig.adminDashboardEnabled) {
     return null

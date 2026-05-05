@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { ZodError } from "zod";
 
 import {
+  adminAggregateMetricsBodySchema,
   adminEventsQuerySchema,
   adminUserActivityParamsSchema,
   adminUsersQuerySchema,
@@ -390,6 +391,20 @@ export async function buildApp(options: BuildAppOptions) {
     }
 
     return reply.send(await adminService.getOverview());
+  });
+
+  app.post("/admin/metrics/aggregate", async (request, reply) => {
+    await requireAdminSession(request);
+    if (!adminService) {
+      return reply.status(503).send(buildErrorBody(
+        "ADMIN_UNAVAILABLE",
+        "Admin metrics service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const payload = adminAggregateMetricsBodySchema.parse(request.body ?? {});
+    return reply.send(await adminService.aggregateMetrics(payload));
   });
 
   app.get("/admin/users", async (request, reply) => {

@@ -16,6 +16,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:verify": "tsx src/db/verify.ts",
     "db:seed:admin": "tsx src/db/seedAdmin.ts",
+    "metrics:aggregate": "tsx src/metrics/aggregate.ts",
     "docker:db:up": "docker compose up -d postgres",
     "docker:db:down": "docker compose down",
     "docker:db:reset": "docker compose down -v"

@@ -3,6 +3,13 @@ import { z } from "zod";
 
 import type { DataTradeDatabase } from "./db/client.js";
 import { trackedEventNames, trackedModules } from "./events.js";
+import {
+  aggregateDailyMetrics,
+  aggregateMetricsRangeSchema,
+  getRangeDays,
+  type AggregateMetricsInput,
+  type AggregateMetricsResult,
+} from "./metrics/aggregate.js";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
@@ -39,9 +46,21 @@ export const adminEventsQuerySchema = paginationSchema
   .merge(dateRangeQuerySchema)
   .strict();
 
+export const adminAggregateMetricsBodySchema = aggregateMetricsRangeSchema
+  .default({})
+  .refine((value) => {
+    const from = value.from ?? new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+    const to = value.to ?? new Date().toISOString().slice(0, 10);
+    return getRangeDays(from, to) <= 31;
+  }, {
+    message: "Aggregation range cannot exceed 31 days.",
+    path: ["to"],
+  });
+
 export type AdminUsersQuery = z.infer<typeof adminUsersQuerySchema>;
 export type AdminEventsQuery = z.infer<typeof adminEventsQuerySchema>;
 export type AdminUserActivityParams = z.infer<typeof adminUserActivityParamsSchema>;
+export type AdminAggregateMetricsBody = z.infer<typeof adminAggregateMetricsBodySchema>;
 
 export interface AdminOverview {
   total_users: number;
@@ -65,6 +84,7 @@ export interface AdminService {
   getModulesUsage(): Promise<unknown>;
   getRetention(): Promise<unknown>;
   getErrors(): Promise<unknown>;
+  aggregateMetrics(input: AggregateMetricsInput): Promise<AggregateMetricsResult>;
 }
 
 async function queryRows<T extends Record<string, unknown>>(
@@ -157,74 +177,179 @@ function mapEventRow(row: Record<string, unknown>) {
   };
 }
 
+async function hasAggregatedModuleMetrics(db: DataTradeDatabase): Promise<boolean> {
+  const exists = await queryFirst<Record<string, unknown>>(db, sql`
+    SELECT to_regclass('data_trade.daily_module_metrics') IS NOT NULL AS exists
+  `);
+  if (exists?.exists !== true) {
+    return false;
+  }
+
+  const row = await queryFirst<Record<string, unknown>>(db, sql`
+    SELECT COUNT(*)::int AS count
+    FROM data_trade.daily_module_metrics
+  `);
+
+  return numberValue(row?.count) > 0;
+}
+
+async function hasAggregatedUserMetrics(db: DataTradeDatabase): Promise<boolean> {
+  const exists = await queryFirst<Record<string, unknown>>(db, sql`
+    SELECT to_regclass('data_trade.daily_user_metrics') IS NOT NULL AS exists
+  `);
+  if (exists?.exists !== true) {
+    return false;
+  }
+
+  const row = await queryFirst<Record<string, unknown>>(db, sql`
+    SELECT COUNT(*)::int AS count
+    FROM data_trade.daily_user_metrics
+  `);
+
+  return numberValue(row?.count) > 0;
+}
+
+async function getRawOverview(db: DataTradeDatabase): Promise<AdminOverview> {
+  const row = await queryFirst<Record<string, unknown>>(db, sql`
+    SELECT
+      (SELECT COUNT(*) FROM data_trade.users u WHERE u.deleted_at IS NULL)::int AS total_users,
+      (
+        SELECT COUNT(DISTINCT e.user_id)
+        FROM data_trade.events e
+        WHERE e.user_id IS NOT NULL
+          AND e.created_at >= now() - interval '24 hours'
+      )::int AS active_users_24h,
+      (
+        SELECT COUNT(DISTINCT e.user_id)
+        FROM data_trade.events e
+        WHERE e.user_id IS NOT NULL
+          AND e.created_at >= now() - interval '7 days'
+      )::int AS active_users_7d,
+      (
+        SELECT COUNT(DISTINCT e.user_id)
+        FROM data_trade.events e
+        WHERE e.user_id IS NOT NULL
+          AND e.created_at >= now() - interval '30 days'
+      )::int AS active_users_30d,
+      (SELECT COUNT(*) FROM data_trade.events)::int AS total_events,
+      (
+        SELECT COUNT(*)
+        FROM data_trade.events e
+        WHERE e.created_at >= now() - interval '24 hours'
+      )::int AS events_24h,
+      (
+        SELECT COUNT(*)
+        FROM data_trade.events e
+        WHERE e.created_at >= now() - interval '7 days'
+      )::int AS events_7d,
+      (
+        SELECT COUNT(*)
+        FROM data_trade.events e
+        WHERE e.created_at >= now() - interval '30 days'
+      )::int AS events_30d,
+      (
+        SELECT COUNT(*)
+        FROM data_trade.modules m
+        WHERE m.status = 'active'
+      )::int AS total_modules,
+      (
+        SELECT e.module
+        FROM data_trade.events e
+        GROUP BY e.module
+        ORDER BY COUNT(*) DESC, e.module ASC
+        LIMIT 1
+      ) AS top_module_by_events,
+      (SELECT MAX(e.created_at) FROM data_trade.events e) AS latest_event_at
+  `);
+
+  return {
+    total_users: numberValue(row?.total_users),
+    active_users_24h: numberValue(row?.active_users_24h),
+    active_users_7d: numberValue(row?.active_users_7d),
+    active_users_30d: numberValue(row?.active_users_30d),
+    total_events: numberValue(row?.total_events),
+    events_24h: numberValue(row?.events_24h),
+    events_7d: numberValue(row?.events_7d),
+    events_30d: numberValue(row?.events_30d),
+    total_modules: numberValue(row?.total_modules),
+    top_module_by_events: stringValue(row?.top_module_by_events),
+    latest_event_at: isoString(row?.latest_event_at),
+  };
+}
+
+async function getAggregatedOverview(db: DataTradeDatabase): Promise<AdminOverview> {
+  const row = await queryFirst<Record<string, unknown>>(db, sql`
+    SELECT
+      (SELECT COUNT(*) FROM data_trade.users u WHERE u.deleted_at IS NULL)::int AS total_users,
+      (
+        SELECT COUNT(DISTINCT dum.user_id)
+        FROM data_trade.daily_user_metrics dum
+        WHERE dum.date >= current_date
+      )::int AS active_users_24h,
+      (
+        SELECT COUNT(DISTINCT dum.user_id)
+        FROM data_trade.daily_user_metrics dum
+        WHERE dum.date >= current_date - interval '6 days'
+      )::int AS active_users_7d,
+      (
+        SELECT COUNT(DISTINCT dum.user_id)
+        FROM data_trade.daily_user_metrics dum
+        WHERE dum.date >= current_date - interval '29 days'
+      )::int AS active_users_30d,
+      COALESCE((SELECT SUM(dmm.events_count) FROM data_trade.daily_module_metrics dmm), 0)::int AS total_events,
+      COALESCE((
+        SELECT SUM(dmm.events_count)
+        FROM data_trade.daily_module_metrics dmm
+        WHERE dmm.date >= current_date
+      ), 0)::int AS events_24h,
+      COALESCE((
+        SELECT SUM(dmm.events_count)
+        FROM data_trade.daily_module_metrics dmm
+        WHERE dmm.date >= current_date - interval '6 days'
+      ), 0)::int AS events_7d,
+      COALESCE((
+        SELECT SUM(dmm.events_count)
+        FROM data_trade.daily_module_metrics dmm
+        WHERE dmm.date >= current_date - interval '29 days'
+      ), 0)::int AS events_30d,
+      (
+        SELECT COUNT(*)
+        FROM data_trade.modules m
+        WHERE m.status = 'active'
+      )::int AS total_modules,
+      (
+        SELECT dmm.module_code
+        FROM data_trade.daily_module_metrics dmm
+        GROUP BY dmm.module_code
+        ORDER BY SUM(dmm.events_count) DESC, dmm.module_code ASC
+        LIMIT 1
+      ) AS top_module_by_events,
+      (SELECT MAX(e.created_at) FROM data_trade.events e) AS latest_event_at
+  `);
+
+  return {
+    total_users: numberValue(row?.total_users),
+    active_users_24h: numberValue(row?.active_users_24h),
+    active_users_7d: numberValue(row?.active_users_7d),
+    active_users_30d: numberValue(row?.active_users_30d),
+    total_events: numberValue(row?.total_events),
+    events_24h: numberValue(row?.events_24h),
+    events_7d: numberValue(row?.events_7d),
+    events_30d: numberValue(row?.events_30d),
+    total_modules: numberValue(row?.total_modules),
+    top_module_by_events: stringValue(row?.top_module_by_events),
+    latest_event_at: isoString(row?.latest_event_at),
+  };
+}
+
 export function createAdminService(db: DataTradeDatabase): AdminService {
   return {
     async getOverview() {
-      const row = await queryFirst<Record<string, unknown>>(db, sql`
-        SELECT
-          (SELECT COUNT(*) FROM data_trade.users u WHERE u.deleted_at IS NULL)::int AS total_users,
-          (
-            SELECT COUNT(DISTINCT e.user_id)
-            FROM data_trade.events e
-            WHERE e.user_id IS NOT NULL
-              AND e.created_at >= now() - interval '24 hours'
-          )::int AS active_users_24h,
-          (
-            SELECT COUNT(DISTINCT e.user_id)
-            FROM data_trade.events e
-            WHERE e.user_id IS NOT NULL
-              AND e.created_at >= now() - interval '7 days'
-          )::int AS active_users_7d,
-          (
-            SELECT COUNT(DISTINCT e.user_id)
-            FROM data_trade.events e
-            WHERE e.user_id IS NOT NULL
-              AND e.created_at >= now() - interval '30 days'
-          )::int AS active_users_30d,
-          (SELECT COUNT(*) FROM data_trade.events)::int AS total_events,
-          (
-            SELECT COUNT(*)
-            FROM data_trade.events e
-            WHERE e.created_at >= now() - interval '24 hours'
-          )::int AS events_24h,
-          (
-            SELECT COUNT(*)
-            FROM data_trade.events e
-            WHERE e.created_at >= now() - interval '7 days'
-          )::int AS events_7d,
-          (
-            SELECT COUNT(*)
-            FROM data_trade.events e
-            WHERE e.created_at >= now() - interval '30 days'
-          )::int AS events_30d,
-          (
-            SELECT COUNT(*)
-            FROM data_trade.modules m
-            WHERE m.status = 'active'
-          )::int AS total_modules,
-          (
-            SELECT e.module
-            FROM data_trade.events e
-            GROUP BY e.module
-            ORDER BY COUNT(*) DESC, e.module ASC
-            LIMIT 1
-          ) AS top_module_by_events,
-          (SELECT MAX(e.created_at) FROM data_trade.events e) AS latest_event_at
-      `);
+      if (await hasAggregatedModuleMetrics(db)) {
+        return getAggregatedOverview(db);
+      }
 
-      return {
-        total_users: numberValue(row?.total_users),
-        active_users_24h: numberValue(row?.active_users_24h),
-        active_users_7d: numberValue(row?.active_users_7d),
-        active_users_30d: numberValue(row?.active_users_30d),
-        total_events: numberValue(row?.total_events),
-        events_24h: numberValue(row?.events_24h),
-        events_7d: numberValue(row?.events_7d),
-        events_30d: numberValue(row?.events_30d),
-        total_modules: numberValue(row?.total_modules),
-        top_module_by_events: stringValue(row?.top_module_by_events),
-        latest_event_at: isoString(row?.latest_event_at),
-      };
+      return getRawOverview(db);
     },
 
     async listUsers({ limit, offset }) {
@@ -379,6 +504,34 @@ export function createAdminService(db: DataTradeDatabase): AdminService {
     },
 
     async getModulesUsage() {
+      if (await hasAggregatedModuleMetrics(db)) {
+        const moduleRows = await queryRows<Record<string, unknown>>(db, sql`
+          SELECT
+            dmm.module_code,
+            COALESCE(m.display_name, dmm.module_code) AS module_name,
+            SUM(dmm.events_count)::int AS events_count,
+            SUM(dmm.unique_users)::int AS unique_users,
+            SUM(dmm.anonymous_users)::int AS anonymous_users,
+            MAX(dmm.date)::text AS last_event_at
+          FROM data_trade.daily_module_metrics dmm
+          LEFT JOIN data_trade.modules m ON m.key = dmm.module_code
+          GROUP BY dmm.module_code, m.display_name
+          ORDER BY events_count DESC, module_code ASC
+        `);
+
+        return {
+          source: "daily_aggregates",
+          modules: moduleRows.map((row) => ({
+            module_code: String(row.module_code),
+            module_name: String(row.module_name),
+            events_count: numberValue(row.events_count),
+            unique_users: numberValue(row.unique_users),
+            anonymous_users: numberValue(row.anonymous_users),
+            last_event_at: isoString(row.last_event_at),
+          })),
+        };
+      }
+
       const moduleRows = await queryRows<Record<string, unknown>>(db, sql`
         SELECT
           e.module AS module_code,
@@ -394,6 +547,7 @@ export function createAdminService(db: DataTradeDatabase): AdminService {
       `);
 
       return {
+        source: "events",
         modules: moduleRows.map((row) => ({
           module_code: String(row.module_code),
           module_name: String(row.module_name),
@@ -406,6 +560,62 @@ export function createAdminService(db: DataTradeDatabase): AdminService {
     },
 
     async getRetention() {
+      if (await hasAggregatedUserMetrics(db)) {
+        const row = await queryFirst<Record<string, unknown>>(db, sql`
+          SELECT
+            (
+              SELECT COUNT(*)
+              FROM data_trade.users u
+              WHERE u.deleted_at IS NULL
+                AND u.created_at >= now() - interval '7 days'
+            )::int AS new_users_7d,
+            (
+              SELECT COUNT(DISTINCT dum.user_id)
+              FROM data_trade.daily_user_metrics dum
+              INNER JOIN data_trade.users u ON u.id = dum.user_id
+              WHERE dum.date >= current_date - interval '6 days'
+                AND u.created_at < now() - interval '7 days'
+                AND u.deleted_at IS NULL
+            )::int AS returning_users_7d,
+            (
+              SELECT COUNT(*)
+              FROM data_trade.users u
+              WHERE u.deleted_at IS NULL
+                AND u.created_at >= now() - interval '30 days'
+            )::int AS new_users_30d,
+            (
+              SELECT COUNT(DISTINCT dum.user_id)
+              FROM data_trade.daily_user_metrics dum
+              INNER JOIN data_trade.users u ON u.id = dum.user_id
+              WHERE dum.date >= current_date - interval '29 days'
+                AND u.created_at < now() - interval '30 days'
+                AND u.deleted_at IS NULL
+            )::int AS returning_users_30d,
+            (
+              SELECT COUNT(DISTINCT dum.user_id)
+              FROM data_trade.daily_user_metrics dum
+              WHERE dum.date >= current_date - interval '6 days'
+            )::int AS active_users_7d,
+            (
+              SELECT COUNT(DISTINCT dum.user_id)
+              FROM data_trade.daily_user_metrics dum
+              WHERE dum.date >= current_date - interval '29 days'
+            )::int AS active_users_30d
+        `);
+
+        const activeUsers7d = numberValue(row?.active_users_7d);
+        const activeUsers30d = numberValue(row?.active_users_30d);
+
+        return {
+          source: "daily_aggregates",
+          new_users_7d: numberValue(row?.new_users_7d),
+          returning_users_7d: numberValue(row?.returning_users_7d),
+          new_users_30d: numberValue(row?.new_users_30d),
+          returning_users_30d: numberValue(row?.returning_users_30d),
+          stickiness_7d_30d: activeUsers30d === 0 ? 0 : activeUsers7d / activeUsers30d,
+        };
+      }
+
       const row = await queryFirst<Record<string, unknown>>(db, sql`
         SELECT
           (
@@ -454,6 +664,7 @@ export function createAdminService(db: DataTradeDatabase): AdminService {
       const activeUsers30d = numberValue(row?.active_users_30d);
 
       return {
+        source: "events",
         new_users_7d: numberValue(row?.new_users_7d),
         returning_users_7d: numberValue(row?.returning_users_7d),
         new_users_30d: numberValue(row?.new_users_30d),
@@ -490,6 +701,10 @@ export function createAdminService(db: DataTradeDatabase): AdminService {
           last_event_at: isoString(row.last_event_at),
         })),
       };
+    },
+
+    async aggregateMetrics(input) {
+      return aggregateDailyMetrics(db, input);
     },
   };
 }

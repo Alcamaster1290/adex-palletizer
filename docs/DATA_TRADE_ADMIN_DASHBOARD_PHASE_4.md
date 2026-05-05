@@ -17,6 +17,7 @@ Todos los endpoints requieren `Authorization: Bearer <accessToken>`:
 - `GET /admin/modules/usage`
 - `GET /admin/retention`
 - `GET /admin/errors`
+- `POST /admin/metrics/aggregate` desde Fase 5, solo para admin y rango maximo de 31 dias.
 
 Respuestas de seguridad:
 
@@ -39,7 +40,7 @@ offset>=0
 
 ```text
 module=sislope|adex_palletizer|data_trade_analytics|alvin|admin|api|unknown
-event_name=user_signed_up|user_logged_in|module_opened|palletizer_calculation_created|map_layer_toggled|search_performed|file_uploaded|export_generated|admin_view_opened|api_error|session_started|session_ended
+event_name=user_signed_up|user_logged_in|module_opened|auth_panel_opened|admin_dashboard_opened|admin_metric_viewed|palletizer_calculation_created|palletizer_calculation_exported|palletizer_input_changed|map_layer_toggled|search_performed|file_uploaded|export_generated|admin_view_opened|api_error|session_started|session_ended
 user_id=<uuid>
 anonymous_id=<string>
 from=<ISO datetime>
@@ -49,6 +50,12 @@ offset>=0
 ```
 
 No hay SQL dinamico construido por concatenacion de strings; los filtros usan parametros.
+
+## Fase 5: agregados diarios
+
+Desde Fase 5, `GET /admin/metrics/overview`, `GET /admin/modules/usage` y `GET /admin/retention` usan `data_trade.daily_module_metrics` y `data_trade.daily_user_metrics` cuando existen. Si aun no hay agregados, hacen fallback seguro a `data_trade.events`.
+
+El comando `npm run metrics:aggregate` recalcula agregados diarios sin borrar eventos crudos.
 
 ## UI ADEX opt-in
 
@@ -171,6 +178,6 @@ No usar wildcard. Vercel preview debe agregarse explicitamente si se prueba desd
 ## Riesgos pendientes
 
 - El rate limit sigue siendo in-memory; en produccion multi-instancia conviene Redis, Postgres advisory counters o WAF.
-- Las metricas son consultas read-only directas sobre `events`; cuando crezca el volumen conviene materializar agregados diarios.
+- Las metricas principales ya pueden usar agregados diarios, pero falta scheduler/cron productivo.
 - El panel ADEX es una UI operativa minima, no un shell Data Trade final.
 - Access token sigue en memoria; la migracion ideal posterior es cookie `HttpOnly` bajo `.datatrade.pe`.

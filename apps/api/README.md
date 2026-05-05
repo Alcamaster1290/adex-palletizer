@@ -34,6 +34,22 @@ npm run db:migrate
 npm run db:verify
 ```
 
+Actualizar agregados diarios de metricas:
+
+```powershell
+npm run metrics:aggregate
+```
+
+Rango especifico:
+
+```powershell
+$env:METRICS_FROM = "2026-05-01"
+$env:METRICS_TO = "2026-05-05"
+npm run metrics:aggregate
+Remove-Item Env:\METRICS_FROM
+Remove-Item Env:\METRICS_TO
+```
+
 Compilar y probar:
 
 ```powershell
@@ -120,6 +136,18 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/events" -Headers $adminHeade
 Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/modules/usage" -Headers $adminHeaders
 Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/retention" -Headers $adminHeaders
 Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/errors" -Headers $adminHeaders
+
+$aggregateBody = @{
+  from = "2026-05-01"
+  to = "2026-05-05"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8788/admin/metrics/aggregate" `
+  -Headers $adminHeaders `
+  -ContentType "application/json" `
+  -Body $aggregateBody
 ```
 
 Trackear evento autenticado y anonimo:
@@ -207,6 +235,7 @@ npm run docker:db:reset
 - `GET /admin/modules/usage`: uso agregado por modulo.
 - `GET /admin/retention`: retencion basica 7d/30d.
 - `GET /admin/errors`: agrupacion de eventos `api_error`.
+- `POST /admin/metrics/aggregate`: recalculo manual de agregados diarios para rango de hasta 31 dias.
 
 ## Seguridad actual de admin
 
@@ -217,6 +246,7 @@ npm run docker:db:reset
 - No se devuelven `password_hash`, refresh tokens, secretos, `ip_hash` ni IP plana.
 - Errores uniformes con `requestId`.
 - Las consultas usan parametros; no hay filtros por SQL dinamico concatenado.
+- Agregacion manual limitada a 31 dias por request.
 
 ## Seguridad actual de tracking
 
@@ -232,6 +262,7 @@ npm run docker:db:reset
 - `x-request-id` por request.
 - Si llega Bearer token valido, `POST /events/track` asocia `user_id`.
 - Si no hay auth, `POST /events/track` sigue aceptando `anonymousId`.
+- Eventos productivos soportados incluyen `auth_panel_opened`, `admin_dashboard_opened`, `admin_metric_viewed`, `palletizer_calculation_exported` y `palletizer_input_changed`.
 
 ## Seguridad actual de auth
 
@@ -291,6 +322,13 @@ Ver `.env.example`. En produccion `IP_HASH_SECRET`, `AUTH_ACCESS_TOKEN_SECRET` y
 ## Migraciones y seeds
 
 El schema Drizzle vive en `src/db/schema.ts`. La migracion inicial crea tablas core de usuarios, organizaciones, roles, sesiones, modulos, proyectos, runs, sesiones de mapa, uploads, eventos y auditoria dentro de `data_trade`.
+
+Fase 5 agrega `0002_daily_metrics.sql` con:
+
+- `data_trade.daily_module_metrics`
+- `data_trade.daily_user_metrics`
+
+`GET /admin/metrics/overview`, `GET /admin/modules/usage` y `GET /admin/retention` usan agregados diarios cuando existen y hacen fallback a `data_trade.events` cuando no hay agregados. Los eventos crudos no se eliminan.
 
 La migracion inicial tambien siembra roles base y modulos:
 

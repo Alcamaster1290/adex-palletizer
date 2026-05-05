@@ -31,6 +31,8 @@ export function DataTradeAuthPanel() {
       return
     }
 
+    void trackDataTradeEvent('auth_panel_opened', { surface: 'adex_palletizer' })
+
     let mounted = true
     void dataTradeClient.loadCurrentUser().then((nextSession) => {
       if (mounted) {
@@ -75,6 +77,12 @@ export function DataTradeAuthPanel() {
           ? error.message
           : 'No se pudo conectar con Data Trade Auth.',
       )
+      void trackDataTradeEvent('api_error', {
+        surface: 'adex_palletizer',
+        path: '/data-trade-auth',
+        code: error instanceof DataTradeApiError ? error.code : 'DATA_TRADE_AUTH_PANEL_ERROR',
+        message: error instanceof Error ? error.message : 'Data Trade Auth panel error',
+      })
     } finally {
       setSubmitting(false)
     }

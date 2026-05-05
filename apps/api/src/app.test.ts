@@ -202,6 +202,13 @@ function createAdminService(overrides: Partial<AdminService> = {}): AdminService
     getErrors: vi.fn(async () => ({
       errors: [],
     })),
+    aggregateMetrics: vi.fn(async (input) => ({
+      from: input.from ?? "2026-05-01",
+      to: input.to ?? "2026-05-04",
+      events_read: 3,
+      module_rows: 1,
+      user_rows: 1,
+    })),
     ...overrides,
   };
 }
@@ -963,6 +970,102 @@ describe("Data Trade API", () => {
       top_module_by_events: "adex_palletizer",
     });
     expect(adminService.getOverview).toHaveBeenCalledOnce();
+
+    await app.close();
+  });
+
+  it("allows admins to run manual metrics aggregation for a small range", async () => {
+    const adminService = createAdminService();
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/admin/metrics/aggregate",
+      headers: {
+        authorization: "Bearer admin-token",
+      },
+      payload: {
+        from: "2026-05-01",
+        to: "2026-05-04",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      from: "2026-05-01",
+      to: "2026-05-04",
+      events_read: 3,
+    });
+    expect(adminService.aggregateMetrics).toHaveBeenCalledWith({
+      from: "2026-05-01",
+      to: "2026-05-04",
+    });
+
+    await app.close();
+  });
+
+  it("rejects normal users from manual metrics aggregation", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAuthService(),
+      adminService: createAdminService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/admin/metrics/aggregate",
+      headers: {
+        authorization: "Bearer valid-token",
+      },
+      payload: {
+        from: "2026-05-01",
+        to: "2026-05-04",
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+
+    await app.close();
+  });
+
+  it("rejects manual metrics aggregation ranges above the limit", async () => {
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService: createAdminAuthService(),
+      adminService: createAdminService(),
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/admin/metrics/aggregate",
+      headers: {
+        authorization: "Bearer admin-token",
+        "x-request-id": "aggregate-range-request",
+      },
+      payload: {
+        from: "2026-05-01",
+        to: "2026-06-15",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      requestId: "aggregate-range-request",
+    });
 
     await app.close();
   });

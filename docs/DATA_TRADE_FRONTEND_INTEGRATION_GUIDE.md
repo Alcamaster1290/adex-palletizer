@@ -51,11 +51,13 @@ Flujo:
 2. Usar el panel Data Trade para registrar o iniciar sesion.
 3. Confirmar que `GET /auth/me` responde desde el panel.
 4. Ejecutar un calculo de palletizacion.
-5. Verificar evento:
+5. Exportar JSON o PNG si hay resultado.
+6. Verificar eventos y agregados:
 
 ```powershell
 cd "C:\Users\Alvaro\Proyectos\Data Trade\apps\api"
 $env:DATABASE_URL = "postgres://postgres:postgres@localhost:55432/data_trade"
+npm run metrics:aggregate
 npm run db:verify
 ```
 
@@ -124,10 +126,23 @@ El cliente implementa:
 - `GET /admin/users`
 - `GET /admin/events`
 - `GET /admin/modules/usage`
+- `POST /admin/metrics/aggregate`
 
 Los endpoints admin solo deben usarse cuando `VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=true` y el usuario tenga rol `admin`.
 
 Tracking autenticado agrega `Authorization: Bearer` si hay access token en memoria. Tracking anonimo manda `anonymousId`. El cliente elimina claves sensibles de metadata como `token`, `password`, `accessToken`, `refreshToken`, `userId` y `user_id`.
+
+Eventos ADEX instrumentados en Fase 5:
+
+- `module_opened`
+- `auth_panel_opened`
+- `palletizer_calculation_created`
+- `palletizer_calculation_exported`
+- `admin_dashboard_opened`
+- `admin_metric_viewed`
+- `api_error`
+
+`palletizer_input_changed` esta soportado por contrato, pero no se envia aun para evitar spam hasta implementar debounce/muestreo.
 
 ## Criterios de rollback
 

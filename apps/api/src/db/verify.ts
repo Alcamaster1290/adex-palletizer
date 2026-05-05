@@ -19,6 +19,8 @@ const requiredTables = [
   "audit_logs",
   "admin_notes",
   "user_flags",
+  "daily_module_metrics",
+  "daily_user_metrics",
   "schema_migrations",
 ] as const;
 

@@ -1355,6 +1355,11 @@ function App() {
         containerWeightMetrics,
       )
       downloadTradeCase(tradeCase)
+      void trackDataTradeEvent('palletizer_calculation_exported', {
+        surface: 'adex_palletizer',
+        mode: 'multi',
+        format: 'trade_case_json',
+      })
     } else {
       const tradeCase = buildTradeCaseSingle(
         { input: appliedInput, result },
@@ -1363,6 +1368,11 @@ function App() {
         containerWeightMetrics,
       )
       downloadTradeCase(tradeCase)
+      void trackDataTradeEvent('palletizer_calculation_exported', {
+        surface: 'adex_palletizer',
+        mode: 'single',
+        format: 'trade_case_json',
+      })
     }
   }, [activeTab, appliedInput, result, multiAppliedInput, multiResult, containerApplied, containerResult, containerWeightMetrics])
 
@@ -2858,6 +2868,11 @@ function App() {
       labelsBySku: skuLabelsBySku,
       generatedAt,
     })
+    void trackDataTradeEvent('palletizer_calculation_exported', {
+      surface: 'adex_palletizer',
+      mode: 'container',
+      format: 'container_plan_json',
+    })
   }
 
   const exportContainerTopViewPlan = () => {
@@ -2866,6 +2881,11 @@ function App() {
       containerTopViewSvg,
       buildContainerTopViewPngFilename(generatedAt),
     )
+    void trackDataTradeEvent('palletizer_calculation_exported', {
+      surface: 'adex_palletizer',
+      mode: 'container',
+      format: 'top_view_png',
+    })
   }
 
   const authContextValue = useMemo(
@@ -3211,7 +3231,7 @@ function App() {
                     <button
                       type="button"
                       className="btn-secondary"
-                      onClick={() =>
+                      onClick={() => {
                         exportJson({
                           input: appliedInput,
                           result,
@@ -3219,14 +3239,26 @@ function App() {
                           labelsBySku: skuLabelsBySku,
                           generatedAt: new Date().toISOString(),
                         })
-                      }
+                        void trackDataTradeEvent('palletizer_calculation_exported', {
+                          surface: 'adex_palletizer',
+                          mode: 'single',
+                          format: 'result_json',
+                        })
+                      }}
                     >
                       Exportar JSON
                     </button>
                     <button
                       type="button"
                       className="btn-secondary"
-                      onClick={() => exportPng(singleCanvas)}
+                      onClick={() => {
+                        exportPng(singleCanvas)
+                        void trackDataTradeEvent('palletizer_calculation_exported', {
+                          surface: 'adex_palletizer',
+                          mode: 'single',
+                          format: 'scene_png',
+                        })
+                      }}
                       disabled={singleCanvas === null}
                     >
                       Exportar PNG

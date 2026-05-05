@@ -133,10 +133,13 @@ describe('DataTradeAdminDashboard', () => {
   })
 
   it('muestra cards principales para admin cuando la API responde', async () => {
+    const trackEvent = vi.fn()
+
     render(
       <DataTradeAdminDashboard
         client={createClient(adminSession)}
         config={baseConfig}
+        trackEvent={trackEvent}
       />,
     )
 
@@ -145,9 +148,19 @@ describe('DataTradeAdminDashboard', () => {
       expect(screen.getByText('4')).toBeInTheDocument()
       expect(screen.getByText('ADEX Palletizer')).toBeInTheDocument()
     })
+    expect(trackEvent).toHaveBeenCalledWith(
+      'admin_dashboard_opened',
+      expect.objectContaining({ surface: 'adex_palletizer' }),
+    )
+    expect(trackEvent).toHaveBeenCalledWith(
+      'admin_metric_viewed',
+      expect.objectContaining({ metric: 'overview' }),
+    )
   })
 
   it('muestra error controlado si falla la API', async () => {
+    const trackEvent = vi.fn()
+
     render(
       <DataTradeAdminDashboard
         client={createClient(adminSession, {
@@ -156,11 +169,16 @@ describe('DataTradeAdminDashboard', () => {
           }),
         })}
         config={baseConfig}
+        trackEvent={trackEvent}
       />,
     )
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Admin API down')
     })
+    expect(trackEvent).toHaveBeenCalledWith(
+      'api_error',
+      expect.objectContaining({ path: '/admin/dashboard' }),
+    )
   })
 })

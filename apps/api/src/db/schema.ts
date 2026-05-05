@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   bigint,
+  date,
   index,
   integer,
   jsonb,
@@ -371,6 +372,46 @@ export const userFlags = dataTrade.table(
   (table) => [
     uniqueIndex("user_flags_user_key_uq").on(table.userId, table.key),
     index("user_flags_key_idx").on(table.key),
+  ],
+);
+
+export const dailyModuleMetrics = dataTrade.table(
+  "daily_module_metrics",
+  {
+    date: date("date", { mode: "string" }).notNull(),
+    moduleCode: text("module_code").notNull(),
+    eventsCount: integer("events_count").notNull().default(0),
+    uniqueUsers: integer("unique_users").notNull().default(0),
+    anonymousUsers: integer("anonymous_users").notNull().default(0),
+    sessionsCount: integer("sessions_count").notNull().default(0),
+    calculationsCount: integer("calculations_count").notNull().default(0),
+    errorsCount: integer("errors_count").notNull().default(0),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("daily_module_metrics_date_module_uq").on(table.date, table.moduleCode),
+    index("daily_module_metrics_module_date_idx").on(table.moduleCode, table.date),
+    index("daily_module_metrics_date_idx").on(table.date),
+  ],
+);
+
+export const dailyUserMetrics = dataTrade.table(
+  "daily_user_metrics",
+  {
+    date: date("date", { mode: "string" }).notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventsCount: integer("events_count").notNull().default(0),
+    modulesUsedCount: integer("modules_used_count").notNull().default(0),
+    sessionsCount: integer("sessions_count").notNull().default(0),
+    lastEventAt: timestamp("last_event_at", { withTimezone: true, mode: "string" }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("daily_user_metrics_date_user_uq").on(table.date, table.userId),
+    index("daily_user_metrics_user_date_idx").on(table.userId, table.date),
+    index("daily_user_metrics_date_idx").on(table.date),
   ],
 );
 
