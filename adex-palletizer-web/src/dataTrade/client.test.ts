@@ -5,6 +5,7 @@ import type { DataTradeFrontendConfig } from './config'
 const baseConfig: DataTradeFrontendConfig = {
   authEnabled: true,
   trackingEnabled: true,
+  adminDashboardEnabled: false,
   apiUrl: 'https://api.datatrade.test',
   moduleCode: 'adex_palletizer',
 }

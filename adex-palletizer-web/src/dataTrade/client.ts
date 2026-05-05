@@ -39,6 +39,51 @@ export interface DataTradeModuleAccess {
   accessLevel: string
 }
 
+export interface DataTradeAdminOverview {
+  total_users: number
+  active_users_24h: number
+  active_users_7d: number
+  active_users_30d: number
+  total_events: number
+  events_24h: number
+  events_7d: number
+  events_30d: number
+  total_modules: number
+  top_module_by_events: string | null
+  latest_event_at: string | null
+}
+
+export interface DataTradeAdminUserRow {
+  id: string
+  email: string
+  name: string | null
+  role: string
+  created_at: string | null
+  last_seen_at: string | null
+  event_count: number
+  module_count: number
+}
+
+export interface DataTradeAdminEventRow {
+  id: string
+  user_id: string | null
+  anonymous_id: string | null
+  module: string
+  event_name: string
+  metadata: Record<string, unknown>
+  path: string | null
+  created_at: string | null
+}
+
+export interface DataTradeAdminModuleUsageRow {
+  module_code: string
+  module_name: string
+  events_count: number
+  unique_users: number
+  anonymous_users: number
+  last_event_at: string | null
+}
+
 export type DataTradeSessionStatus =
   | 'disabled'
   | 'unauthenticated'
@@ -136,6 +181,18 @@ function getAnonymousId() {
   } catch {
     return createAnonymousId()
   }
+}
+
+function buildQueryString(params: Record<string, string | number | undefined>) {
+  const searchParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      searchParams.set(key, String(value))
+    }
+  }
+
+  const query = searchParams.toString()
+  return query ? `?${query}` : ''
 }
 
 function sanitizeMetadataValue(value: unknown, depth: number): unknown {
@@ -392,6 +449,62 @@ export class DataTradeAuthApi {
     } catch {
       return { sent: false, reason: 'api_error' as const }
     }
+  }
+
+  async getAdminOverview() {
+    return this.requestJson<DataTradeAdminOverview>('/admin/metrics/overview', {
+      method: 'GET',
+    })
+  }
+
+  async getAdminUsers(params: { limit?: number; offset?: number } = {}) {
+    return this.requestJson<{
+      users: DataTradeAdminUserRow[]
+      total: number
+      limit: number
+      offset: number
+    }>(`/admin/users${buildQueryString(params)}`, {
+      method: 'GET',
+    })
+  }
+
+  async getAdminEvents(
+    params: {
+      module?: string
+      eventName?: string
+      userId?: string
+      anonymousId?: string
+      limit?: number
+      offset?: number
+    } = {},
+  ) {
+    return this.requestJson<{
+      events: DataTradeAdminEventRow[]
+      total: number
+      limit: number
+      offset: number
+    }>(
+      `/admin/events${buildQueryString({
+        module: params.module,
+        event_name: params.eventName,
+        user_id: params.userId,
+        anonymous_id: params.anonymousId,
+        limit: params.limit,
+        offset: params.offset,
+      })}`,
+      {
+        method: 'GET',
+      },
+    )
+  }
+
+  async getAdminModulesUsage() {
+    return this.requestJson<{ modules: DataTradeAdminModuleUsageRow[] }>(
+      '/admin/modules/usage',
+      {
+        method: 'GET',
+      },
+    )
   }
 
   private async applyAuthResponse(response: DataTradeAuthResponse) {

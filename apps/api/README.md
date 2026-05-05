@@ -99,6 +99,29 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8788/auth/me" -Headers $headers
 Invoke-RestMethod -Uri "http://127.0.0.1:8788/auth/modules" -Headers $headers
 ```
 
+Probar dashboard admin con seed admin:
+
+```powershell
+$adminLoginBody = @{
+  email = "admin@datatrade.local"
+  password = "ChangeMeOnlyLocal123"
+} | ConvertTo-Json
+
+$adminLogin = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8788/auth/login" `
+  -ContentType "application/json" `
+  -Body $adminLoginBody
+
+$adminHeaders = @{ Authorization = "Bearer $($adminLogin.accessToken)" }
+Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/metrics/overview" -Headers $adminHeaders
+Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/users" -Headers $adminHeaders
+Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/events" -Headers $adminHeaders
+Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/modules/usage" -Headers $adminHeaders
+Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/retention" -Headers $adminHeaders
+Invoke-RestMethod -Uri "http://127.0.0.1:8788/admin/errors" -Headers $adminHeaders
+```
+
 Trackear evento autenticado y anonimo:
 
 ```powershell
@@ -177,6 +200,23 @@ npm run docker:db:reset
 - `GET /auth/me`: devuelve usuario autenticado por Bearer token.
 - `GET /auth/modules`: devuelve modulos habilitados para el usuario.
 - `GET /auth/session`: devuelve sesion activa.
+- `GET /admin/metrics/overview`: metricas globales read-only para rol admin.
+- `GET /admin/users`: usuarios paginados sin hashes ni secretos.
+- `GET /admin/users/:id/activity`: ultimos eventos y conteos de un usuario.
+- `GET /admin/events`: eventos paginados con filtros validados.
+- `GET /admin/modules/usage`: uso agregado por modulo.
+- `GET /admin/retention`: retencion basica 7d/30d.
+- `GET /admin/errors`: agrupacion de eventos `api_error`.
+
+## Seguridad actual de admin
+
+- Bearer token obligatorio en todos los endpoints `/admin/*`.
+- Rol `admin` obligatorio; usuario normal recibe `403`.
+- Query params validados con Zod.
+- `limit` maximo de 100 para listados.
+- No se devuelven `password_hash`, refresh tokens, secretos, `ip_hash` ni IP plana.
+- Errores uniformes con `requestId`.
+- Las consultas usan parametros; no hay filtros por SQL dinamico concatenado.
 
 ## Seguridad actual de tracking
 
@@ -234,6 +274,7 @@ ADEX Palletizer y SisLoPe pueden conectarse sin reemplazar auth legacy mediante 
 VITE_DATA_TRADE_AUTH_ENABLED=false
 VITE_DATA_TRADE_API_URL=
 VITE_DATA_TRADE_TRACKING_ENABLED=false
+VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=false
 VITE_DATA_TRADE_MODULE_CODE=adex_palletizer
 ```
 

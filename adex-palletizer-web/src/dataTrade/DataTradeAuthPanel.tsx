@@ -5,7 +5,7 @@ import {
   canAccessModule,
   type DataTradeSessionState,
 } from './client'
-import { dataTradeClient, trackDataTradeEvent } from './runtime'
+import { dataTradeClient, notifyDataTradeSessionChanged, trackDataTradeEvent } from './runtime'
 
 type PanelMode = 'login' | 'register'
 
@@ -21,6 +21,11 @@ export function DataTradeAuthPanel() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
+  const applySession = (nextSession: DataTradeSessionState) => {
+    setSession(nextSession)
+    notifyDataTradeSessionChanged()
+  }
+
   useEffect(() => {
     if (!config.authEnabled) {
       return
@@ -29,7 +34,7 @@ export function DataTradeAuthPanel() {
     let mounted = true
     void dataTradeClient.loadCurrentUser().then((nextSession) => {
       if (mounted) {
-        setSession(nextSession)
+        applySession(nextSession)
       }
     })
 
@@ -58,7 +63,7 @@ export function DataTradeAuthPanel() {
             })
           : await dataTradeClient.login({ email, password })
 
-      setSession(nextSession)
+      applySession(nextSession)
       setPassword('')
       setMessage(mode === 'register' ? 'Cuenta Data Trade creada.' : 'Sesion Data Trade iniciada.')
       void trackDataTradeEvent(mode === 'register' ? 'user_signed_up' : 'user_logged_in', {
@@ -79,7 +84,7 @@ export function DataTradeAuthPanel() {
     setSubmitting(true)
     setMessage(null)
     const nextSession = await dataTradeClient.refresh()
-    setSession(nextSession)
+    applySession(nextSession)
     setSubmitting(false)
   }
 
@@ -88,7 +93,7 @@ export function DataTradeAuthPanel() {
     setMessage(null)
     await trackDataTradeEvent('session_ended', { surface: 'adex_palletizer' })
     const nextSession = await dataTradeClient.logout()
-    setSession(nextSession)
+    applySession(nextSession)
     setSubmitting(false)
   }
 

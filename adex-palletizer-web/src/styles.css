@@ -241,6 +241,76 @@ body {
   margin: 0;
 }
 
+.data-trade-admin-panel {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.92);
+}
+
+.data-trade-admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.data-trade-admin-header h2,
+.data-trade-admin-table-wrap h3 {
+  margin: 0;
+  color: var(--accent-ink);
+}
+
+.data-trade-admin-header h2 {
+  font-size: 18px;
+}
+
+.data-trade-admin-header span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.data-trade-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.data-trade-admin-card {
+  display: grid;
+  gap: 4px;
+  min-height: 86px;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: #fffdf8;
+}
+
+.data-trade-admin-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.data-trade-admin-card strong {
+  color: var(--text);
+  font-size: 24px;
+}
+
+.data-trade-admin-tables {
+  display: grid;
+  gap: 12px;
+}
+
+.data-trade-admin-table-wrap {
+  display: grid;
+  gap: 8px;
+  overflow-x: auto;
+}
+
 .hero {
   display: grid;
   gap: 8px;
@@ -1173,6 +1243,10 @@ td {
 }
 
 @media (max-width: 1200px) {
+  .data-trade-admin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1232,6 +1306,15 @@ td {
 @media (max-width: 640px) {
   .auth-shell {
     min-height: auto;
+  }
+
+  .data-trade-admin-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .data-trade-admin-grid {
+    grid-template-columns: 1fr;
   }
 
   .auth-card {

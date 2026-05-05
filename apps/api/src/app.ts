@@ -5,6 +5,13 @@ import { sql } from "drizzle-orm";
 import { ZodError } from "zod";
 
 import {
+  adminEventsQuerySchema,
+  adminUserActivityParamsSchema,
+  adminUsersQuerySchema,
+  createAdminService,
+  type AdminService,
+} from "./admin.js";
+import {
   AuthError,
   createAuthService,
   getBearerToken,
@@ -42,6 +49,7 @@ interface BuildAppOptions {
   readyCheck?: () => Promise<void>;
   trackEvent?: (input: TrackEventInput) => Promise<TrackedEvent>;
   authService?: AuthService;
+  adminService?: AdminService;
   logger?: boolean;
 }
 
@@ -181,6 +189,7 @@ export async function buildApp(options: BuildAppOptions) {
 
   const trackEvent = options.trackEvent ?? (db ? createEventTracker(db) : null);
   const authService = options.authService ?? (db ? createAuthService(db, config) : null);
+  const adminService = options.adminService ?? (db ? createAdminService(db) : null);
 
   function buildAuthContext(request: { headers: Record<string, unknown>; ip: string }): AuthRequestContext {
     const rawIp = getRequestIp(request);
@@ -220,6 +229,15 @@ export async function buildApp(options: BuildAppOptions) {
     }
 
     return authService.getSession(token);
+  }
+
+  async function requireAdminSession(request: { headers: Record<string, unknown> }) {
+    const session = await requireAuthSession(request);
+    if (!session.user.roles.includes("admin")) {
+      throw new AuthError("FORBIDDEN", 403, "Admin role is required.");
+    }
+
+    return session;
   }
 
   app.get("/health", async () => ({
@@ -359,6 +377,100 @@ export async function buildApp(options: BuildAppOptions) {
     return reply.send({
       modules: await authService.getModules(token),
     });
+  });
+
+  app.get("/admin/metrics/overview", async (request, reply) => {
+    await requireAdminSession(request);
+    if (!adminService) {
+      return reply.status(503).send(buildErrorBody(
+        "ADMIN_UNAVAILABLE",
+        "Admin metrics service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    return reply.send(await adminService.getOverview());
+  });
+
+  app.get("/admin/users", async (request, reply) => {
+    await requireAdminSession(request);
+    if (!adminService) {
+      return reply.status(503).send(buildErrorBody(
+        "ADMIN_UNAVAILABLE",
+        "Admin users service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const query = adminUsersQuerySchema.parse(request.query ?? {});
+    return reply.send(await adminService.listUsers(query));
+  });
+
+  app.get("/admin/users/:id/activity", async (request, reply) => {
+    await requireAdminSession(request);
+    if (!adminService) {
+      return reply.status(503).send(buildErrorBody(
+        "ADMIN_UNAVAILABLE",
+        "Admin user activity service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const params = adminUserActivityParamsSchema.parse(request.params);
+    return reply.send(await adminService.getUserActivity(params));
+  });
+
+  app.get("/admin/events", async (request, reply) => {
+    await requireAdminSession(request);
+    if (!adminService) {
+      return reply.status(503).send(buildErrorBody(
+        "ADMIN_UNAVAILABLE",
+        "Admin events service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const query = adminEventsQuerySchema.parse(request.query ?? {});
+    return reply.send(await adminService.listEvents(query));
+  });
+
+  app.get("/admin/modules/usage", async (request, reply) => {
+    await requireAdminSession(request);
+    if (!adminService) {
+      return reply.status(503).send(buildErrorBody(
+        "ADMIN_UNAVAILABLE",
+        "Admin module usage service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    return reply.send(await adminService.getModulesUsage());
+  });
+
+  app.get("/admin/retention", async (request, reply) => {
+    await requireAdminSession(request);
+    if (!adminService) {
+      return reply.status(503).send(buildErrorBody(
+        "ADMIN_UNAVAILABLE",
+        "Admin retention service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    return reply.send(await adminService.getRetention());
+  });
+
+  app.get("/admin/errors", async (request, reply) => {
+    await requireAdminSession(request);
+    if (!adminService) {
+      return reply.status(503).send(buildErrorBody(
+        "ADMIN_UNAVAILABLE",
+        "Admin error metrics service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    return reply.send(await adminService.getErrors());
   });
 
   app.post("/events/track", async (request, reply) => {
