@@ -98,6 +98,7 @@ import { solveMultiHeuristicNoMix } from './multiSolverNoMix'
 import { EditToggleButton } from './components/3d/EditToggleButton'
 import { Header } from './components/ui/Header'
 import { DataTradeAdminDashboard } from './dataTrade/DataTradeAdminDashboard'
+import { isDataTradeAdminDashboardEnabled } from './dataTrade/config'
 import { trackDataTradeEvent } from './dataTrade/runtime'
 import type { DataTradeModuleAccess } from './dataTrade/client'
 import type {
@@ -945,6 +946,7 @@ function App() {
   const [registerErrors, setRegisterErrors] = useState<RegistrationFieldErrors>({})
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [authLogoutSubmitting, setAuthLogoutSubmitting] = useState(false)
+  const [adminDashboardOpen, setAdminDashboardOpen] = useState(false)
   const [skuLabelsBySku, setSkuLabelsBySku] = useState<SkuLabelsBySku>(() =>
     loadSkuLabels(),
   )
@@ -1244,6 +1246,7 @@ function App() {
     try {
       await logoutSession()
     } finally {
+      setAdminDashboardOpen(false)
       clearAuthSession()
       setAuthMode('login')
       setAuthPassword('')
@@ -2895,6 +2898,15 @@ function App() {
     [authAccessToken, authLogoutSubmitting, authModules, authUser],
   )
 
+  const adminDashboardAvailable =
+    authUser?.role === 'admin' && isDataTradeAdminDashboardEnabled()
+
+  const openAdminDashboard = () => {
+    if (adminDashboardAvailable) {
+      setAdminDashboardOpen(true)
+    }
+  }
+
   if (authStatus !== 'authenticated' || authUser === null) {
     return (
       <AuthScreen
@@ -2938,8 +2950,9 @@ function App() {
           boxSkinMode={boxSkinMode}
           onBoxSkinModeChange={setBoxSkinMode}
           onExportTradeCase={handleExportTradeCase}
+          adminDashboardAvailable={adminDashboardAvailable}
+          onOpenAdminDashboard={openAdminDashboard}
         />
-        {authUser.role === 'admin' ? <DataTradeAdminDashboard /> : null}
 
       {shareWarning && (
         <div className="notice-box" role="alert">
@@ -4646,6 +4659,31 @@ function App() {
         onSave={saveLabelConfig}
         onReset={resetLabelConfig}
       />
+      {adminDashboardOpen && adminDashboardAvailable ? (
+        <div
+          className="modal-overlay admin-dashboard-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Dashboard admin"
+        >
+          <section className="admin-dashboard-modal">
+            <div className="admin-dashboard-modal-header">
+              <div>
+                <p className="eyebrow">Data Trade</p>
+                <h2>Dashboard admin</h2>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setAdminDashboardOpen(false)}
+              >
+                Volver al palletizador
+              </button>
+            </div>
+            <DataTradeAdminDashboard />
+          </section>
+        </div>
+      ) : null}
       </main>
     </AuthProvider>
   )

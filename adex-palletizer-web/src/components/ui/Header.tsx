@@ -7,9 +7,19 @@ interface HeaderProps {
   boxSkinMode: BoxSkinMode
   onBoxSkinModeChange: (mode: BoxSkinMode) => void
   onExportTradeCase?: () => void
+  adminDashboardAvailable?: boolean
+  onOpenAdminDashboard?: () => void
 }
 
-export function Header({ sislopeUrl, importCalcUrl, boxSkinMode, onBoxSkinModeChange, onExportTradeCase }: HeaderProps) {
+export function Header({
+  sislopeUrl,
+  importCalcUrl,
+  boxSkinMode,
+  onBoxSkinModeChange,
+  onExportTradeCase,
+  adminDashboardAvailable = false,
+  onOpenAdminDashboard,
+}: HeaderProps) {
   return (
     <header className="hero hero-header">
       <div className="hero-main hero-main-inline">
@@ -70,7 +80,10 @@ export function Header({ sislopeUrl, importCalcUrl, boxSkinMode, onBoxSkinModeCh
             SisLoPe
           </a>
 
-          <UserMenu />
+          <UserMenu
+            adminDashboardAvailable={adminDashboardAvailable}
+            onOpenAdminDashboard={onOpenAdminDashboard}
+          />
         </div>
       </div>
     </header>

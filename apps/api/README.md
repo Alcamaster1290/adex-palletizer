@@ -1,6 +1,6 @@
 # Data Trade API
 
-Backend comun inicial para Data Trade. Esta fase no conecta todavia SisLoPe ni ADEX Palletizer en produccion.
+Backend comun de Data Trade para identidad, sesiones, modulos, eventos y metricas.
 
 ## Stack
 
@@ -32,6 +32,13 @@ Ejecutar y verificar migraciones:
 ```powershell
 npm run db:migrate
 npm run db:verify
+```
+
+Limpiar usuarios/eventos smoke locales sin tocar el seed admin:
+
+```powershell
+$env:DATABASE_URL = "postgres://postgres:postgres@localhost:55432/data_trade"
+npm run db:cleanup:smoke
 ```
 
 Compilar y probar:

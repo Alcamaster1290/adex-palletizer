@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, LogOut, User, UserCircle } from 'lucide-react'
+import { ChevronDown, LayoutDashboard, LogOut, User, UserCircle } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
 
-export function UserMenu() {
+interface UserMenuProps {
+  adminDashboardAvailable?: boolean
+  onOpenAdminDashboard?: () => void
+}
+
+export function UserMenu({
+  adminDashboardAvailable = false,
+  onOpenAdminDashboard,
+}: UserMenuProps) {
   const { user, logout, logoutPending } = useAuth()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -38,6 +46,11 @@ export function UserMenu() {
     await logout()
   }
 
+  const handleOpenAdminDashboard = () => {
+    setOpen(false)
+    onOpenAdminDashboard?.()
+  }
+
   return (
     <div ref={containerRef} className="user-menu">
       <button
@@ -65,6 +78,18 @@ export function UserMenu() {
           <button type="button" className="user-menu-item" role="menuitem" disabled>
             Mi perfil
           </button>
+
+          {adminDashboardAvailable ? (
+            <button
+              type="button"
+              className="user-menu-item"
+              role="menuitem"
+              onClick={handleOpenAdminDashboard}
+            >
+              <LayoutDashboard className="user-menu-item-icon" aria-hidden="true" />
+              Dashboard admin
+            </button>
+          ) : null}
 
           <button
             type="button"
