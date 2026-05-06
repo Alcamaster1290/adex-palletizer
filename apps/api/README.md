@@ -266,21 +266,24 @@ https://palletizer.datatrade.pe
 
 La estrategia inicial para frontends separados es `Authorization: Bearer`. Mantener access token idealmente en memoria, manejar refresh token de forma controlada y evitar `localStorage` para refresh token. Si se usa `localStorage` temporalmente, tratarlo como riesgo hasta migrar a cookies `HttpOnly` bajo `.datatrade.pe`.
 
-## Frontend opt-in Fase 3
+## Frontend ADEX
 
-ADEX Palletizer y SisLoPe pueden conectarse sin reemplazar auth legacy mediante estos flags de Vite:
+ADEX Palletizer usa Data Trade Auth como proveedor principal cuando
+`VITE_DATA_TRADE_API_URL` esta configurado. El usuario debe ver solo el login
+normal de ADEX; no debe existir un segundo panel de login Data Trade.
 
 ```text
-VITE_DATA_TRADE_AUTH_ENABLED=false
-VITE_DATA_TRADE_API_URL=
-VITE_DATA_TRADE_TRACKING_ENABLED=false
-VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=false
+VITE_DATA_TRADE_API_URL=http://localhost:8788
+VITE_DATA_TRADE_TRACKING_ENABLED=true
+VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=true
 VITE_DATA_TRADE_MODULE_CODE=adex_palletizer
+VITE_ADEX_LEGACY_AUTH_FALLBACK=false
 ```
 
-SisLoPe debe usar `VITE_DATA_TRADE_MODULE_CODE=sislope`.
-
-Con flags apagados no hay llamadas a `apps/api`. Con flags activos, los frontends usan `Authorization: Bearer`, consultan `/auth/me` y `/auth/modules`, y envian `/events/track` autenticado o anonimo. Ver `docs/DATA_TRADE_FRONTEND_INTEGRATION_GUIDE.md`.
+El fallback `/api/auth/*` queda deprecated y solo se habilita con
+`VITE_ADEX_LEGACY_AUTH_FALLBACK=true`. Los frontends usan `Authorization:
+Bearer`, consultan `/auth/me` y `/auth/modules`, y envian `/events/track`
+autenticado o anonimo. Ver `docs/DATA_TRADE_FRONTEND_INTEGRATION_GUIDE.md`.
 
 ## Variables
 

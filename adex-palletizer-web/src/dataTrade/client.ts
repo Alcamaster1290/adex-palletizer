@@ -257,7 +257,7 @@ export class DataTradeAuthApi {
     this.config = config
     this.fetchImpl = fetchImpl
     this.state = {
-      status: config.authEnabled ? 'unauthenticated' : 'disabled',
+      status: config.apiUrl ? 'unauthenticated' : 'disabled',
       user: null,
       modules: [],
       error: null,
@@ -282,7 +282,7 @@ export class DataTradeAuthApi {
     displayName?: string
     organizationName?: string
   }) {
-    if (!this.config.authEnabled) {
+    if (!this.config.apiUrl) {
       return this.getSessionSnapshot()
     }
 
@@ -295,7 +295,7 @@ export class DataTradeAuthApi {
   }
 
   async login(input: { email: string; password: string }) {
-    if (!this.config.authEnabled) {
+    if (!this.config.apiUrl) {
       return this.getSessionSnapshot()
     }
 
@@ -308,7 +308,7 @@ export class DataTradeAuthApi {
   }
 
   async loadCurrentUser() {
-    if (!this.config.authEnabled) {
+    if (!this.config.apiUrl) {
       return this.getSessionSnapshot()
     }
 
@@ -347,7 +347,7 @@ export class DataTradeAuthApi {
   }
 
   async loadModules() {
-    if (!this.config.authEnabled || !this.accessToken) {
+    if (!this.config.apiUrl || !this.accessToken) {
       return []
     }
 
@@ -363,7 +363,7 @@ export class DataTradeAuthApi {
   }
 
   async refresh() {
-    if (!this.config.authEnabled) {
+    if (!this.config.apiUrl) {
       return this.getSessionSnapshot()
     }
 
@@ -400,7 +400,7 @@ export class DataTradeAuthApi {
     const token = this.refreshToken
 
     try {
-      if (this.config.authEnabled && this.config.apiUrl && (token || this.accessToken)) {
+      if (this.config.apiUrl && (token || this.accessToken)) {
         await this.requestJson<void>('/auth/logout', {
           method: 'POST',
           body: JSON.stringify(token ? { refreshToken: token } : {}),
@@ -409,7 +409,7 @@ export class DataTradeAuthApi {
     } finally {
       this.clearTokens()
       this.state = {
-        status: this.config.authEnabled ? 'unauthenticated' : 'disabled',
+        status: this.config.apiUrl ? 'unauthenticated' : 'disabled',
         user: null,
         modules: [],
         error: null,
@@ -423,11 +423,13 @@ export class DataTradeAuthApi {
     eventName: DataTradeEventName,
     metadata: Record<string, unknown> = {},
     path = typeof window === 'undefined' ? undefined : window.location.pathname,
+    externalAccessToken?: string | null,
   ) {
     if (!this.config.trackingEnabled || !this.config.apiUrl) {
       return { sent: false, reason: 'disabled' as const }
     }
 
+    const activeAccessToken = externalAccessToken ?? this.accessToken
     const body: Record<string, unknown> = {
       module: this.config.moduleCode,
       eventName,
@@ -435,7 +437,7 @@ export class DataTradeAuthApi {
       path,
     }
 
-    if (!this.accessToken) {
+    if (!activeAccessToken) {
       body.anonymousId = getAnonymousId()
     }
 
@@ -444,6 +446,7 @@ export class DataTradeAuthApi {
         method: 'POST',
         body: JSON.stringify(body),
         allowAnonymous: true,
+        accessToken: activeAccessToken ?? undefined,
       })
       return { sent: true as const }
     } catch {
@@ -451,13 +454,17 @@ export class DataTradeAuthApi {
     }
   }
 
-  async getAdminOverview() {
+  async getAdminOverview(accessToken?: string | null) {
     return this.requestJson<DataTradeAdminOverview>('/admin/metrics/overview', {
       method: 'GET',
+      accessToken: accessToken ?? undefined,
     })
   }
 
-  async getAdminUsers(params: { limit?: number; offset?: number } = {}) {
+  async getAdminUsers(
+    params: { limit?: number; offset?: number } = {},
+    accessToken?: string | null,
+  ) {
     return this.requestJson<{
       users: DataTradeAdminUserRow[]
       total: number
@@ -465,6 +472,7 @@ export class DataTradeAuthApi {
       offset: number
     }>(`/admin/users${buildQueryString(params)}`, {
       method: 'GET',
+      accessToken: accessToken ?? undefined,
     })
   }
 
@@ -477,6 +485,7 @@ export class DataTradeAuthApi {
       limit?: number
       offset?: number
     } = {},
+    accessToken?: string | null,
   ) {
     return this.requestJson<{
       events: DataTradeAdminEventRow[]
@@ -494,15 +503,17 @@ export class DataTradeAuthApi {
       })}`,
       {
         method: 'GET',
+        accessToken: accessToken ?? undefined,
       },
     )
   }
 
-  async getAdminModulesUsage() {
+  async getAdminModulesUsage(accessToken?: string | null) {
     return this.requestJson<{ modules: DataTradeAdminModuleUsageRow[] }>(
       '/admin/modules/usage',
       {
         method: 'GET',
+        accessToken: accessToken ?? undefined,
       },
     )
   }
@@ -536,13 +547,13 @@ export class DataTradeAuthApi {
 
   private async requestJson<T = unknown>(
     path: string,
-    options: RequestInit & { allowAnonymous?: boolean },
+    options: RequestInit & { allowAnonymous?: boolean; accessToken?: string },
   ): Promise<T> {
     if (!this.config.apiUrl) {
       throw new DataTradeApiError(0, 'API_URL_MISSING', 'Data Trade API URL is not configured.')
     }
 
-    const { allowAnonymous: _allowAnonymous, ...requestInit } = options
+    const { allowAnonymous: _allowAnonymous, accessToken: externalAccessToken, ...requestInit } = options
     void _allowAnonymous
 
     const headers: Record<string, string> = {
@@ -551,8 +562,9 @@ export class DataTradeAuthApi {
       ...(options.headers as Record<string, string> | undefined),
     }
 
-    if (this.accessToken) {
-      headers.Authorization = `Bearer ${this.accessToken}`
+    const activeAccessToken = externalAccessToken ?? this.accessToken
+    if (activeAccessToken) {
+      headers.Authorization = `Bearer ${activeAccessToken}`
     }
 
     const response = await this.fetchImpl(`${this.config.apiUrl}${path}`, {

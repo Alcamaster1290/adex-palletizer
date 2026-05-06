@@ -1,18 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '../auth/AuthContext'
 import { getDataTradeConfig, type DataTradeFrontendConfig } from './config'
 import {
-  canAccessModule,
   type DataTradeAdminEventRow,
   type DataTradeAdminModuleUsageRow,
   type DataTradeAdminOverview,
   type DataTradeAdminUserRow,
   type DataTradeAuthApi,
-  type DataTradeSessionState,
 } from './client'
-import { dataTradeClient, subscribeDataTradeSession } from './runtime'
+import { dataTradeClient, trackDataTradeEvent } from './runtime'
 
 interface AdminDashboardClient {
-  getSessionSnapshot: DataTradeAuthApi['getSessionSnapshot']
   getAdminOverview: DataTradeAuthApi['getAdminOverview']
   getAdminUsers: DataTradeAuthApi['getAdminUsers']
   getAdminEvents: DataTradeAuthApi['getAdminEvents']
@@ -42,54 +40,46 @@ function formatDate(value: string | null) {
   }).format(new Date(value))
 }
 
-function hasAdminAccess(session: DataTradeSessionState) {
-  return (
-    session.user?.roles.includes('admin') ||
-    canAccessModule(session.modules, 'admin')
-  )
-}
-
 export function DataTradeAdminDashboard({
   client = dataTradeClient,
   config,
 }: DataTradeAdminDashboardProps) {
+  const auth = useAuth()
   const runtimeConfig = useMemo(() => config ?? getDataTradeConfig(), [config])
-  const [session, setSession] = useState<DataTradeSessionState>(() =>
-    client.getSessionSnapshot(),
-  )
   const [data, setData] = useState<AdminDashboardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const hasAdminAccess =
+    auth.user.role === 'admin' || auth.canAccessModule('admin')
 
   useEffect(() => {
-    if (!runtimeConfig.adminDashboardEnabled || client !== dataTradeClient) {
-      return
-    }
-
-    return subscribeDataTradeSession(setSession)
-  }, [client, runtimeConfig.adminDashboardEnabled])
-
-  useEffect(() => {
-    if (!runtimeConfig.adminDashboardEnabled || !runtimeConfig.apiUrl) {
-      return
-    }
-
-    const currentSession = client.getSessionSnapshot()
-    setSession(currentSession)
-    if (currentSession.status !== 'authenticated' || !hasAdminAccess(currentSession)) {
+    if (
+      !runtimeConfig.adminDashboardEnabled ||
+      !runtimeConfig.apiUrl ||
+      !hasAdminAccess
+    ) {
       setData(null)
+      return
+    }
+
+    if (!auth.accessToken) {
+      setData(null)
+      setError('No hay sesion Data Trade activa para cargar metricas admin.')
       return
     }
 
     let mounted = true
     setLoading(true)
     setError(null)
+    void trackDataTradeEvent('admin_view_opened', {
+      surface: 'adex_palletizer',
+    })
 
     Promise.all([
-      client.getAdminOverview(),
-      client.getAdminUsers({ limit: 10 }),
-      client.getAdminEvents({ limit: 10 }),
-      client.getAdminModulesUsage(),
+      client.getAdminOverview(auth.accessToken),
+      client.getAdminUsers({ limit: 10 }, auth.accessToken),
+      client.getAdminEvents({ limit: 10 }, auth.accessToken),
+      client.getAdminModulesUsage(auth.accessToken),
     ])
       .then(([overview, users, events, modules]) => {
         if (!mounted) {
@@ -120,40 +110,24 @@ export function DataTradeAdminDashboard({
     return () => {
       mounted = false
     }
-  }, [client, runtimeConfig.adminDashboardEnabled, runtimeConfig.apiUrl, session.status])
+  }, [
+    auth.accessToken,
+    client,
+    hasAdminAccess,
+    runtimeConfig.adminDashboardEnabled,
+    runtimeConfig.apiUrl,
+  ])
 
-  if (!runtimeConfig.adminDashboardEnabled) {
+  if (!runtimeConfig.adminDashboardEnabled || !hasAdminAccess) {
     return null
   }
 
-  if (!runtimeConfig.authEnabled || !runtimeConfig.apiUrl) {
+  if (!runtimeConfig.apiUrl) {
     return (
       <section className="data-trade-admin-panel" aria-label="Data Trade Admin Dashboard">
         <div className="data-trade-admin-header">
           <h2>Admin Data Trade</h2>
-          <span>Configura Data Trade Auth para habilitar el panel.</span>
-        </div>
-      </section>
-    )
-  }
-
-  if (session.status !== 'authenticated') {
-    return (
-      <section className="data-trade-admin-panel" aria-label="Data Trade Admin Dashboard">
-        <div className="data-trade-admin-header">
-          <h2>Admin Data Trade</h2>
-          <span>Inicia sesion Data Trade con rol admin.</span>
-        </div>
-      </section>
-    )
-  }
-
-  if (!hasAdminAccess(session)) {
-    return (
-      <section className="data-trade-admin-panel" aria-label="Data Trade Admin Dashboard">
-        <div className="data-trade-admin-header">
-          <h2>Admin Data Trade</h2>
-          <span>Acceso no autorizado.</span>
+          <span>Configura VITE_DATA_TRADE_API_URL para habilitar metricas.</span>
         </div>
       </section>
     )
@@ -164,7 +138,7 @@ export function DataTradeAdminDashboard({
       <div className="data-trade-admin-header">
         <div>
           <h2>Admin Data Trade</h2>
-          <span>{session.user?.email}</span>
+          <span>{auth.user.email}</span>
         </div>
         {loading ? <span>Cargando metricas...</span> : null}
       </div>

@@ -1,5 +1,4 @@
 export interface DataTradeFrontendConfig {
-  authEnabled: boolean
   trackingEnabled: boolean
   adminDashboardEnabled: boolean
   apiUrl: string
@@ -18,7 +17,6 @@ export function getDataTradeConfig(): DataTradeFrontendConfig {
   const apiUrl = normalizeApiUrl(import.meta.env.VITE_DATA_TRADE_API_URL)
 
   return {
-    authEnabled: parseBooleanFlag(import.meta.env.VITE_DATA_TRADE_AUTH_ENABLED),
     trackingEnabled: parseBooleanFlag(import.meta.env.VITE_DATA_TRADE_TRACKING_ENABLED),
     adminDashboardEnabled: parseBooleanFlag(import.meta.env.VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED),
     apiUrl,
@@ -28,7 +26,7 @@ export function getDataTradeConfig(): DataTradeFrontendConfig {
 }
 
 export function isDataTradeAuthEnabled() {
-  return getDataTradeConfig().authEnabled
+  return Boolean(getDataTradeConfig().apiUrl)
 }
 
 export function isDataTradeTrackingEnabled() {

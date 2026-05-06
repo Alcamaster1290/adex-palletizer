@@ -66,13 +66,18 @@ Implementado en `apps/api`:
 
 `POST /events/track` sigue aceptando `anonymousId`; si llega Bearer token valido asocia `user_id` automaticamente.
 
-## Estado Fase 3
+## Estado Actual ADEX
 
-Fase 3 agrega integracion opt-in en los frontends:
+Data Trade Auth es el proveedor central invisible para el login normal de ADEX
+cuando `VITE_DATA_TRADE_API_URL` esta configurado:
 
-- `VITE_DATA_TRADE_AUTH_ENABLED=false` por defecto.
-- `VITE_DATA_TRADE_TRACKING_ENABLED=false` por defecto.
 - `VITE_DATA_TRADE_API_URL` apunta al backend comun.
+- `VITE_DATA_TRADE_TRACKING_ENABLED` controla tracking.
+- `VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED` controla el dashboard admin post-login.
 - `VITE_DATA_TRADE_MODULE_CODE` identifica `adex_palletizer` o `sislope`.
+- `VITE_ADEX_LEGACY_AUTH_FALLBACK=true` habilita rollback legacy temporal.
 
-El access token y refresh token Data Trade viven en memoria. No se reemplaza auth legacy ni se comparte cookie entre dominios Vercel. El paso siguiente, cuando exista dominio comun, es mover refresh a cookie `HttpOnly`, `Secure`, `SameSite=Lax`, `Domain=.datatrade.pe`.
+El access token y refresh token Data Trade viven en memoria. El refresh no se
+guarda en `localStorage`. El paso siguiente, cuando exista dominio comun, es
+mover refresh a cookie `HttpOnly`, `Secure`, `SameSite=Lax`,
+`Domain=.datatrade.pe`.

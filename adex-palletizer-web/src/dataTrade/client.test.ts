@@ -3,7 +3,6 @@ import { createDataTradeClient } from './client'
 import type { DataTradeFrontendConfig } from './config'
 
 const baseConfig: DataTradeFrontendConfig = {
-  authEnabled: true,
   trackingEnabled: true,
   adminDashboardEnabled: false,
   apiUrl: 'https://api.datatrade.test',
@@ -43,7 +42,7 @@ describe('DataTradeAuthApi', () => {
   it('no llama al backend cuando los flags estan apagados', async () => {
     const fetchMock = vi.fn()
     const client = createDataTradeClient(
-      { ...baseConfig, authEnabled: false, trackingEnabled: false },
+      { ...baseConfig, apiUrl: '', trackingEnabled: false },
       fetchMock,
     )
 

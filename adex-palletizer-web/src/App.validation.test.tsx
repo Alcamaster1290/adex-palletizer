@@ -76,15 +76,18 @@ describe('App input validation', () => {
       user: {
         id: 'user-1',
         username: 'admin',
-        email: 'admin',
-        role: 'admin',
+        email: 'admin@datatrade.local',
+        roles: ['user', 'admin'],
         status: 'active',
-        mustChangePassword: true,
       },
       session: {
         id: 'session-1',
         expiresAt: '2099-01-01T00:00:00.000Z',
       },
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token-value-that-is-long-enough',
+      tokenType: 'Bearer',
+      accessTokenExpiresAt: '2099-01-01T00:15:00.000Z',
     }
 
     const fetchMock = vi.fn((input: string | URL | Request) => {
@@ -95,16 +98,16 @@ describe('App input validation', () => {
             ? input.toString()
             : input.url
 
-      if (url.includes('/api/auth/me')) {
+      if (url.includes('/auth/me')) {
         return Promise.resolve(
-          new Response(JSON.stringify({ error: 'UNAUTHENTICATED' }), {
+          new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED' } }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' },
           }),
         )
       }
 
-      if (url.includes('/api/auth/login')) {
+      if (url.includes('/auth/login')) {
         return Promise.resolve(
           new Response(JSON.stringify(authenticatedPayload), {
             status: 200,
@@ -113,7 +116,18 @@ describe('App input validation', () => {
         )
       }
 
-      if (url.includes('/api/auth/logout')) {
+      if (url.includes('/auth/modules')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            modules: [{ key: 'admin', displayName: 'Admin', accessLevel: 'admin' }],
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/auth/logout')) {
         return Promise.resolve(new Response(null, { status: 204 }))
       }
 
@@ -142,6 +156,15 @@ describe('App input validation', () => {
 
     expect(await screen.findByText(/pallet solver by alvaro cac/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /abrir menu de usuario/i })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8788/auth/login',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    )
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes('/api/auth/login')),
+    ).toBe(false)
 
     fireEvent.click(screen.getByRole('button', { name: /abrir menu de usuario/i }))
     fireEvent.click(await screen.findByRole('menuitem', { name: /cerrar sesion/i }))
@@ -159,14 +182,17 @@ describe('App input validation', () => {
         id: 'user-2',
         username: 'ana.logistica',
         email: 'ana@empresa.com',
-        role: 'analyst',
+        roles: ['user'],
         status: 'active',
-        mustChangePassword: false,
       },
       session: {
         id: 'session-2',
         expiresAt: '2099-01-01T00:00:00.000Z',
       },
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token-value-that-is-long-enough',
+      tokenType: 'Bearer',
+      accessTokenExpiresAt: '2099-01-01T00:15:00.000Z',
     }
 
     const fetchMock = vi.fn((input: string | URL | Request) => {
@@ -177,16 +203,16 @@ describe('App input validation', () => {
             ? input.toString()
             : input.url
 
-      if (url.includes('/api/auth/me')) {
+      if (url.includes('/auth/me')) {
         return Promise.resolve(
-          new Response(JSON.stringify({ error: 'UNAUTHENTICATED' }), {
+          new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED' } }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' },
           }),
         )
       }
 
-      if (url.includes('/api/auth/register')) {
+      if (url.includes('/auth/register')) {
         return Promise.resolve(
           new Response(JSON.stringify(registeredPayload), {
             status: 200,
@@ -195,7 +221,18 @@ describe('App input validation', () => {
         )
       }
 
-      if (url.includes('/api/auth/logout')) {
+      if (url.includes('/auth/modules')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            modules: [{ key: 'adex_palletizer', displayName: 'ADEX', accessLevel: 'user' }],
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/auth/logout')) {
         return Promise.resolve(new Response(null, { status: 204 }))
       }
 
@@ -248,10 +285,10 @@ describe('App input validation', () => {
 
     expect(await screen.findByText(/pallet solver by alvaro cac/i)).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/auth/register',
+      'http://localhost:8788/auth/register',
       expect.objectContaining({
         method: 'POST',
-        credentials: 'include',
+        body: expect.stringContaining('"organizationName":"Empresa Demo"'),
       }),
     )
 
@@ -269,18 +306,18 @@ describe('App input validation', () => {
             ? input.toString()
             : input.url
 
-      if (url.includes('/api/auth/me')) {
+      if (url.includes('/auth/me')) {
         return Promise.resolve(
-          new Response(JSON.stringify({ error: 'UNAUTHENTICATED' }), {
+          new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED' } }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' },
           }),
         )
       }
 
-      if (url.includes('/api/auth/register')) {
+      if (url.includes('/auth/register')) {
         return Promise.resolve(
-          new Response(JSON.stringify({ error: 'EMAIL_ALREADY_REGISTERED' }), {
+          new Response(JSON.stringify({ error: { code: 'EMAIL_ALREADY_REGISTERED' } }), {
             status: 409,
             headers: { 'Content-Type': 'application/json' },
           }),
