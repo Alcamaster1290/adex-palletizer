@@ -83,6 +83,21 @@ function createAuthService(overrides: Partial<AuthService> = {}): AuthService {
     login: vi.fn(async () => authResponse),
     refresh: vi.fn(async () => authResponse),
     logout: vi.fn(async () => undefined),
+    createHandoff: vi.fn(async () => ({
+      handoffCode: "handoff-code-value-that-is-long-enough",
+      targetModule: "sislope",
+      expiresAt: "2026-05-04T00:01:00.000Z",
+    })),
+    exchangeHandoff: vi.fn(async () => ({
+      ...authResponse,
+      modules: [
+        {
+          key: "sislope",
+          displayName: "SisLoPe",
+          accessLevel: "user",
+        },
+      ],
+    })),
     getSession: vi.fn(async (token: string) => {
       if (token !== "valid-token") {
         throw new AuthError("UNAUTHENTICATED", 401);
@@ -583,6 +598,110 @@ describe("Data Trade API", () => {
       refreshToken: authResponse.refreshToken,
     });
     expect(vi.mocked(authService.logout).mock.calls[0]?.[2]).toBe("valid-token");
+
+    await app.close();
+  });
+
+  it("requires bearer token to create auth handoff codes", async () => {
+    const authService = createAuthService();
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/auth/handoff/create",
+      payload: {
+        targetModule: "sislope",
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().error).toMatchObject({
+      code: "UNAUTHENTICATED",
+    });
+    expect(authService.createHandoff).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it("creates auth handoff codes with a valid bearer token", async () => {
+    const authService = createAuthService();
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/auth/handoff/create",
+      headers: {
+        authorization: "Bearer valid-token",
+      },
+      payload: {
+        targetModule: "sislope",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({
+      handoffCode: expect.any(String),
+      targetModule: "sislope",
+    });
+    expect(authService.createHandoff).toHaveBeenCalledWith(
+      "valid-token",
+      { targetModule: "sislope" },
+      expect.objectContaining({
+        ipHash: expect.any(String),
+      }),
+    );
+
+    await app.close();
+  });
+
+  it("exchanges auth handoff codes for a normal session", async () => {
+    const authService = createAuthService();
+    const app = await buildApp({
+      config,
+      readyCheck: vi.fn(),
+      trackEvent: vi.fn(),
+      authService,
+      logger: false,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/auth/handoff/exchange",
+      payload: {
+        code: "handoff-code-value-that-is-long-enough",
+        targetModule: "sislope",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      accessToken: "valid-token",
+      refreshToken: authResponse.refreshToken,
+      modules: expect.arrayContaining([
+        expect.objectContaining({ key: "sislope" }),
+      ]),
+    });
+    expect(authService.exchangeHandoff).toHaveBeenCalledWith(
+      {
+        code: "handoff-code-value-that-is-long-enough",
+        targetModule: "sislope",
+      },
+      expect.objectContaining({
+        ipHash: expect.any(String),
+      }),
+    );
 
     await app.close();
   });

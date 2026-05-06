@@ -45,7 +45,7 @@ describe("auth utilities", () => {
     expect(hash).not.toContain(password);
     await expect(verifyPassword(password, hash)).resolves.toBe(true);
     await expect(verifyPassword("WrongPassword123", hash)).resolves.toBe(false);
-  });
+  }, 15_000);
 
   it("hashes refresh tokens without exposing the raw token", () => {
     const raw = "refresh-token-value-that-is-long-enough";

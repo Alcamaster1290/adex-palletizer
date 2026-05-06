@@ -8,6 +8,7 @@ import type { DataTradeDatabase } from "./db/client.js";
 import {
   auditLogs,
   authAccounts,
+  authHandoffCodes,
   authSessions,
   modules,
   userModuleAccess,
@@ -54,10 +55,25 @@ export const logoutBodySchema = z
   .strict()
   .default({});
 
+export const handoffCreateBodySchema = z
+  .object({
+    targetModule: z.string().trim().min(2).max(80),
+  })
+  .strict();
+
+export const handoffExchangeBodySchema = z
+  .object({
+    code: z.string().trim().min(24).max(256),
+    targetModule: z.string().trim().min(2).max(80),
+  })
+  .strict();
+
 export type RegisterInput = z.infer<typeof registerBodySchema>;
 export type LoginInput = z.infer<typeof loginBodySchema>;
 export type RefreshInput = z.infer<typeof refreshBodySchema>;
 export type LogoutInput = z.infer<typeof logoutBodySchema>;
+export type HandoffCreateInput = z.infer<typeof handoffCreateBodySchema>;
+export type HandoffExchangeInput = z.infer<typeof handoffExchangeBodySchema>;
 
 export interface AuthRequestContext {
   ipHash: string | null;
@@ -104,6 +120,16 @@ export interface AuthModuleAccess {
   accessLevel: string;
 }
 
+export interface HandoffCreateResponse {
+  handoffCode: string;
+  targetModule: string;
+  expiresAt: string;
+}
+
+export interface HandoffExchangeResponse extends AuthResponse {
+  modules: AuthModuleAccess[];
+}
+
 export interface AdminSeedInput {
   email: string;
   password: string;
@@ -132,6 +158,12 @@ export interface AuthService {
   login(input: LoginInput, context: AuthRequestContext): Promise<AuthResponse>;
   refresh(input: RefreshInput, context: AuthRequestContext): Promise<AuthResponse>;
   logout(input: LogoutInput, context: AuthRequestContext, accessToken?: string | null): Promise<void>;
+  createHandoff(
+    accessToken: string,
+    input: HandoffCreateInput,
+    context: AuthRequestContext,
+  ): Promise<HandoffCreateResponse>;
+  exchangeHandoff(input: HandoffExchangeInput, context: AuthRequestContext): Promise<HandoffExchangeResponse>;
   getSession(accessToken: string): Promise<AuthSessionPayload>;
   getModules(accessToken: string): Promise<AuthModuleAccess[]>;
   bootstrapAdmin(input: AdminSeedInput): Promise<AdminSeedResult>;
@@ -173,6 +205,10 @@ function addDaysIso(days: number): string {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 }
 
+function addSecondsIso(seconds: number): string {
+  return new Date(Date.now() + seconds * 1000).toISOString();
+}
+
 function addSecondsEpoch(seconds: number): number {
   return Math.floor(Date.now() / 1000) + seconds;
 }
@@ -189,8 +225,16 @@ export function generateRefreshToken(): string {
   return randomBytes(48).toString("base64url");
 }
 
+export function generateHandoffCode(): string {
+  return randomBytes(32).toString("base64url");
+}
+
 export function hashRefreshToken(rawToken: string, secret: string): string {
   return createHmac("sha256", secret).update(rawToken).digest("hex");
+}
+
+export function hashHandoffCode(rawCode: string, secret: string): string {
+  return createHmac("sha256", secret).update(rawCode).digest("hex");
 }
 
 function encodeBase64Url(value: Buffer | string): string {
@@ -399,6 +443,54 @@ async function grantModuleAccess(
       accessLevel,
     })))
     .onConflictDoNothing();
+}
+
+async function getUserModuleAccess(
+  db: DataTradeDatabase,
+  userId: string,
+  moduleKey: string,
+): Promise<AuthModuleAccess | null> {
+  const rows = await db
+    .select({
+      key: modules.key,
+      displayName: modules.displayName,
+      accessLevel: userModuleAccess.accessLevel,
+    })
+    .from(userModuleAccess)
+    .innerJoin(modules, eq(modules.id, userModuleAccess.moduleId))
+    .where(and(
+      eq(userModuleAccess.userId, userId),
+      eq(modules.key, moduleKey),
+      isNull(userModuleAccess.revokedAt),
+      eq(modules.status, "active"),
+    ))
+    .limit(1);
+
+  const access = rows[0];
+  if (!access || access.accessLevel === "none") {
+    return null;
+  }
+
+  return access;
+}
+
+async function listModuleAccessForUser(
+  db: DataTradeDatabase,
+  userId: string,
+): Promise<AuthModuleAccess[]> {
+  return db
+    .select({
+      key: modules.key,
+      displayName: modules.displayName,
+      accessLevel: userModuleAccess.accessLevel,
+    })
+    .from(userModuleAccess)
+    .innerJoin(modules, eq(modules.id, userModuleAccess.moduleId))
+    .where(and(
+      eq(userModuleAccess.userId, userId),
+      isNull(userModuleAccess.revokedAt),
+      eq(modules.status, "active"),
+    ));
 }
 
 async function createSessionResponse(
@@ -735,6 +827,146 @@ export function createAuthService(db: DataTradeDatabase, config: AppConfig): Aut
       }
     },
 
+    async createHandoff(accessToken, input, context) {
+      const payload = verifyAccessToken(accessToken, config.authAccessTokenSecret);
+      if (!payload) {
+        throw new AuthError("UNAUTHENTICATED", 401);
+      }
+
+      const session = await getSessionByPayload(payload);
+      const targetModule = input.targetModule.trim();
+      const moduleAccess = await getUserModuleAccess(db, session.user.id, targetModule);
+      if (!moduleAccess) {
+        throw new AuthError("MODULE_ACCESS_DENIED", 403, "User does not have access to the target module.");
+      }
+
+      const handoffCode = generateHandoffCode();
+      const expiresAt = addSecondsIso(60);
+      await db.insert(authHandoffCodes).values({
+        userId: session.user.id,
+        codeHash: hashHandoffCode(handoffCode, config.authRefreshTokenSecret),
+        targetModule,
+        expiresAt,
+        createdByIpHash: context.ipHash,
+        userAgent: context.userAgent,
+      });
+      await writeAuditLog(db, {
+        actorUserId: session.user.id,
+        action: "auth.handoff_created",
+        entityType: "auth_handoff_code",
+        metadata: {
+          targetModule,
+          expiresAt,
+          ipHash: context.ipHash,
+          userAgent: context.userAgent,
+        },
+      });
+
+      return {
+        handoffCode,
+        targetModule,
+        expiresAt,
+      };
+    },
+
+    async exchangeHandoff(input, context) {
+      const targetModule = input.targetModule.trim();
+      const codeHash = hashHandoffCode(input.code.trim(), config.authRefreshTokenSecret);
+      const rows = await db
+        .select({
+          handoffId: authHandoffCodes.id,
+          userId: authHandoffCodes.userId,
+          targetModule: authHandoffCodes.targetModule,
+          expiresAt: authHandoffCodes.expiresAt,
+          usedAt: authHandoffCodes.usedAt,
+          email: users.email,
+          username: users.username,
+          displayName: users.displayName,
+          status: users.status,
+        })
+        .from(authHandoffCodes)
+        .innerJoin(users, eq(users.id, authHandoffCodes.userId))
+        .where(and(
+          eq(authHandoffCodes.codeHash, codeHash),
+          isNull(users.deletedAt),
+        ))
+        .limit(1);
+
+      const handoff = rows[0];
+      if (!handoff) {
+        throw new AuthError("INVALID_HANDOFF_CODE", 401, "Invalid or expired handoff code.");
+      }
+      if (handoff.targetModule !== targetModule) {
+        throw new AuthError("HANDOFF_TARGET_MISMATCH", 400, "Handoff target module does not match.");
+      }
+      if (handoff.usedAt) {
+        throw new AuthError("HANDOFF_CODE_USED", 401, "Handoff code has already been used.");
+      }
+      if (new Date(handoff.expiresAt).getTime() <= Date.now()) {
+        throw new AuthError("HANDOFF_CODE_EXPIRED", 401, "Handoff code has expired.");
+      }
+      if (handoff.status !== "active") {
+        throw new AuthError("UNAUTHENTICATED", 401);
+      }
+
+      const moduleAccess = await getUserModuleAccess(db, handoff.userId, targetModule);
+      if (!moduleAccess) {
+        throw new AuthError("MODULE_ACCESS_DENIED", 403, "User does not have access to the target module.");
+      }
+
+      const usedAt = nowIso();
+      const marked = await db
+        .update(authHandoffCodes)
+        .set({
+          usedAt,
+          usedByIpHash: context.ipHash,
+          updatedAt: usedAt,
+        })
+        .where(and(
+          eq(authHandoffCodes.id, handoff.handoffId),
+          isNull(authHandoffCodes.usedAt),
+        ))
+        .returning({
+          id: authHandoffCodes.id,
+        });
+      if (marked.length !== 1) {
+        throw new AuthError("HANDOFF_CODE_USED", 401, "Handoff code has already been used.");
+      }
+
+      const roles = await getUserRoles(db, handoff.userId);
+      const user = toAuthUser({
+        id: handoff.userId,
+        email: handoff.email,
+        username: handoff.username,
+        displayName: handoff.displayName,
+        status: handoff.status,
+      }, roles);
+      await db
+        .update(users)
+        .set({
+          lastLoginAt: usedAt,
+          updatedAt: usedAt,
+        })
+        .where(eq(users.id, user.id));
+      const auth = await createSessionResponse(db, config, user, context);
+      await writeAuditLog(db, {
+        actorUserId: user.id,
+        action: "auth.handoff_exchanged",
+        entityType: "auth_handoff_code",
+        entityId: handoff.handoffId,
+        metadata: {
+          targetModule,
+          ipHash: context.ipHash,
+          userAgent: context.userAgent,
+        },
+      });
+
+      return {
+        ...auth,
+        modules: await listModuleAccessForUser(db, user.id),
+      };
+    },
+
     async getSession(accessToken) {
       const payload = verifyAccessToken(accessToken, config.authAccessTokenSecret);
       if (!payload) {
@@ -746,21 +978,7 @@ export function createAuthService(db: DataTradeDatabase, config: AppConfig): Aut
 
     async getModules(accessToken) {
       const session = await this.getSession(accessToken);
-      const access = await db
-        .select({
-          key: modules.key,
-          displayName: modules.displayName,
-          accessLevel: userModuleAccess.accessLevel,
-        })
-        .from(userModuleAccess)
-        .innerJoin(modules, eq(modules.id, userModuleAccess.moduleId))
-        .where(and(
-          eq(userModuleAccess.userId, session.user.id),
-          isNull(userModuleAccess.revokedAt),
-          eq(modules.status, "active"),
-        ));
-
-      return access;
+      return listModuleAccessForUser(db, session.user.id);
     },
 
     async bootstrapAdmin(input) {

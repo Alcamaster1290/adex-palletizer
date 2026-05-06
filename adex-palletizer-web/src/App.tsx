@@ -4,6 +4,7 @@ import { AuthProvider } from './auth/AuthContext'
 import {
   AuthApiError,
   clearDataTradeSession,
+  createHandoffCode,
   fetchCurrentSession,
   getDataTradeAccessToken,
   getDataTradeModules,
@@ -2883,6 +2884,23 @@ function App() {
     )
   }
 
+  const openSislope = useCallback(async () => {
+    let nextUrl = SISLOPE_URL
+
+    if (authAccessToken) {
+      try {
+        const handoff = await createHandoffCode('sislope')
+        const url = new URL(SISLOPE_URL, window.location.origin)
+        url.searchParams.set('handoff', handoff.handoffCode)
+        nextUrl = url.toString()
+      } catch {
+        nextUrl = SISLOPE_URL
+      }
+    }
+
+    window.open(nextUrl, '_blank', 'noopener,noreferrer')
+  }, [authAccessToken])
+
   const authContextValue = useMemo(
     () => ({
       user: authUser ?? TEST_AUTH_USER,
@@ -2950,6 +2968,7 @@ function App() {
           boxSkinMode={boxSkinMode}
           onBoxSkinModeChange={setBoxSkinMode}
           onExportTradeCase={handleExportTradeCase}
+          onOpenSislope={openSislope}
           adminDashboardAvailable={adminDashboardAvailable}
           onOpenAdminDashboard={openAdminDashboard}
         />

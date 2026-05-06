@@ -7,6 +7,7 @@ const requiredTables = [
   "memberships",
   "auth_accounts",
   "auth_sessions",
+  "auth_handoff_codes",
   "modules",
   "user_module_access",
   "projects",
