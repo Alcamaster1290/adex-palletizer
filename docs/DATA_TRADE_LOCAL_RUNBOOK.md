@@ -64,6 +64,7 @@ VITE_DATA_TRADE_TRACKING_ENABLED=true
 VITE_DATA_TRADE_MODULE_CODE=adex_palletizer
 VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=true
 VITE_ADEX_LEGACY_AUTH_FALLBACK=false
+VITE_SISLOPE_URL=http://localhost:5174
 ```
 
 Arranque:
@@ -115,9 +116,9 @@ Estado revisado en esta correccion:
 - `.claude/` esta versionado y parece configuracion local de editor; se deja intacto para no mezclar limpieza de tooling con este cambio funcional.
 - `alvin` y `SistemaLogisticoPeruano/SisLoPe` son gitlinks/submodulos esperados y no se modifican en esta tarea.
 
-## Siguiente Prueba: SisLoPe Con Mismas Credenciales
+## SisLoPe Local Con Misma Cuenta
 
-No modificar SisLoPe desde este repo principal. La prueba debe hacerse en su propio repo/rama.
+SisLoPe corre como repo Git independiente en `SistemaLogisticoPeruano/SisLoPe`. Su login visual sigue siendo propio, pero el flujo ADEX -> SisLoPe usa un handoff temporal de Data Trade.
 
 Variables esperadas para SisLoPe:
 
@@ -128,6 +129,14 @@ VITE_DATA_TRADE_MODULE_CODE=sislope
 VITE_ADEX_LEGACY_AUTH_FALLBACK=false
 ```
 
+Arranque:
+
+```powershell
+cd SistemaLogisticoPeruano/SisLoPe
+Remove-Item -Recurse -Force .\node_modules\.vite -ErrorAction SilentlyContinue
+npm run dev -- --force --port 5174
+```
+
 Credenciales locales para la prueba:
 
 ```text
@@ -136,3 +145,19 @@ ADEXPERU2026
 ```
 
 El login visual de SisLoPe debe seguir siendo el suyo propio, autenticando contra Data Trade por debajo igual que ADEX.
+
+## Smoke Handoff ADEX A SisLoPe
+
+1. Levantar API en `http://localhost:8788`.
+2. Levantar ADEX en `http://localhost:5173`.
+3. Levantar SisLoPe en `http://localhost:5174`.
+4. Iniciar sesion en ADEX con `admin@datatrade.local`.
+5. Click en `SisLoPe`.
+6. Validar:
+   - ADEX llama `POST http://localhost:8788/auth/handoff/create`.
+   - SisLoPe abre con `?handoff=<code>`.
+   - La URL no contiene email, password, access token ni refresh token.
+   - SisLoPe llama `POST http://localhost:8788/auth/handoff/exchange`.
+   - SisLoPe limpia el query param con `history.replaceState`.
+   - SisLoPe entra al mapa sin pedir otra contrasena.
+   - SisLoPe envia `POST http://localhost:8788/events/track` con `module=sislope`.
