@@ -1,8 +1,10 @@
 # Data Trade Frontend Integration Guide
 
-## Backend requerido
+Data Trade no debe aparecer como un login separado. En ADEX Palletizer, el
+login visual normal usa Data Trade Auth por debajo cuando
+`VITE_DATA_TRADE_API_URL` esta configurado.
 
-Levantar `apps/api`:
+## Backend Requerido
 
 ```powershell
 cd "C:\Users\Alvaro\Proyectos\Data Trade\apps\api"
@@ -12,93 +14,57 @@ $env:IP_HASH_SECRET = "replace-with-32-byte-local-dev-secret"
 $env:AUTH_ACCESS_TOKEN_SECRET = "replace-with-32-byte-local-auth-secret"
 $env:AUTH_REFRESH_TOKEN_SECRET = "replace-with-32-byte-local-refresh-secret"
 npm run db:migrate
+npm run db:seed:admin
 npm run dev
 ```
-
-Probar backend:
 
 ```powershell
 Invoke-RestMethod -Uri "http://127.0.0.1:8788/health"
 Invoke-RestMethod -Uri "http://127.0.0.1:8788/ready"
 ```
 
-## ADEX local con flags apagados
+## ADEX Local
 
 ```powershell
 cd "C:\Users\Alvaro\Proyectos\Data Trade\adex-palletizer-web"
-$env:VITE_DATA_TRADE_AUTH_ENABLED = "false"
-$env:VITE_DATA_TRADE_TRACKING_ENABLED = "false"
-npm run dev
-```
-
-Resultado esperado: la app funciona como antes y no llama a `apps/api`.
-
-## ADEX local con Data Trade activo
-
-```powershell
-cd "C:\Users\Alvaro\Proyectos\Data Trade\adex-palletizer-web"
-$env:VITE_DATA_TRADE_AUTH_ENABLED = "true"
-$env:VITE_DATA_TRADE_TRACKING_ENABLED = "true"
-$env:VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED = "false"
 $env:VITE_DATA_TRADE_API_URL = "http://127.0.0.1:8788"
+$env:VITE_DATA_TRADE_TRACKING_ENABLED = "true"
+$env:VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED = "true"
 $env:VITE_DATA_TRADE_MODULE_CODE = "adex_palletizer"
+$env:VITE_ADEX_LEGACY_AUTH_FALLBACK = "false"
 npm run dev
 ```
 
-Flujo:
+Flujo esperado:
 
-1. Entrar con auth legacy ADEX.
-2. Usar el panel Data Trade para registrar o iniciar sesion.
-3. Confirmar que `GET /auth/me` responde desde el panel.
-4. Ejecutar un calculo de palletizacion.
-5. Verificar evento:
+1. El usuario ve solo el login normal de ADEX.
+2. El submit del login llama `POST /auth/login` en Data Trade.
+3. No se llama `/api/auth/login` salvo rollback legacy explicito.
+4. El tracking usa Bearer si hay sesion; si no, usa `anonymousId`.
+5. El admin dashboard solo aparece dentro de la app para usuarios admin.
 
-```powershell
-cd "C:\Users\Alvaro\Proyectos\Data Trade\apps\api"
-$env:DATABASE_URL = "postgres://postgres:postgres@localhost:55432/data_trade"
-npm run db:verify
-```
+## Rollback Legacy Temporal
 
-## SisLoPe local con Data Trade activo
-
-Como SisLoPe es repo Git anidado:
+El fallback legacy queda deprecated y solo debe usarse para una emergencia local
+o una ventana corta de rollback:
 
 ```powershell
-cd "C:\Users\Alvaro\Proyectos\Data Trade\SistemaLogisticoPeruano\SisLoPe"
-$env:VITE_DATA_TRADE_AUTH_ENABLED = "true"
-$env:VITE_DATA_TRADE_TRACKING_ENABLED = "true"
-$env:VITE_DATA_TRADE_API_URL = "http://127.0.0.1:8788"
-$env:VITE_DATA_TRADE_MODULE_CODE = "sislope"
-npm run dev
+$env:VITE_ADEX_LEGACY_AUTH_FALLBACK = "true"
 ```
 
-Flujo:
-
-1. Entrar con auth legacy SisLoPe.
-2. Usar el panel Data Trade.
-3. Alternar labels, flows, corridors o fleet heatmap.
-4. Confirmar eventos `module_opened`, `session_started` y `map_layer_toggled`.
+Con ese flag, `authApi.ts` vuelve a usar `/api/auth/*`. No usar este modo como
+flujo principal.
 
 ## Vercel
 
 Variables para ADEX:
 
 ```text
-VITE_DATA_TRADE_AUTH_ENABLED=false
 VITE_DATA_TRADE_API_URL=https://api.datatrade.pe
-VITE_DATA_TRADE_TRACKING_ENABLED=false
-VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=false
+VITE_DATA_TRADE_TRACKING_ENABLED=true
+VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=true
 VITE_DATA_TRADE_MODULE_CODE=adex_palletizer
-```
-
-Variables para SisLoPe:
-
-```text
-VITE_DATA_TRADE_AUTH_ENABLED=false
-VITE_DATA_TRADE_API_URL=https://api.datatrade.pe
-VITE_DATA_TRADE_TRACKING_ENABLED=false
-VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=false
-VITE_DATA_TRADE_MODULE_CODE=sislope
+VITE_ADEX_LEGACY_AUTH_FALLBACK=false
 ```
 
 Variables para `apps/api`:
@@ -107,11 +73,12 @@ Variables para `apps/api`:
 FRONTEND_ORIGINS=https://adex-palletizer.vercel.app,https://sis-lo-pe.vercel.app,https://app.datatrade.pe,https://palletizer.datatrade.pe
 ```
 
-Preview deployments solo deben agregarse si se listan explicitamente en `FRONTEND_ORIGINS`.
+Preview deployments solo deben agregarse si se listan explicitamente en
+`FRONTEND_ORIGINS`.
 
-## Contrato del cliente
+## Contrato Del Cliente
 
-El cliente implementa:
+El login normal de ADEX usa estos endpoints:
 
 - `POST /auth/register`
 - `POST /auth/login`
@@ -125,34 +92,5 @@ El cliente implementa:
 - `GET /admin/events`
 - `GET /admin/modules/usage`
 
-Los endpoints admin solo deben usarse cuando `VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=true` y el usuario tenga rol `admin`.
-
-Tracking autenticado agrega `Authorization: Bearer` si hay access token en memoria. Tracking anonimo manda `anonymousId`. El cliente elimina claves sensibles de metadata como `token`, `password`, `accessToken`, `refreshToken`, `userId` y `user_id`.
-
-## Criterios de rollback
-
-Para desactivar completamente:
-
-```text
-VITE_DATA_TRADE_AUTH_ENABLED=false
-VITE_DATA_TRADE_TRACKING_ENABLED=false
-VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=false
-```
-
-No requiere revertir codigo ni modificar auth legacy.
-
-## Admin Dashboard ADEX
-
-Para probar el panel admin minimo en ADEX:
-
-```powershell
-cd "C:\Users\Alvaro\Proyectos\Data Trade\adex-palletizer-web"
-$env:VITE_DATA_TRADE_AUTH_ENABLED = "true"
-$env:VITE_DATA_TRADE_TRACKING_ENABLED = "true"
-$env:VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED = "true"
-$env:VITE_DATA_TRADE_API_URL = "http://127.0.0.1:8788"
-$env:VITE_DATA_TRADE_MODULE_CODE = "adex_palletizer"
-npm run dev
-```
-
-El panel solo carga cards y tablas si el usuario Data Trade tiene rol `admin`. Usuarios normales ven acceso no autorizado. Si el backend cae, la app ADEX sigue funcionando y el panel muestra error controlado.
+No guardar refresh token en `localStorage`. La sesion queda en memoria hasta que
+se implemente cookie `HttpOnly` bajo un dominio comun.

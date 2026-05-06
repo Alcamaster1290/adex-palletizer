@@ -4,6 +4,7 @@ import {
   type DataTradeEventName,
   type DataTradeSessionState,
 } from './client'
+import { getDataTradeAccessToken } from '../auth/authApi'
 
 export const dataTradeClient = createDataTradeClient(getDataTradeConfig())
 
@@ -43,5 +44,5 @@ export function trackDataTradeEvent(
   metadata: Record<string, unknown> = {},
   path?: string,
 ) {
-  return dataTradeClient.track(eventName, metadata, path)
+  return dataTradeClient.track(eventName, metadata, path, getDataTradeAccessToken())
 }

@@ -2,47 +2,45 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { DataTradeAdminDashboard } from './DataTradeAdminDashboard'
 import type { DataTradeFrontendConfig } from './config'
-import type { DataTradeSessionState } from './client'
+import type { DataTradeModuleAccess } from './client'
+import { AuthProvider } from '../auth/AuthContext'
+import type { AuthUser } from '../auth/authApi'
 
 const baseConfig: DataTradeFrontendConfig = {
-  authEnabled: true,
   trackingEnabled: true,
   adminDashboardEnabled: true,
   apiUrl: 'https://api.datatrade.test',
   moduleCode: 'adex_palletizer',
 }
 
-const adminSession: DataTradeSessionState = {
-  status: 'authenticated',
-  user: {
-    id: 'admin-1',
-    email: 'admin@datatrade.test',
-    username: 'admin',
-    displayName: 'Admin',
-    status: 'active',
-    roles: ['user', 'admin'],
-  },
-  modules: [{ key: 'admin', displayName: 'Admin', accessLevel: 'admin' }],
-  error: null,
+const adminUser: AuthUser = {
+  id: 'admin-1',
+  email: 'admin@datatrade.test',
+  username: 'admin',
+  status: 'active',
+  role: 'admin',
+  mustChangePassword: false,
 }
 
-const userSession: DataTradeSessionState = {
-  status: 'authenticated',
-  user: {
-    id: 'user-1',
-    email: 'user@datatrade.test',
-    username: 'user',
-    displayName: 'User',
-    status: 'active',
-    roles: ['user'],
-  },
-  modules: [{ key: 'adex_palletizer', displayName: 'ADEX', accessLevel: 'user' }],
-  error: null,
+const normalUser: AuthUser = {
+  id: 'user-1',
+  email: 'user@datatrade.test',
+  username: 'user',
+  status: 'active',
+  role: 'user',
+  mustChangePassword: false,
 }
 
-function createClient(session: DataTradeSessionState, overrides = {}) {
+const adminModules: DataTradeModuleAccess[] = [
+  { key: 'admin', displayName: 'Admin', accessLevel: 'admin' },
+]
+
+const userModules: DataTradeModuleAccess[] = [
+  { key: 'adex_palletizer', displayName: 'ADEX', accessLevel: 'user' },
+]
+
+function createClient(overrides = {}) {
   return {
-    getSessionSnapshot: vi.fn(() => session),
     getAdminOverview: vi.fn(async () => ({
       total_users: 4,
       active_users_24h: 1,
@@ -106,39 +104,66 @@ function createClient(session: DataTradeSessionState, overrides = {}) {
   }
 }
 
+function renderDashboard({
+  user = adminUser,
+  modules = adminModules,
+  accessToken = 'access-token',
+  client = createClient(),
+  config = baseConfig,
+}: {
+  user?: AuthUser
+  modules?: DataTradeModuleAccess[]
+  accessToken?: string | null
+  client?: ReturnType<typeof createClient>
+  config?: DataTradeFrontendConfig
+} = {}) {
+  return render(
+    <AuthProvider
+      value={{
+        user,
+        accessToken,
+        modules,
+        canAccessModule: (moduleCode) =>
+          modules.some(
+            (entry) => entry.key === moduleCode && entry.accessLevel !== 'none',
+          ),
+        logout: vi.fn(async () => {}),
+        logoutPending: false,
+      }}
+    >
+      <DataTradeAdminDashboard client={client} config={config} />
+    </AuthProvider>,
+  )
+}
+
 describe('DataTradeAdminDashboard', () => {
   it('no muestra el dashboard con el flag apagado', () => {
-    const client = createClient(adminSession)
+    const client = createClient()
 
-    const { container } = render(
-      <DataTradeAdminDashboard
-        client={client}
-        config={{ ...baseConfig, adminDashboardEnabled: false }}
-      />,
-    )
+    const { container } = renderDashboard({
+      client,
+      config: { ...baseConfig, adminDashboardEnabled: false },
+    })
 
     expect(container.firstChild).toBeNull()
     expect(client.getAdminOverview).not.toHaveBeenCalled()
   })
 
-  it('muestra acceso no autorizado para usuario sin admin', () => {
-    render(
-      <DataTradeAdminDashboard
-        client={createClient(userSession)}
-        config={baseConfig}
-      />,
-    )
+  it('no muestra dashboard para usuario sin admin', () => {
+    const client = createClient()
 
-    expect(screen.getByText('Acceso no autorizado.')).toBeInTheDocument()
+    const { container } = renderDashboard({
+      user: normalUser,
+      modules: userModules,
+      client,
+    })
+
+    expect(container.firstChild).toBeNull()
+    expect(client.getAdminOverview).not.toHaveBeenCalled()
   })
 
   it('muestra cards principales para admin cuando la API responde', async () => {
-    render(
-      <DataTradeAdminDashboard
-        client={createClient(adminSession)}
-        config={baseConfig}
-      />,
-    )
+    renderDashboard()
 
     await waitFor(() => {
       expect(screen.getAllByText('Usuarios').length).toBeGreaterThan(0)
@@ -148,16 +173,13 @@ describe('DataTradeAdminDashboard', () => {
   })
 
   it('muestra error controlado si falla la API', async () => {
-    render(
-      <DataTradeAdminDashboard
-        client={createClient(adminSession, {
+    renderDashboard({
+      client: createClient({
           getAdminOverview: vi.fn(async () => {
             throw new Error('Admin API down')
           }),
-        })}
-        config={baseConfig}
-      />,
-    )
+        }),
+    })
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Admin API down')

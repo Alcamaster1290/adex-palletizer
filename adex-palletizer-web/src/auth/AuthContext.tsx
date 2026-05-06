@@ -1,8 +1,12 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import type { AuthUser } from './authApi'
+import type { DataTradeModuleAccess } from '../dataTrade/client'
 
-interface AuthContextValue {
+export interface AuthContextValue {
   user: AuthUser
+  accessToken: string | null
+  modules: DataTradeModuleAccess[]
+  canAccessModule: (moduleCode: string) => boolean
   logout: () => Promise<void>
   logoutPending: boolean
 }

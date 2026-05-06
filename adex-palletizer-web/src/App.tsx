@@ -3,11 +3,15 @@ import { AuthScreen } from './auth/AuthScreen'
 import { AuthProvider } from './auth/AuthContext'
 import {
   AuthApiError,
+  clearDataTradeSession,
   fetchCurrentSession,
+  getDataTradeAccessToken,
+  getDataTradeModules,
   isRetryableAuthError,
   loginWithPassword,
   registerWithPassword,
   logoutSession,
+  type AuthSessionPayload,
   type AuthUser,
 } from './auth/authApi'
 import {
@@ -94,8 +98,8 @@ import { solveMultiHeuristicNoMix } from './multiSolverNoMix'
 import { EditToggleButton } from './components/3d/EditToggleButton'
 import { Header } from './components/ui/Header'
 import { DataTradeAdminDashboard } from './dataTrade/DataTradeAdminDashboard'
-import { DataTradeAuthPanel } from './dataTrade/DataTradeAuthPanel'
 import { trackDataTradeEvent } from './dataTrade/runtime'
+import type { DataTradeModuleAccess } from './dataTrade/client'
 import type {
   BoxSkinMode,
   ContainerInput,
@@ -931,6 +935,8 @@ function App() {
   )
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [authUser, setAuthUser] = useState<AuthUser | null>(testAuthBypass ? TEST_AUTH_USER : null)
+  const [authAccessToken, setAuthAccessToken] = useState<string | null>(null)
+  const [authModules, setAuthModules] = useState<DataTradeModuleAccess[]>([])
   const [authError, setAuthError] = useState<string | null>(null)
   const [authShowRetryConnection, setAuthShowRetryConnection] = useState(false)
   const [authIdentifier, setAuthIdentifier] = useState('')
@@ -1033,6 +1039,22 @@ function App() {
   )
   const [scenarioNotice, setScenarioNotice] = useState<string | null>(null)
 
+  const applyAuthSession = useCallback((sessionPayload: AuthSessionPayload) => {
+    setAuthUser(sessionPayload.user)
+    setAuthAccessToken(sessionPayload.accessToken ?? getDataTradeAccessToken())
+    setAuthModules(sessionPayload.modules ?? getDataTradeModules())
+    setAuthStatus('authenticated')
+    setAuthShowRetryConnection(false)
+  }, [])
+
+  const clearAuthSession = useCallback(() => {
+    clearDataTradeSession()
+    setAuthUser(null)
+    setAuthAccessToken(null)
+    setAuthModules([])
+    setAuthStatus('unauthenticated')
+  }, [])
+
   useEffect(() => {
     if (testAuthBypass) {
       return
@@ -1047,17 +1069,14 @@ function App() {
           return
         }
 
-        setAuthUser(sessionPayload.user)
-        setAuthStatus('authenticated')
+        applyAuthSession(sessionPayload)
         setAuthError(null)
-        setAuthShowRetryConnection(false)
       } catch (error) {
         if (!isMounted) {
           return
         }
 
-        setAuthUser(null)
-        setAuthStatus('unauthenticated')
+        clearAuthSession()
         setAuthShowRetryConnection(isRetryableAuthError(error))
         setAuthError(
           error instanceof AuthApiError && error.status !== 401 ? error.message : null,
@@ -1070,7 +1089,7 @@ function App() {
     return () => {
       isMounted = false
     }
-  }, [testAuthBypass])
+  }, [applyAuthSession, clearAuthSession, testAuthBypass])
 
   useEffect(() => {
     if (authStatus !== 'authenticated' || authUser === null) {
@@ -1099,10 +1118,8 @@ function App() {
 
     try {
       const sessionPayload = await loginWithPassword(identifier, password)
-      setAuthUser(sessionPayload.user)
-      setAuthStatus('authenticated')
+      applyAuthSession(sessionPayload)
       setAuthPassword('')
-      setAuthShowRetryConnection(false)
     } catch (error) {
       setAuthShowRetryConnection(isRetryableAuthError(error))
       setAuthError(
@@ -1110,7 +1127,7 @@ function App() {
           ? error.message
           : 'No se pudo iniciar sesion. Intenta nuevamente.',
       )
-      setAuthStatus('unauthenticated')
+      clearAuthSession()
     } finally {
       setAuthSubmitting(false)
     }
@@ -1173,14 +1190,12 @@ function App() {
         password: registerDraft.password,
       })
 
-      setAuthUser(sessionPayload.user)
-      setAuthStatus('authenticated')
+      applyAuthSession(sessionPayload)
       setAuthMode('login')
       setAuthIdentifier(registerDraft.email.trim())
       setAuthPassword('')
       setRegisterDraft(createEmptyRegistrationDraft())
       setRegisterErrors({})
-      setAuthShowRetryConnection(false)
     } catch (error) {
       setAuthShowRetryConnection(isRetryableAuthError(error))
       setAuthError(
@@ -1188,7 +1203,7 @@ function App() {
           ? error.message
           : 'No se pudo crear la cuenta. Intenta nuevamente en unos segundos.',
       )
-      setAuthStatus('unauthenticated')
+      clearAuthSession()
     } finally {
       setAuthSubmitting(false)
     }
@@ -1214,11 +1229,9 @@ function App() {
 
     try {
       const sessionPayload = await fetchCurrentSession()
-      setAuthUser(sessionPayload.user)
-      setAuthStatus('authenticated')
-      setAuthShowRetryConnection(false)
+      applyAuthSession(sessionPayload)
     } catch (error) {
-      setAuthStatus('unauthenticated')
+      clearAuthSession()
       setAuthShowRetryConnection(isRetryableAuthError(error))
       setAuthError(
         error instanceof AuthApiError && error.status !== 401 ? error.message : null,
@@ -1231,8 +1244,7 @@ function App() {
     try {
       await logoutSession()
     } finally {
-      setAuthUser(null)
-      setAuthStatus('unauthenticated')
+      clearAuthSession()
       setAuthMode('login')
       setAuthPassword('')
       setRegisterDraft(createEmptyRegistrationDraft())
@@ -2871,10 +2883,16 @@ function App() {
   const authContextValue = useMemo(
     () => ({
       user: authUser ?? TEST_AUTH_USER,
+      accessToken: authAccessToken,
+      modules: authModules,
+      canAccessModule: (moduleCode: string) =>
+        authModules.some(
+          (entry) => entry.key === moduleCode && entry.accessLevel !== 'none',
+        ),
       logout: handleLogout,
       logoutPending: authLogoutSubmitting,
     }),
-    [authLogoutSubmitting, authUser],
+    [authAccessToken, authLogoutSubmitting, authModules, authUser],
   )
 
   if (authStatus !== 'authenticated' || authUser === null) {
@@ -2921,8 +2939,7 @@ function App() {
           onBoxSkinModeChange={setBoxSkinMode}
           onExportTradeCase={handleExportTradeCase}
         />
-        <DataTradeAuthPanel />
-        <DataTradeAdminDashboard />
+        {authUser.role === 'admin' ? <DataTradeAdminDashboard /> : null}
 
       {shareWarning && (
         <div className="notice-box" role="alert">
