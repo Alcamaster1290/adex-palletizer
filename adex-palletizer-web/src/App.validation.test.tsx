@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
 
 vi.mock('./scene/Scene', () => ({
@@ -40,6 +40,7 @@ vi.mock('./scene/SceneContainer', () => ({
 
 afterEach(() => {
   delete (window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
+  vi.stubEnv('VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED', 'false')
 })
 
 describe('App input validation', () => {
@@ -145,6 +146,9 @@ describe('App input validation', () => {
 
     expect(await screen.findByRole('button', { name: /iniciar sesion/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /registrate/i })).toBeInTheDocument()
+    expect(screen.queryByText(/cuenta comun opcional/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/crear cuenta data trade/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/admin data trade/i)).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/usuario o correo/i), {
       target: { value: 'admin' },
@@ -156,6 +160,8 @@ describe('App input validation', () => {
 
     expect(await screen.findByText(/pallet solver by alvaro cac/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /abrir menu de usuario/i })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /dashboard admin/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/admin data trade/i)).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:8788/auth/login',
       expect.objectContaining({
@@ -172,6 +178,304 @@ describe('App input validation', () => {
     expect(await screen.findByRole('button', { name: /iniciar sesion/i })).toBeInTheDocument()
 
     delete (window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
+  })
+
+  it('muestra el dashboard admin solo desde el menu de perfil para usuarios admin', async () => {
+    ;(window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__ = true
+    vi.stubEnv('VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED', 'true')
+
+    const authenticatedPayload = {
+      user: {
+        id: 'admin-1',
+        username: 'admin',
+        email: 'admin@datatrade.local',
+        roles: ['user', 'admin'],
+        status: 'active',
+      },
+      session: {
+        id: 'session-admin',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+      },
+      accessToken: 'admin-access-token',
+      refreshToken: 'admin-refresh-token-value-that-is-long-enough',
+      tokenType: 'Bearer',
+      accessTokenExpiresAt: '2099-01-01T00:15:00.000Z',
+    }
+
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url
+
+      if (url.includes('/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED' } }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/auth/login')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(authenticatedPayload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/auth/modules')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            modules: [
+              { key: 'adex_palletizer', displayName: 'ADEX', accessLevel: 'user' },
+              { key: 'admin', displayName: 'Admin', accessLevel: 'admin' },
+            ],
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/admin/metrics/overview')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            total_users: 1,
+            active_users_24h: 1,
+            active_users_7d: 1,
+            active_users_30d: 1,
+            total_events: 3,
+            events_24h: 1,
+            events_7d: 2,
+            events_30d: 3,
+            total_modules: 2,
+            top_module_by_events: 'adex_palletizer',
+            latest_event_at: '2026-05-04T00:00:00.000Z',
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/admin/users')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            users: [
+              {
+                id: 'admin-1',
+                email: 'admin@datatrade.local',
+                name: 'Admin',
+                role: 'admin',
+                created_at: '2026-05-04T00:00:00.000Z',
+                last_seen_at: '2026-05-04T00:00:00.000Z',
+                event_count: 3,
+                module_count: 1,
+              },
+            ],
+            total: 1,
+            limit: 10,
+            offset: 0,
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/admin/events')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            events: [
+              {
+                id: 'event-1',
+                user_id: 'admin-1',
+                anonymous_id: null,
+                module: 'adex_palletizer',
+                event_name: 'module_opened',
+                metadata: {},
+                path: '/',
+                created_at: '2026-05-04T00:00:00.000Z',
+              },
+            ],
+            total: 1,
+            limit: 10,
+            offset: 0,
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/admin/modules/usage')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            modules: [
+              {
+                module_code: 'adex_palletizer',
+                module_name: 'ADEX Palletizer',
+                events_count: 3,
+                unique_users: 1,
+                anonymous_users: 0,
+                last_event_at: '2026-05-04T00:00:00.000Z',
+              },
+            ],
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/events/track')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ event: { id: 'event-track' } }), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ error: 'NOT_MOCKED' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    fireEvent.change(await screen.findByLabelText(/usuario o correo/i), {
+      target: { value: 'admin@datatrade.local' },
+    })
+    fireEvent.change(screen.getByLabelText(/^contrasena/i), {
+      target: { value: 'ADEXPERU2026' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /iniciar sesion/i }))
+
+    expect(await screen.findByText(/pallet solver by alvaro cac/i)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /dashboard admin/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /abrir menu de usuario/i }))
+    const menu = await screen.findByRole('menu', { name: /menu de usuario/i })
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /dashboard admin/i }))
+
+    const dialog = await screen.findByRole('dialog', { name: /dashboard admin/i })
+    expect(within(dialog).getByText(/admin data trade/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(within(dialog).getAllByText('admin@datatrade.local').length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /volver al palletizador/i }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /dashboard admin/i })).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: /calcular|recalcular/i })).toBeInTheDocument()
+  })
+
+  it('no muestra la opcion Dashboard admin para usuarios normales', async () => {
+    ;(window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__ = true
+    vi.stubEnv('VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED', 'true')
+
+    const authenticatedPayload = {
+      user: {
+        id: 'user-1',
+        username: 'normal',
+        email: 'normal@datatrade.local',
+        roles: ['user'],
+        status: 'active',
+      },
+      session: {
+        id: 'session-user',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+      },
+      accessToken: 'user-access-token',
+      refreshToken: 'user-refresh-token-value-that-is-long-enough',
+      tokenType: 'Bearer',
+      accessTokenExpiresAt: '2099-01-01T00:15:00.000Z',
+    }
+
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url
+
+      if (url.includes('/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED' } }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/auth/login')) {
+        return Promise.resolve(
+          new Response(JSON.stringify(authenticatedPayload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/auth/modules')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            modules: [{ key: 'adex_palletizer', displayName: 'ADEX', accessLevel: 'user' }],
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      if (url.includes('/events/track')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ event: { id: 'event-track' } }), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ error: 'NOT_MOCKED' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    fireEvent.change(await screen.findByLabelText(/usuario o correo/i), {
+      target: { value: 'normal@datatrade.local' },
+    })
+    fireEvent.change(screen.getByLabelText(/^contrasena/i), {
+      target: { value: 'ADEXPERU2026' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /iniciar sesion/i }))
+
+    expect(await screen.findByText(/pallet solver by alvaro cac/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /abrir menu de usuario/i }))
+
+    const menu = await screen.findByRole('menu', { name: /menu de usuario/i })
+    expect(within(menu).queryByRole('menuitem', { name: /dashboard admin/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /dashboard admin/i })).not.toBeInTheDocument()
   })
 
   it('permite cambiar a modo registro, valida campos y crea la cuenta con auto login', async () => {
