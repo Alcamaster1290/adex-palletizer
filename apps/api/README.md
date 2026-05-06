@@ -237,8 +237,10 @@ FRONTEND_ORIGINS=http://localhost:5173,http://localhost:5174,https://adex-pallet
 Estado actual:
 
 - ADEX Palletizer usa este API como proveedor principal si `VITE_DATA_TRADE_API_URL` esta configurado.
-- SisLoPe aun mantiene auth serverless propia en su snapshot actual; debe migrar a este API en la siguiente integracion.
+- SisLoPe mantiene su login visual propio. La convergencia correcta es que ese login use este API por debajo, igual que ADEX, y que la navegacion ADEX -> SisLoPe use `/auth/handoff/create` y `/auth/handoff/exchange` sin exponer credenciales ni tokens en URL.
 - ALVIN aun no usa auth Data Trade; se integra por contratos JSON.
+
+El API no implica crear una "cuenta Data Trade" visible. La cuenta es la misma del ecosistema y cada frontend conserva su experiencia propia.
 
 ## Validacion
 
