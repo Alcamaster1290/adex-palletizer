@@ -205,4 +205,39 @@ describe('authApi Data Trade provider', () => {
     )
     expect(authApi.getDataTradeAccessToken()).toBeNull()
   })
+
+  it('createHandoffCode llama /auth/handoff/create con Bearer activo', async () => {
+    const authApi = await importAuthApi({
+      VITE_DATA_TRADE_API_URL: 'http://localhost:8788',
+      VITE_ADEX_LEGACY_AUTH_FALLBACK: 'false',
+    })
+    const fetchMock = vi.fn((input: string) => {
+      if (input.endsWith('/auth/login')) return jsonResponse(authPayload)
+      if (input.endsWith('/auth/modules')) return jsonResponse({ modules: [] })
+      if (input.endsWith('/auth/handoff/create')) {
+        return jsonResponse({
+          handoffCode: 'handoff-code-value-that-is-long-enough',
+          targetModule: 'sislope',
+          expiresAt: '2099-01-01T00:01:00.000Z',
+        }, 201)
+      }
+      return jsonResponse({ error: { code: 'NOT_MOCKED' } }, 404)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await authApi.loginWithPassword('admin@datatrade.local', 'UnaClaveLargaLocal123!')
+    fetchMock.mockClear()
+
+    const handoff = await authApi.createHandoffCode('sislope')
+
+    expect(handoff.handoffCode).toBe('handoff-code-value-that-is-long-enough')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8788/auth/handoff/create',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        body: JSON.stringify({ targetModule: 'sislope' }),
+      }),
+    )
+  })
 })

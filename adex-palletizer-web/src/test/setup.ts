@@ -133,6 +133,14 @@ beforeEach(() => {
         })
       }
 
+      if (url.includes('/auth/handoff/create')) {
+        return jsonResponse({
+          handoffCode: 'test-handoff-code',
+          targetModule: 'sislope',
+          expiresAt: '2099-01-01T00:01:00.000Z',
+        }, 201)
+      }
+
       if (url.includes('/events/track')) {
         return jsonResponse({ event: { id: 'event-1' } }, 201)
       }

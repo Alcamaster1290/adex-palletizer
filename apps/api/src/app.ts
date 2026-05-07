@@ -15,6 +15,8 @@ import {
   AuthError,
   createAuthService,
   getBearerToken,
+  handoffCreateBodySchema,
+  handoffExchangeBodySchema,
   loginBodySchema,
   logoutBodySchema,
   refreshBodySchema,
@@ -345,6 +347,57 @@ export async function buildApp(options: BuildAppOptions) {
     const token = getBearerToken(request.headers.authorization);
     await authService.logout(payload, buildAuthContext(request), token);
     return reply.status(204).send();
+  });
+
+  app.post("/auth/handoff/create", async (request, reply) => {
+    if (!authService) {
+      return reply.status(503).send(buildErrorBody(
+        "AUTH_UNAVAILABLE",
+        "Authentication service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const token = getBearerToken(request.headers.authorization);
+    if (!token) {
+      throw new AuthError("UNAUTHENTICATED", 401);
+    }
+
+    const payload = handoffCreateBodySchema.parse(request.body);
+    const rateLimited = checkAuthRateLimit(
+      `auth:handoff:create:${buildAuthContext(request).ipHash ?? "unknown"}`,
+      request.dataTradeRequestId,
+      reply,
+    );
+    if (rateLimited) {
+      return rateLimited;
+    }
+
+    return reply
+      .status(200)
+      .send(await authService.createHandoff(token, payload, buildAuthContext(request)));
+  });
+
+  app.post("/auth/handoff/exchange", async (request, reply) => {
+    if (!authService) {
+      return reply.status(503).send(buildErrorBody(
+        "AUTH_UNAVAILABLE",
+        "Authentication service is not available.",
+        request.dataTradeRequestId,
+      ));
+    }
+
+    const payload = handoffExchangeBodySchema.parse(request.body);
+    const rateLimited = checkAuthRateLimit(
+      `auth:handoff:exchange:${buildAuthContext(request).ipHash ?? "unknown"}`,
+      request.dataTradeRequestId,
+      reply,
+    );
+    if (rateLimited) {
+      return rateLimited;
+    }
+
+    return reply.send(await authService.exchangeHandoff(payload, buildAuthContext(request)));
   });
 
   app.get("/auth/me", async (request, reply) => {

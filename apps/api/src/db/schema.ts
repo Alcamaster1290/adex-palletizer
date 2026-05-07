@@ -145,6 +145,30 @@ export const authSessions = dataTrade.table(
   ],
 );
 
+export const authHandoffCodes = dataTrade.table(
+  "auth_handoff_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    targetModule: text("target_module").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "string" }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true, mode: "string" }),
+    createdByIpHash: text("created_by_ip_hash"),
+    usedByIpHash: text("used_by_ip_hash"),
+    userAgent: text("user_agent"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("auth_handoff_codes_code_hash_uq").on(table.codeHash),
+    index("auth_handoff_codes_user_idx").on(table.userId),
+    index("auth_handoff_codes_target_idx").on(table.targetModule),
+    index("auth_handoff_codes_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
 export const modules = dataTrade.table(
   "modules",
   {
@@ -377,6 +401,7 @@ export const userFlags = dataTrade.table(
 export const usersRelations = relations(users, ({ many }) => ({
   memberships: many(memberships),
   sessions: many(authSessions),
+  handoffCodes: many(authHandoffCodes),
   events: many(events),
 }));
 

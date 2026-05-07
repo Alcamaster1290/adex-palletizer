@@ -7,6 +7,7 @@ interface HeaderProps {
   boxSkinMode: BoxSkinMode
   onBoxSkinModeChange: (mode: BoxSkinMode) => void
   onExportTradeCase?: () => void
+  onOpenSislope?: () => void
   adminDashboardAvailable?: boolean
   onOpenAdminDashboard?: () => void
 }
@@ -17,6 +18,7 @@ export function Header({
   boxSkinMode,
   onBoxSkinModeChange,
   onExportTradeCase,
+  onOpenSislope,
   adminDashboardAvailable = false,
   onOpenAdminDashboard,
 }: HeaderProps) {
@@ -70,15 +72,26 @@ export function Header({
             Costos Import/Export
           </a>
 
-          <a
-            className="btn-secondary hero-link"
-            href={sislopeUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            aria-label="Abrir Sistema Logistico del Peru"
-          >
-            SisLoPe
-          </a>
+          {onOpenSislope ? (
+            <button
+              type="button"
+              className="btn-secondary hero-link"
+              onClick={onOpenSislope}
+              aria-label="Abrir Sistema Logistico del Peru"
+            >
+              SisLoPe
+            </button>
+          ) : (
+            <a
+              className="btn-secondary hero-link"
+              href={sislopeUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              aria-label="Abrir Sistema Logistico del Peru"
+            >
+              SisLoPe
+            </a>
+          )}
 
           <UserMenu
             adminDashboardAvailable={adminDashboardAvailable}

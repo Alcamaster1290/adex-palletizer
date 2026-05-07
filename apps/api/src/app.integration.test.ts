@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 
 import { buildApp } from "./app.js";
-import { createAuthService } from "./auth.js";
+import { createAuthService, hashHandoffCode } from "./auth.js";
 import type { AppConfig } from "./config.js";
 import { createDatabase } from "./db/client.js";
-import { authAccounts, authSessions } from "./db/schema.js";
+import { authAccounts, authHandoffCodes, authSessions } from "./db/schema.js";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim();
 
@@ -170,6 +170,105 @@ describe.skipIf(!testDatabaseUrl)("Data Trade API database integration", () => {
       const moduleKeys = modules.json().modules.map((entry: { key: string }) => entry.key);
       expect(moduleKeys).toContain("sislope");
       expect(moduleKeys).not.toContain("admin");
+
+      const handoffWithoutBearer = await app.inject({
+        method: "POST",
+        url: "/auth/handoff/create",
+        payload: {
+          targetModule: "sislope",
+        },
+      });
+      expect(handoffWithoutBearer.statusCode).toBe(401);
+
+      const createHandoff = await app.inject({
+        method: "POST",
+        url: "/auth/handoff/create",
+        headers: {
+          authorization: `Bearer ${loggedIn.accessToken}`,
+        },
+        payload: {
+          targetModule: "sislope",
+        },
+      });
+      expect(createHandoff.statusCode).toBe(200);
+      const handoff = createHandoff.json();
+      expect(handoff.handoffCode).toEqual(expect.any(String));
+      expect(handoff.handoffCode).not.toBe(loggedIn.accessToken);
+      expect(handoff.handoffCode).not.toBe(loggedIn.refreshToken);
+
+      const storedHandoff = await connection.db
+        .select({
+          codeHash: authHandoffCodes.codeHash,
+          usedAt: authHandoffCodes.usedAt,
+        })
+        .from(authHandoffCodes)
+        .where(eq(authHandoffCodes.codeHash, hashHandoffCode(handoff.handoffCode, config.authRefreshTokenSecret)))
+        .limit(1);
+      expect(storedHandoff[0]?.codeHash).toBeTruthy();
+      expect(storedHandoff[0]?.codeHash).not.toBe(handoff.handoffCode);
+      expect(storedHandoff[0]?.usedAt).toBeNull();
+
+      const wrongTarget = await app.inject({
+        method: "POST",
+        url: "/auth/handoff/exchange",
+        payload: {
+          code: handoff.handoffCode,
+          targetModule: "admin",
+        },
+      });
+      expect(wrongTarget.statusCode).toBe(400);
+
+      const exchange = await app.inject({
+        method: "POST",
+        url: "/auth/handoff/exchange",
+        payload: {
+          code: handoff.handoffCode,
+          targetModule: "sislope",
+        },
+      });
+      expect(exchange.statusCode).toBe(200);
+      const exchanged = exchange.json();
+      expect(exchanged.accessToken).toEqual(expect.any(String));
+      expect(exchanged.refreshToken).toEqual(expect.any(String));
+      expect(exchanged.user.email).toBe(email);
+      expect(exchanged.modules.map((entry: { key: string }) => entry.key)).toContain("sislope");
+
+      const handoffMe = await app.inject({
+        method: "GET",
+        url: "/auth/me",
+        headers: {
+          authorization: `Bearer ${exchanged.accessToken}`,
+        },
+      });
+      expect(handoffMe.statusCode).toBe(200);
+      expect(handoffMe.json().user.email).toBe(email);
+
+      const reuse = await app.inject({
+        method: "POST",
+        url: "/auth/handoff/exchange",
+        payload: {
+          code: handoff.handoffCode,
+          targetModule: "sislope",
+        },
+      });
+      expect(reuse.statusCode).toBe(401);
+
+      const expiredCode = `expired-handoff-code-value-${unique}`;
+      await connection.db.insert(authHandoffCodes).values({
+        userId: registered.user.id,
+        codeHash: hashHandoffCode(expiredCode, config.authRefreshTokenSecret),
+        targetModule: "sislope",
+        expiresAt: "2000-01-01T00:00:00.000Z",
+      });
+      const expired = await app.inject({
+        method: "POST",
+        url: "/auth/handoff/exchange",
+        payload: {
+          code: expiredCode,
+          targetModule: "sislope",
+        },
+      });
+      expect(expired.statusCode).toBe(401);
 
       const refresh = await app.inject({
         method: "POST",

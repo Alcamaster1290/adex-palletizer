@@ -60,18 +60,28 @@ describe('App input validation', () => {
   })
 
   it('muestra acceso directo a SisLoPe en la cabecera', () => {
+    const openMock = vi.fn()
+    vi.stubGlobal('open', openMock)
+
     render(<App />)
 
-    const sislopeLink = screen.getByRole('link', {
+    const sislopeButton = screen.getByRole('button', {
       name: /abrir sistema logistico del peru/i,
     })
 
-    expect(sislopeLink).toHaveAttribute('href', 'https://sis-lo-pe.vercel.app')
-    expect(sislopeLink).toHaveAttribute('target', '_blank')
+    fireEvent.click(sislopeButton)
+
+    expect(openMock).toHaveBeenCalledWith(
+      'https://sis-lo-pe.vercel.app',
+      '_blank',
+      'noopener,noreferrer',
+    )
   })
 
   it('muestra login cuando no hay sesion y permite entrar con admin/admin', async () => {
     ;(window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__ = true
+    const openMock = vi.fn()
+    vi.stubGlobal('open', openMock)
 
     const authenticatedPayload = {
       user: {
@@ -128,6 +138,19 @@ describe('App input validation', () => {
         )
       }
 
+      if (url.includes('/auth/handoff/create')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            handoffCode: 'handoff-code-value-that-is-long-enough',
+            targetModule: 'sislope',
+            expiresAt: '2099-01-01T00:01:00.000Z',
+          }), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+
       if (url.includes('/auth/logout')) {
         return Promise.resolve(new Response(null, { status: 204 }))
       }
@@ -168,6 +191,31 @@ describe('App input validation', () => {
         method: 'POST',
       }),
     )
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes('/api/auth/login')),
+    ).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: /abrir sistema logistico del peru/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:8788/auth/handoff/create',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+          body: JSON.stringify({ targetModule: 'sislope' }),
+        }),
+      )
+    })
+    expect(openMock).toHaveBeenCalledWith(
+      expect.stringContaining('handoff=handoff-code-value-that-is-long-enough'),
+      '_blank',
+      'noopener,noreferrer',
+    )
+    const openedUrl = String(openMock.mock.calls.at(-1)?.[0] ?? '')
+    expect(openedUrl).not.toContain('access-token')
+    expect(openedUrl).not.toContain('refresh-token')
+    expect(openedUrl).not.toContain('admin%40datatrade.local')
+    expect(openedUrl).not.toContain('password')
     expect(
       fetchMock.mock.calls.some(([input]) => String(input).includes('/api/auth/login')),
     ).toBe(false)

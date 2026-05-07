@@ -77,6 +77,12 @@ interface DataTradeModulesResponse {
   modules: DataTradeModuleAccess[]
 }
 
+interface DataTradeHandoffCreateResponse {
+  handoffCode: string
+  targetModule: string
+  expiresAt: string
+}
+
 const LEGACY_API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || ''
 const DATA_TRADE_API_URL = normalizeApiUrl(import.meta.env.VITE_DATA_TRADE_API_URL)
 const LEGACY_AUTH_FALLBACK = parseBooleanFlag(import.meta.env.VITE_ADEX_LEGACY_AUTH_FALLBACK)
@@ -476,4 +482,23 @@ export async function logoutSession() {
   } finally {
     clearDataTradeSession()
   }
+}
+
+export async function createHandoffCode(targetModule: string) {
+  if (!useDataTradeAuth()) {
+    throw new AuthApiError(
+      'Configura VITE_DATA_TRADE_API_URL para navegar con sesion compartida.',
+      0,
+      'DATA_TRADE_API_URL_MISSING',
+    )
+  }
+
+  if (!accessToken) {
+    throw new AuthApiError('Sesion no restaurada. Inicia sesion nuevamente.', 401, 'UNAUTHENTICATED')
+  }
+
+  return requestDataTradeJson<DataTradeHandoffCreateResponse>('/auth/handoff/create', {
+    method: 'POST',
+    body: JSON.stringify({ targetModule }),
+  })
 }
