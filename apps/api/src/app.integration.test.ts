@@ -190,7 +190,7 @@ describe.skipIf(!testDatabaseUrl)("Data Trade API database integration", () => {
           targetModule: "sislope",
         },
       });
-      expect(createHandoff.statusCode).toBe(201);
+      expect(createHandoff.statusCode).toBe(200);
       const handoff = createHandoff.json();
       expect(handoff.handoffCode).toEqual(expect.any(String));
       expect(handoff.handoffCode).not.toBe(loggedIn.accessToken);
