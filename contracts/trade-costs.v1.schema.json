@@ -123,12 +123,15 @@
         "cfr": { "$ref": "#/$defs/DecimalString" },
         "insurance": { "$ref": "#/$defs/DecimalString" },
         "insurancePremium": { "$ref": "#/$defs/DecimalString" },
+        "insuranceFee": { "$ref": "#/$defs/DecimalString" },
+        "insuranceIgv": { "$ref": "#/$defs/DecimalString" },
         "cif": { "$ref": "#/$defs/DecimalString" },
         "adValorem": { "$ref": "#/$defs/DecimalString" },
         "isc": { "$ref": "#/$defs/DecimalString" },
         "igv": { "$ref": "#/$defs/DecimalString" },
         "ipm": { "$ref": "#/$defs/DecimalString" },
         "totalTaxes": { "$ref": "#/$defs/DecimalString" },
+        "deudaAduanera": { "$ref": "#/$defs/DecimalString" },
         "igvPerception": { "$ref": "#/$defs/DecimalString" },
         "brokerFee": { "$ref": "#/$defs/DecimalString" },
         "totalDeudaAduanera": { "$ref": "#/$defs/DecimalString" }
@@ -140,7 +143,8 @@
       "properties": {
         "key": { "type": "string" },
         "label": { "type": "string" },
-        "amountUsd": { "$ref": "#/$defs/DecimalString" }
+        "amountUsd": { "$ref": "#/$defs/DecimalString" },
+        "subjectToIgv": { "type": "boolean" }
       }
     },
     "ExpensesResult": {
@@ -150,6 +154,8 @@
           "type": "array",
           "items": { "$ref": "#/$defs/ExpenseLine" }
         },
+        "subtotalAfecto": { "$ref": "#/$defs/DecimalString" },
+        "subtotalNoAfecto": { "$ref": "#/$defs/DecimalString" },
         "subtotalExpenses": { "$ref": "#/$defs/DecimalString" },
         "igvOnExpenses": { "$ref": "#/$defs/DecimalString" },
         "totalExpenses": { "$ref": "#/$defs/DecimalString" }
@@ -167,10 +173,12 @@
         "fobTotal": { "$ref": "#/$defs/DecimalString" },
         "proportion": { "$ref": "#/$defs/DecimalString" },
         "allocatedCif": { "$ref": "#/$defs/DecimalString" },
+        "allocatedAdValorem": { "$ref": "#/$defs/DecimalString" },
         "allocatedTaxes": { "$ref": "#/$defs/DecimalString" },
         "allocatedExpenses": { "$ref": "#/$defs/DecimalString" },
         "totalCost": { "$ref": "#/$defs/DecimalString" },
-        "unitCost": { "$ref": "#/$defs/DecimalString" }
+        "unitCost": { "$ref": "#/$defs/DecimalString" },
+        "factor": { "$ref": "#/$defs/DecimalString" }
       }
     },
     "SkuPricing": {
@@ -184,7 +192,13 @@
         "retailPriceExIgv": { "$ref": "#/$defs/DecimalString" },
         "igvOnPrice": { "$ref": "#/$defs/DecimalString" },
         "retailPriceIncIgv": { "$ref": "#/$defs/DecimalString" },
-        "profitPerUnit": { "$ref": "#/$defs/DecimalString" }
+        "profitPerUnit": { "$ref": "#/$defs/DecimalString" },
+        "unitCostPen": { "$ref": "#/$defs/DecimalString" },
+        "retailPriceExIgvPen": { "$ref": "#/$defs/DecimalString" },
+        "igvOnPricePen": { "$ref": "#/$defs/DecimalString" },
+        "retailPriceIncIgvPen": { "$ref": "#/$defs/DecimalString" },
+        "profitPerUnitPen": { "$ref": "#/$defs/DecimalString" },
+        "breakEvenUnits": { "type": "integer" }
       }
     },
     "ExportExpenseLine": {
