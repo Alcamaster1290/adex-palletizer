@@ -1,4 +1,3 @@
-import { getApiBaseUrl } from './authApi'
 import {
   REGISTRATION_JOB_TITLE_OPTIONS,
   REGISTRATION_USE_CASE_OPTIONS,
@@ -46,11 +45,6 @@ export function AuthScreen({
   onRetrySession,
   sislopeUrl,
 }: AuthScreenProps) {
-  const apiBaseUrl = getApiBaseUrl()
-  const usesLocalDocker = apiBaseUrl.includes('localhost:8787')
-  const connectionHint = usesLocalDocker
-    ? 'Usa tu backend local en Docker Desktop.'
-    : 'Usa el backend integrado del mismo deployment.'
   const isRegisterMode = mode === 'register'
   const title = isRegisterMode
     ? 'Crea tu acceso en 1 minuto'
@@ -70,11 +64,9 @@ export function AuthScreen({
     return (
       <main className="auth-shell">
         <section className="auth-card auth-card-loading">
-          <p className="eyebrow">ADEX ACCESS GATE</p>
           <h1>Verificando acceso</h1>
           <p>Restaurando tu sesion segura.</p>
           <div className="auth-spinner" aria-hidden="true" />
-          <p className="auth-meta">Origen API: {apiBaseUrl}</p>
         </section>
       </main>
     )
@@ -84,16 +76,8 @@ export function AuthScreen({
     <main className="auth-shell">
       <section className="auth-card">
         <div className="auth-copy">
-          <p className="eyebrow">ADEX ACCESS GATE</p>
           <h1>{title}</h1>
           <p className="auth-lead">{lead}</p>
-          <div className="auth-highlights" aria-label="estado de acceso">
-            <span className="auth-chip">Acceso seguro</span>
-            <span className="auth-chip">
-              {isRegisterMode ? 'Alta inmediata' : 'Sesion profesional'}
-            </span>
-            <span className="auth-chip">{connectionHint}</span>
-          </div>
         </div>
 
         <form
@@ -109,7 +93,6 @@ export function AuthScreen({
               <label className="field" htmlFor="auth-full-name">
                 <span>
                   Nombre completo
-                  <strong>registro</strong>
                 </span>
                 <input
                   id="auth-full-name"
@@ -127,7 +110,6 @@ export function AuthScreen({
               <label className="field" htmlFor="auth-register-email">
                 <span>
                   Correo de trabajo
-                  <strong>registro</strong>
                 </span>
                 <input
                   id="auth-register-email"
@@ -146,7 +128,6 @@ export function AuthScreen({
               <label className="field" htmlFor="auth-company-name">
                 <span>
                   Empresa
-                  <strong>registro</strong>
                 </span>
                 <input
                   id="auth-company-name"
@@ -202,7 +183,6 @@ export function AuthScreen({
               <label className="field" htmlFor="auth-use-case">
                 <span>
                   Caso de uso
-                  <strong>startup</strong>
                 </span>
                 <select
                   id="auth-use-case"
@@ -225,7 +205,6 @@ export function AuthScreen({
               <label className="field" htmlFor="auth-volume-band">
                 <span>
                   Volumen estimado
-                  <strong>startup</strong>
                 </span>
                 <select
                   id="auth-volume-band"
@@ -249,7 +228,6 @@ export function AuthScreen({
               <label className="field" htmlFor="auth-register-password">
                 <span>
                   Contrasena
-                  <strong>seguridad</strong>
                 </span>
                 <input
                   id="auth-register-password"
@@ -268,7 +246,6 @@ export function AuthScreen({
               <label className="field field--full" htmlFor="auth-register-password-confirm">
                 <span>
                   Confirmar contrasena
-                  <strong>seguridad</strong>
                 </span>
                 <input
                   id="auth-register-password-confirm"
@@ -290,7 +267,6 @@ export function AuthScreen({
               <label className="field" htmlFor="auth-identifier">
                 <span>
                   Usuario o correo
-                  <strong>auth</strong>
                 </span>
                 <input
                   id="auth-identifier"
@@ -305,7 +281,6 @@ export function AuthScreen({
               <label className="field" htmlFor="auth-password">
                 <span>
                   Contrasena
-                  <strong>auth</strong>
                 </span>
                 <input
                   id="auth-password"
