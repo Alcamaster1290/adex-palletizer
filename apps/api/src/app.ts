@@ -251,7 +251,8 @@ export async function buildApp(options: BuildAppOptions) {
   app.get("/ready", async (_request, reply) => {
     try {
       await readyCheck();
-    } catch {
+    } catch (err) {
+      _request.log.error({ err }, "ready check failed");
       return reply.status(503).send(buildErrorBody(
         "DATABASE_UNAVAILABLE",
         "Database readiness check failed.",
