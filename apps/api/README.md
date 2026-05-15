@@ -2,6 +2,31 @@
 
 Backend comun para identidad, sesiones, modulos, eventos, metricas y dashboard admin del ecosistema Data Trade.
 
+## Lugar En Data Trade
+
+Este servicio es el unico backend de identidad y telemetria del ecosistema. Todos los frontends de Data Trade lo consumen.
+
+```text
+data-trade/
+|-- apps/
+|   `-- api/                   <- ESTE SERVICIO (Fastify 5 + Drizzle + PostgreSQL)
+|                              Deploy: data-trade-api-production.up.railway.app
+|-- adex-palletizer-web/       Cliente principal hoy (Vercel: adex-palletizer.vercel.app)
+|-- SistemaLogisticoPeruano/
+|   `-- SisLoPe/               Convergencia esperada (Vercel: sis-lo-pe.vercel.app)
+|                              Tiene su propio servicio "maritime-api" (dominio maritimo)
+|-- alvin/                     Aun no integrado a Auth (Streamlit: alvin-comex.streamlit.app)
+|-- contracts/                 Contratos JSON entre modulos
+`-- docs/                      Arquitectura y planes
+```
+
+Quien depende de este API:
+
+- **adex-palletizer-web** (Vercel): hoy lo usa con `VITE_DATA_TRADE_API_URL=https://data-trade-api-production.up.railway.app` para `/auth/*`, `/auth/handoff/create` y `/events/track`.
+- **SisLoPe** (Vercel): debe converger a usar este API por debajo de su login propio y aceptar handoff desde ADEX por `/auth/handoff/exchange`.
+- **ALVIN** (Streamlit): no consume Auth por ahora. Se integra por contratos JSON (`contracts/`).
+- **maritime-api** (dentro de SisLoPe): servicio de dominio maritimo. No es un segundo backend Data Trade; vive en SisLoPe.
+
 ## Estado Actual
 
 - Runtime: Fastify 5 sobre Node.js.

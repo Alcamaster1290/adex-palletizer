@@ -2,6 +2,30 @@
 
 SPA React/Vite para calculo, visualizacion 3D y export de unitarizacion caja/pallet/contenedor. Dentro de Data Trade, ADEX Palletizer es el primer frontend conectado al backend comun `apps/api`.
 
+## Posicion En Data Trade
+
+Este SPA es uno de los frontends del ecosistema Data Trade. Convive con SisLoPe y ALVIN y consume el backend comun `apps/api`.
+
+```text
+data-trade/
+|-- apps/api/                  Backend comun (Fastify + PostgreSQL "data_trade")
+|                              Deploy: data-trade-api-production.up.railway.app
+|-- adex-palletizer-web/       <- ESTE PROYECTO (React 19, Vite 7, Three/Fiber)
+|                              Deploy: adex-palletizer.vercel.app
+|-- SistemaLogisticoPeruano/
+|   `-- SisLoPe/               Repo anidado (Vercel: sis-lo-pe.vercel.app)
+|-- alvin/                     Repo anidado (Streamlit: alvin-comex.streamlit.app)
+|-- contracts/                 Contratos JSON versionados (trade-case.v1, trade-costs.v1)
+`-- docs/                      Arquitectura, runbook y planes
+```
+
+Como conversa este frontend con el resto del sistema:
+
+- **Identidad**: llama a `apps/api` (`POST /auth/login`, `GET /auth/me`, `GET /auth/modules`, `POST /auth/logout`) con `VITE_DATA_TRADE_API_URL`.
+- **Tracking**: envia eventos a `POST /events/track` cuando `VITE_DATA_TRADE_TRACKING_ENABLED=true`.
+- **Handoff a SisLoPe**: `POST /auth/handoff/create` genera un codigo de un solo uso, sin tokens en URL.
+- **Export a ALVIN**: produce `trade-case.v1` (`contracts/trade-case.v1.schema.json`).
+
 ## Estado Actual
 
 - Frontend: React 19, Vite 7, TypeScript, Three/Fiber, Drei y Lucide.
@@ -147,15 +171,18 @@ Smoke esperado con API local:
 
 La app se despliega como SPA Vite. Si se usa el repo completo, respetar el `vercel.json` de raiz; si se configura desde dashboard, usar `adex-palletizer-web` como Root Directory y `dist` como Output Directory.
 
-Variables minimas:
+Variables minimas (produccion actual):
 
 ```text
-VITE_DATA_TRADE_API_URL=https://api.datatrade.pe
+VITE_DATA_TRADE_API_URL=https://data-trade-api-production.up.railway.app
 VITE_DATA_TRADE_TRACKING_ENABLED=true
 VITE_DATA_TRADE_MODULE_CODE=adex_palletizer
 VITE_DATA_TRADE_ADMIN_DASHBOARD_ENABLED=true
 VITE_ADEX_LEGACY_AUTH_FALLBACK=false
+VITE_SISLOPE_URL=https://sis-lo-pe.vercel.app
 ```
+
+`VITE_DATA_TRADE_API_URL` debe apuntar al backend desplegado (Railway hoy). Si se migra a un dominio propio (por ejemplo `api.datatrade.pe`), actualizar la variable y el CORS en `apps/api`.
 
 ## Modelos 3D
 
