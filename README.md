@@ -16,6 +16,66 @@ Este README resume el estado del workspace completo sin reemplazar los README de
 | `contracts` | Activo | Schemas JSON versionados para interoperabilidad entre modulos. |
 | `docs` | Activo | Arquitectura, planes, runbook local y archivo historico de fases. |
 
+## Estructura Del Sistema Data Trade
+
+Layout actual del monorepo y como se relaciona cada pieza:
+
+```text
+data-trade/
+|-- apps/
+|   `-- api/                          Backend comun Fastify + PostgreSQL schema "data_trade"
+|                                     Deploy: data-trade-api-production.up.railway.app
+|-- adex-palletizer-web/              SPA React/Vite - ADEX Palletizer (modulo activo)
+|                                     Deploy: adex-palletizer.vercel.app
+|-- SistemaLogisticoPeruano/
+|   `-- SisLoPe/                      Repo anidado - SPA logistica geoespacial
+|                                     Deploy: sis-lo-pe.vercel.app
+|-- alvin/                            Repo anidado - Streamlit costos COMEX
+|                                     Deploy: alvin-comex.streamlit.app
+|-- contracts/                        Contratos JSON versionados (trade-case.v1, trade-costs.v1)
+`-- docs/                             Arquitectura, runbook, planes y archivo historico
+```
+
+| Componente | Stack | Despliegue | Rol |
+| --- | --- | --- | --- |
+| `apps/api` | Fastify 5, Drizzle, PostgreSQL | Railway (`data-trade-api-production.up.railway.app`) | Identidad, sesiones, modulos, eventos, metricas, admin |
+| `adex-palletizer-web` | React 19, Vite 7, Three/Fiber | Vercel (`adex-palletizer.vercel.app`) | Palletizacion, visualizacion 3D, exports, handoff a SisLoPe |
+| `SisLoPe` | SPA + `maritime-api` Fastify | Vercel (`sis-lo-pe.vercel.app`) | Mapa logistico, capas, rutas, modulo maritimo |
+| `alvin` | Streamlit (Python) | Streamlit Cloud (`alvin-comex.streamlit.app`) | Costos importacion/exportacion, tributos, pricing |
+| `contracts` | JSON Schema | - | Intercambio entre modulos por `caseId` portable |
+
+Flujo de identidad y datos:
+
+```text
+                  +------------------+
+                  |   apps/api       |  identidad, sesiones, modulos
+                  |  (Railway)       |  eventos, metricas, admin
+                  +---------+--------+
+                            ^
+              /auth/* y /events/track (Bearer)
+                            |
+        +-------------------+--------------------+
+        |                   |                    |
+        v                   v                    v
++----------------+  +-----------------+  +-----------------+
+| adex-palletizer|  |     SisLoPe     |  |      ALVIN      |
+| (Vercel)       |  |    (Vercel)     |  | (Streamlit)     |
++--------+-------+  +--------+--------+  +-----------------+
+         |                   ^                    ^
+         |                   |                    |
+         +-- handoff/create  |                    |
+         |   handoff/exchange|                    |
+         |                                        |
+         +--------- trade-case.v1 / trade-costs.v1 (contracts/)
+```
+
+Reglas estructurales:
+
+- `alvin/` y `SistemaLogisticoPeruano/SisLoPe/` son repos git anidados; viven en disco dentro de este workspace pero mantienen su propio historial y deploy.
+- Solo `adex-palletizer-web` y `apps/api` se versionan dentro de este repo principal.
+- El backend comun es uno solo (`apps/api`). `maritime-api` dentro de SisLoPe es un servicio de dominio maritimo, no reemplaza al backend Data Trade.
+- Toda integracion entre modulos pasa por `apps/api` (identidad/eventos) o por `contracts/` (datos de negocio).
+
 ## Funcionalidades Por Proyecto
 
 ### ADEX Palletizer

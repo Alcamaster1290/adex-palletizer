@@ -4,6 +4,36 @@ Contratos JSON versionados para la comunicacion entre modulos del ecosistema Dat
 
 Estos contratos no reemplazan las funcionalidades propias de ADEX Palletizer, ALVIN o SisLoPe. Su objetivo es permitir que cada proyecto intercambie casos y resultados sin acoplar UIs, scripts internos o estructuras de carpetas.
 
+## Posicion En Data Trade
+
+`contracts/` es la capa de intercambio de datos de negocio entre modulos. Es independiente del backend comun de identidad (`apps/api`): cada modulo puede producir o consumir contratos sin estar conectado a Auth.
+
+```text
+data-trade/
+|-- apps/api/                Identidad, sesiones, eventos (NO transporta los contratos)
+|                            Deploy: data-trade-api-production.up.railway.app
+|-- adex-palletizer-web/     Productor de trade-case.v1 (Vercel: adex-palletizer.vercel.app)
+|-- alvin/                   Productor de trade-costs.v1 / consumidor de trade-case.v1
+|                            (Streamlit: alvin-comex.streamlit.app)
+|-- SistemaLogisticoPeruano/
+|   `-- SisLoPe/             Consumidor (Vercel: sis-lo-pe.vercel.app)
+|-- contracts/               <- ESTA CARPETA (schemas + ejemplos)
+`-- docs/                    Arquitectura y planes
+```
+
+Productores y consumidores actuales:
+
+| Contrato | Productor | Consumidores | Donde vive |
+| --- | --- | --- | --- |
+| `trade-case.v1` | ADEX Palletizer | ALVIN, SisLoPe, ETLs futuros | `trade-case.v1.schema.json` |
+| `trade-costs.v1` | ALVIN | SisLoPe, dashboards, Excel export | `trade-costs.v1.schema.json` |
+
+Separacion de responsabilidades:
+
+- `apps/api` transporta identidad y eventos, no contratos. Un evento puede referenciar un `caseId`, pero el payload del caso vive en su contrato JSON.
+- `contracts/` define el formato; el transporte (archivo, share link, upload, fetch) lo decide cada modulo.
+- `docs/` documenta arquitectura y plan; los schemas viven aqui como fuente unica de verdad.
+
 ## Regla operativa
 
 Toda integracion entre modulos debe pasar por `caseId` y contratos versionados, no por scraping de UIs ni imports ad hoc.
