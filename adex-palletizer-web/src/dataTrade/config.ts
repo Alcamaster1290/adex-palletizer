@@ -6,7 +6,8 @@ export interface DataTradeFrontendConfig {
 }
 
 function parseBooleanFlag(value: string | undefined): boolean {
-  return value === 'true' || value === '1'
+  const normalized = value?.trim().toLowerCase()
+  return normalized === 'true' || normalized === '1'
 }
 
 function normalizeApiUrl(value: string | undefined): string {
