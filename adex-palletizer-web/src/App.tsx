@@ -2923,6 +2923,20 @@ function App() {
     (authUser?.role === 'admin' || hasAdminModuleAccess) &&
     isDataTradeAdminDashboardEnabled()
 
+  // TEMP debug exposure — remove after diagnosing prod admin dashboard.
+  if (typeof window !== 'undefined') {
+    ;(window as Window & { __adexAuthDebug?: unknown }).__adexAuthDebug = {
+      authStatus,
+      authUserRole: authUser?.role,
+      authUserEmail: authUser?.email,
+      authModulesCount: authModules.length,
+      authModules: authModules.map((m) => ({ key: m.key, accessLevel: m.accessLevel })),
+      hasAdminModuleAccess,
+      adminDashboardEnabledFlag: isDataTradeAdminDashboardEnabled(),
+      adminDashboardAvailable,
+    }
+  }
+
   const openAdminDashboard = () => {
     if (adminDashboardAvailable) {
       setAdminDashboardOpen(true)
