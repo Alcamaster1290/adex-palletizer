@@ -5,7 +5,10 @@ import { createDatabase } from "./client.js";
 async function main() {
   const config = loadConfig();
   if (!config.dataTradeAdminEmail || !config.dataTradeAdminPassword) {
-    throw new Error("DATA_TRADE_ADMIN_EMAIL and DATA_TRADE_ADMIN_PASSWORD are required to seed the first admin.");
+    process.stdout.write(
+      "DATA_TRADE_ADMIN_EMAIL/DATA_TRADE_ADMIN_PASSWORD not set; skipping admin bootstrap.\n",
+    );
+    return;
   }
 
   const connection = createDatabase(config.databaseUrl);
