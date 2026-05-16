@@ -252,9 +252,7 @@ export async function buildApp(options: BuildAppOptions) {
     try {
       await readyCheck();
     } catch (err) {
-      // Bypass pino formatting to surface the full error in Railway logs.
-      // eslint-disable-next-line no-console
-      console.error("[ready-check failed]", err);
+      _request.log.error({ err }, "ready check failed");
       return reply.status(503).send(buildErrorBody(
         "DATABASE_UNAVAILABLE",
         "Database readiness check failed.",

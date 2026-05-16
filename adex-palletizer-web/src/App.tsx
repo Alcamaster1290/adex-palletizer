@@ -2916,8 +2916,12 @@ function App() {
     [authAccessToken, authLogoutSubmitting, authModules, authUser],
   )
 
+  const hasAdminModuleAccess = authModules.some(
+    (entry) => entry.key === 'admin' && entry.accessLevel === 'admin',
+  )
   const adminDashboardAvailable =
-    authUser?.role === 'admin' && isDataTradeAdminDashboardEnabled()
+    (authUser?.role === 'admin' || hasAdminModuleAccess) &&
+    isDataTradeAdminDashboardEnabled()
 
   const openAdminDashboard = () => {
     if (adminDashboardAvailable) {
