@@ -124,7 +124,6 @@ Eventos instrumentados:
 - `module_opened`
 - `palletizer_calculation_created`
 - `export_generated`
-- `admin_view_opened`
 - `api_error`
 
 El cliente sanitiza metadata y no envia tokens, passwords, refresh tokens ni `user_id` manual.

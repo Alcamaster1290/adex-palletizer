@@ -14,7 +14,6 @@ export const trackedEventNames = [
   "search_performed",
   "file_uploaded",
   "export_generated",
-  "admin_view_opened",
   "api_error",
   "session_started",
   "session_ended",

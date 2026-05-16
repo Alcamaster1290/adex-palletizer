@@ -8,7 +8,7 @@ import {
   type DataTradeAdminUserRow,
   type DataTradeAuthApi,
 } from './client'
-import { dataTradeClient, trackDataTradeEvent } from './runtime'
+import { dataTradeClient } from './runtime'
 
 interface AdminDashboardClient {
   getAdminOverview: DataTradeAuthApi['getAdminOverview']
@@ -71,9 +71,6 @@ export function DataTradeAdminDashboard({
     let mounted = true
     setLoading(true)
     setError(null)
-    void trackDataTradeEvent('admin_view_opened', {
-      surface: 'adex_palletizer',
-    })
 
     Promise.all([
       client.getAdminOverview(auth.accessToken),
