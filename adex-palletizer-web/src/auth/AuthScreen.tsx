@@ -25,6 +25,7 @@ interface AuthScreenProps {
   onSubmit: () => void
   onModeChange: (mode: AuthMode) => void
   onRetrySession: () => void
+  onVisitorMode: () => void
   sislopeUrl: string
 }
 
@@ -44,6 +45,7 @@ export function AuthScreen({
   onSubmit,
   onModeChange,
   onRetrySession,
+  onVisitorMode,
   sislopeUrl,
 }: AuthScreenProps) {
   const apiBaseUrl = getApiBaseUrl()
@@ -346,6 +348,17 @@ export function AuthScreen({
               Abrir SisLoPe
             </a>
           </div>
+
+          {!isRegisterMode ? (
+            <button
+              type="button"
+              className="auth-inline-link auth-visitor-link"
+              onClick={onVisitorMode}
+              disabled={submitting}
+            >
+              Solo estoy viendo &rarr; Entrar sin cuenta
+            </button>
+          ) : null}
 
           {showRetryConnection ? (
             <button

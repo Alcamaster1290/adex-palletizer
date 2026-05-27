@@ -157,6 +157,157 @@ body {
   color: var(--accent-strong);
 }
 
+.auth-visitor-link {
+  margin-top: 4px;
+  opacity: 0.72;
+}
+
+.auth-visitor-link:hover {
+  opacity: 1;
+}
+
+/* ── Visitor Gate ──────────────────────────────────────── */
+
+.vg-wrap {
+  position: relative;
+}
+
+.vg-blur {
+  filter: blur(5px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.vg-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(244, 239, 230, 0.45);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.vg-overlay-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 22px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(10, 106, 114, 0.14);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: box-shadow 0.15s;
+}
+
+.vg-overlay:hover .vg-overlay-cta {
+  box-shadow: 0 8px 30px rgba(10, 106, 114, 0.22);
+}
+
+.vg-lock {
+  font-size: 20px;
+}
+
+/* Modal backdrop */
+
+.vg-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(43, 31, 21, 0.45);
+  backdrop-filter: blur(3px);
+  padding: 24px;
+}
+
+.vg-modal {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 36px 32px 28px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 16px 48px rgba(10, 106, 114, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vg-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.vg-close:hover {
+  background: var(--bg-2);
+}
+
+.vg-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.vg-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text);
+}
+
+.vg-body {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.vg-perks {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--accent-ink);
+}
+
+.vg-perks li {
+  line-height: 1.4;
+}
+
+.vg-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ── Auth errors ─────────────────────────────────────── */
+
 .auth-error {
   border: 1px solid var(--danger-line);
   background: var(--danger-bg);

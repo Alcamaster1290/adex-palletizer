@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuthScreen } from './auth/AuthScreen'
 import { AuthProvider } from './auth/AuthContext'
+import { VisitorGateModal } from './auth/VisitorGate'
 import {
   AuthApiError,
   clearDataTradeSession,
@@ -181,6 +182,15 @@ const TEST_AUTH_USER: AuthUser = {
   role: 'admin',
   status: 'active',
   mustChangePassword: true,
+}
+
+const VISITOR_AUTH_USER: AuthUser = {
+  id: 'visitor',
+  username: 'visitante',
+  email: '',
+  role: 'visitor',
+  status: 'active',
+  mustChangePassword: false,
 }
 
 const MIN_SINGLE_BOX_DIMENSION_MM = 50
@@ -947,6 +957,7 @@ function App() {
   const [registerErrors, setRegisterErrors] = useState<RegistrationFieldErrors>({})
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [authLogoutSubmitting, setAuthLogoutSubmitting] = useState(false)
+  const [visitorGateOpen, setVisitorGateOpen] = useState(false)
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false)
   const [skuLabelsBySku, setSkuLabelsBySku] = useState<SkuLabelsBySku>(() =>
     loadSkuLabels(),
@@ -1134,6 +1145,13 @@ function App() {
     } finally {
       setAuthSubmitting(false)
     }
+  }
+
+  const runVisitorMode = () => {
+    setAuthUser(VISITOR_AUTH_USER)
+    setAuthAccessToken(null)
+    setAuthModules([])
+    setAuthStatus('authenticated')
   }
 
   const handleRegisterFieldChange = (field: RegistrationField, value: string) => {
@@ -2912,10 +2930,15 @@ function App() {
         ),
       logout: handleLogout,
       logoutPending: authLogoutSubmitting,
+      registerRedirect: () => {
+        setAuthMode('register')
+        void handleLogout()
+      },
     }),
     [authAccessToken, authLogoutSubmitting, authModules, authUser],
   )
 
+  const isVisitor = authUser?.role === 'visitor'
   const adminDashboardAvailable =
     authUser?.role === 'admin' && isDataTradeAdminDashboardEnabled()
 
@@ -2954,6 +2977,7 @@ function App() {
         onRetrySession={() => {
           void retryAuthSession()
         }}
+        onVisitorMode={runVisitorMode}
         sislopeUrl={SISLOPE_URL}
       />
     )
@@ -3260,7 +3284,11 @@ function App() {
                     <button
                       type="button"
                       className="btn-secondary"
-                      onClick={() =>
+                      onClick={() => {
+                        if (isVisitor) {
+                          setVisitorGateOpen(true)
+                          return
+                        }
                         exportJson({
                           input: appliedInput,
                           result,
@@ -3268,7 +3296,7 @@ function App() {
                           labelsBySku: skuLabelsBySku,
                           generatedAt: new Date().toISOString(),
                         })
-                      }
+                      }}
                     >
                       Exportar JSON
                     </button>
@@ -4280,7 +4308,13 @@ function App() {
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={exportContainerJsonPlan}
+                  onClick={() => {
+                    if (isVisitor) {
+                      setVisitorGateOpen(true)
+                      return
+                    }
+                    exportContainerJsonPlan()
+                  }}
                 >
                   Exportar plan JSON
                 </button>
@@ -4678,6 +4712,18 @@ function App() {
         onSave={saveLabelConfig}
         onReset={resetLabelConfig}
       />
+      {visitorGateOpen ? (
+        <VisitorGateModal
+          feature="Exportación detallada"
+          onClose={() => setVisitorGateOpen(false)}
+          onRegister={() => {
+            setVisitorGateOpen(false)
+            setAuthMode('register')
+            void handleLogout()
+          }}
+        />
+      ) : null}
+
       {adminDashboardOpen && adminDashboardAvailable ? (
         <div
           className="modal-overlay admin-dashboard-modal-overlay"

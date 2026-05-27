@@ -9,6 +9,7 @@ export interface AuthContextValue {
   canAccessModule: (moduleCode: string) => boolean
   logout: () => Promise<void>
   logoutPending: boolean
+  registerRedirect: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
