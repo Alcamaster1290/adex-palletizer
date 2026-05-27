@@ -5,6 +5,7 @@ import {
   buildTopViewDimensionLines,
   buildTopViewGeometry,
 } from './topViewHelpers'
+import { VisitorGate } from '../auth/VisitorGate'
 
 interface TopViewLayerProps {
   palletLength: number
@@ -94,6 +95,7 @@ export function TopViewLayer({
         </span>
       </div>
 
+      <VisitorGate feature="Vista técnica">
       <div className="top-view-toolbar">
         <label className="checkbox-row top-view-toggle" htmlFor="single-top-view-technical">
           <input
@@ -198,6 +200,7 @@ export function TopViewLayer({
         <p>Residual eje largo: {residualLength} mm</p>
         <p>Residual eje ancho: {residualWidth} mm</p>
       </div>
+      </VisitorGate>
     </section>
   )
 }

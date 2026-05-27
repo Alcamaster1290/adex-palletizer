@@ -1,4 +1,4 @@
-export type AuthMode = 'login' | 'register'
+export type AuthMode = 'login' | 'register' | 'visitor'
 
 export type RegistrationUseCase =
   | 'single_palletization'

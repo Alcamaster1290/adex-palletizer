@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { ContainerInput, ContainerResult } from '../types'
 import { buildContainerTopViewGeometry } from './containerTopViewDimensions'
+import { VisitorGate } from '../auth/VisitorGate'
 
 interface ContainerTopViewProps {
   input: ContainerInput
@@ -51,6 +52,7 @@ export function ContainerTopView({
         </span>
       </div>
 
+      <VisitorGate feature="Vista técnica del contenedor">
       <div className="top-view-toolbar">
         <label className="checkbox-row top-view-toggle" htmlFor="container-top-view-technical">
           <input
@@ -169,6 +171,7 @@ export function ContainerTopView({
         <p>Residual interno eje largo: {result.selected.trailingResidualLength} mm</p>
         <p>Residual interno eje ancho: {result.selected.trailingResidualWidth} mm</p>
       </div>
+      </VisitorGate>
     </section>
   )
 }
