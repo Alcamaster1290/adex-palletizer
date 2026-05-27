@@ -129,6 +129,7 @@ function renderDashboard({
           ),
         logout: vi.fn(async () => {}),
         logoutPending: false,
+        registerRedirect: vi.fn(),
       }}
     >
       <DataTradeAdminDashboard client={client} config={config} />
