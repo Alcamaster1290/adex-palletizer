@@ -46,6 +46,10 @@ import {
 import { ContainerTopView } from './container-view/ContainerTopView'
 import { solveContainerLoading } from './containerSolver'
 import {
+  EnvasePackingView,
+  type EnvaseBoxPushPayload,
+} from './envase-view/EnvasePackingView'
+import {
   buildContainerTopViewPngFilename,
   exportContainerPlanJson,
 } from './export/exportContainerPlan'
@@ -91,7 +95,6 @@ import {
 import { Scene } from './scene/Scene'
 import { SceneContainer } from './scene/SceneContainer'
 import { SceneMulti } from './scene/SceneMulti'
-import { buildShareQuery, parseShareLinkInput } from './shareLink'
 import { buildBoxInstances, solvePalletization } from './solver'
 import { solveSingleAdvancedPacking } from './singleAdvancedPacking'
 import { TopViewLayer } from './top-view/TopViewLayer'
@@ -197,7 +200,7 @@ const MIN_SINGLE_BOX_DIMENSION_MM = 50
 const MIN_WEIGHT_KG = 0.001
 
 type BoxSection = 'pallet' | 'box'
-type TabKey = 'single' | 'multi' | 'container'
+type TabKey = 'packing' | 'single' | 'multi' | 'container'
 type LabelEditorMode = 'single' | 'multi'
 type FieldErrors = Record<string, string>
 type PalletPresetKey = 'american' | 'euro' | 'custom'
@@ -919,29 +922,13 @@ const percentFormatter = new Intl.NumberFormat('es-ES', {
 const formatPercent = (value: number) => `${percentFormatter.format(value * 100)}%`
 
 function App() {
-  const initialShareState = useMemo(
-    () =>
-      parseShareLinkInput(
-        window.location.search,
-        DEFAULT_INPUT,
-        DEFAULT_CONTAINER_INPUT,
-      ),
-    [],
-  )
-  const initialMultiState = useMemo(() => {
-    const next = cloneMultiState(DEFAULT_MULTI_STATE)
-    if (initialShareState.multiNoMixedSkuStacking !== null) {
-      next.noMixedSkuStacking = initialShareState.multiNoMixedSkuStacking
-    }
-    return next
-  }, [initialShareState.multiNoMixedSkuStacking])
+  const initialMultiState = useMemo(() => cloneMultiState(DEFAULT_MULTI_STATE), [])
   const testAuthBypass =
     import.meta.env.MODE === 'test' &&
     !(window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__
 
-  const [activeTab, setActiveTab] = useState<TabKey>(initialShareState.mode)
-  const [shareWarning] = useState<string | null>(initialShareState.warning)
-  const [shareStatus, setShareStatus] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<TabKey>('single')
+  const [envaseInitialCaja, setEnvaseInitialCaja] = useState<DimensionsMM | null>(null)
   const [authStatus, setAuthStatus] = useState<AuthStatus>(
     testAuthBypass ? 'authenticated' : 'checking',
   )
@@ -958,41 +945,36 @@ function App() {
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [authLogoutSubmitting, setAuthLogoutSubmitting] = useState(false)
   const [visitorGateOpen, setVisitorGateOpen] = useState(false)
+  const [visitorGateFeature, setVisitorGateFeature] = useState('Exportación detallada')
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false)
   const [skuLabelsBySku, setSkuLabelsBySku] = useState<SkuLabelsBySku>(() =>
     loadSkuLabels(),
   )
-  const [boxSkinMode, setBoxSkinMode] = useState<BoxSkinMode>(
-    () => initialShareState.boxSkinMode ?? 'box',
-  )
+  const [boxSkinMode, setBoxSkinMode] = useState<BoxSkinMode>('box')
   const [labelEditorOpen, setLabelEditorOpen] = useState(false)
   const [labelEditorMode, setLabelEditorMode] = useState<LabelEditorMode>('single')
   const [labelEditorSkuId, setLabelEditorSkuId] = useState<string>(SINGLE_BOX_SKU_ID)
 
   const [draftInput, setDraftInput] = useState<SolverInput>(() =>
-    cloneInput(initialShareState.input),
+    cloneInput(DEFAULT_INPUT),
   )
   const [singlePalletPreset, setSinglePalletPreset] =
-    useState<PalletPresetKey>(() => detectPalletPreset(initialShareState.input.pallet))
-  const [singleBoxPreset, setSingleBoxPreset] = useState<BoxPresetId>(
-    () => initialShareState.boxPresetId ?? detectBoxPreset(initialShareState.input.box),
+    useState<PalletPresetKey>(() => detectPalletPreset(DEFAULT_INPUT.pallet))
+  const [singleBoxPreset, setSingleBoxPreset] = useState<BoxPresetId>(() =>
+    detectBoxPreset(DEFAULT_INPUT.box),
   )
   const [singlePackingModeDraft, setSinglePackingModeDraft] = useState<PackingMode>(
-    () =>
-      initialShareState.packingMode ??
-      resolveStandardSinglePackingMode(initialShareState.input),
+    () => resolveStandardSinglePackingMode(DEFAULT_INPUT),
   )
   const [singlePackingModeApplied, setSinglePackingModeApplied] = useState<PackingMode>(
-    () =>
-      initialShareState.packingMode ??
-      resolveStandardSinglePackingMode(initialShareState.input),
+    () => resolveStandardSinglePackingMode(DEFAULT_INPUT),
   )
   const [singleFieldValues, setSingleFieldValues] = useState<SingleFieldValues>(() =>
-    buildSingleFieldValues(initialShareState.input),
+    buildSingleFieldValues(DEFAULT_INPUT),
   )
   const [singleFieldErrors, setSingleFieldErrors] = useState<FieldErrors>({})
   const [appliedInput, setAppliedInput] = useState<SolverInput>(() =>
-    cloneInput(initialShareState.input),
+    cloneInput(DEFAULT_INPUT),
   )
   const [singleCanvas, setSingleCanvas] = useState<HTMLCanvasElement | null>(null)
   const [lastCalculatedAt, setLastCalculatedAt] = useState<Date>(new Date())
@@ -1024,19 +1006,17 @@ function App() {
     useState<MultiPreviewResult | null>(() => initialMultiNoMixResult)
 
   const [containerDraft, setContainerDraft] = useState<ContainerInput>(() =>
-    cloneContainerInput(initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT),
+    cloneContainerInput(DEFAULT_CONTAINER_INPUT),
   )
   const [containerPreset, setContainerPreset] = useState<ContainerPresetKey>(() =>
-    detectContainerPreset(
-      (initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT).container,
-    ),
+    detectContainerPreset(DEFAULT_CONTAINER_INPUT.container),
   )
   const [containerFieldValues, setContainerFieldValues] = useState<ContainerFieldValues>(
-    () => buildContainerFieldValues(initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT),
+    () => buildContainerFieldValues(DEFAULT_CONTAINER_INPUT),
   )
   const [containerFieldErrors, setContainerFieldErrors] = useState<FieldErrors>({})
   const [containerApplied, setContainerApplied] = useState<ContainerInput>(() =>
-    cloneContainerInput(initialShareState.containerInput ?? DEFAULT_CONTAINER_INPUT),
+    cloneContainerInput(DEFAULT_CONTAINER_INPUT),
   )
   const [containerPalletLoad, setContainerPalletLoad] =
     useState<ExportedPalletLoad | null>(null)
@@ -1695,7 +1675,6 @@ function App() {
     setAppliedInput(cloneInput(draftInput))
     setSinglePackingModeApplied(singlePackingModeDraft)
     setLastCalculatedAt(new Date())
-    setShareStatus(null)
     void trackDataTradeEvent('palletizer_calculation_created', {
       mode: 'single',
       packingMode: singlePackingModeDraft,
@@ -1715,9 +1694,7 @@ function App() {
     setSinglePackingModeApplied(nextDefaultMode)
     setSingleFieldValues(buildSingleFieldValues(next))
     setSingleFieldErrors({})
-    setLastCalculatedAt(new Date())
-    setShareStatus(null)
-  }
+    setLastCalculatedAt(new Date())  }
 
   const setContainerValueAndValidation = (
     fieldId: ContainerFieldId,
@@ -1774,9 +1751,7 @@ function App() {
       delete next['container-height']
       return next
     })
-    setLastContainerCalculatedAt(new Date())
-    setShareStatus(null)
-  }
+    setLastContainerCalculatedAt(new Date())  }
 
   const updateContainerDimensions = (
     fieldId: ContainerFieldId,
@@ -1877,7 +1852,6 @@ function App() {
       setContainerPalletLoad(null)
     }
     setLastContainerCalculatedAt(new Date())
-    setShareStatus(null)
     void trackDataTradeEvent('palletizer_calculation_created', {
       mode: 'container',
       preset: nextInput.preset,
@@ -1910,9 +1884,7 @@ function App() {
       pallets: updater(current.pallets ?? []),
     }))
     setContainerPalletLoad(null)
-    setLastContainerCalculatedAt(new Date())
-    setShareStatus(null)
-  }
+    setLastContainerCalculatedAt(new Date())  }
 
   const buildCurrentContainerCatalogEntry = (
     source: ContainerPalletSource,
@@ -2001,9 +1973,7 @@ function App() {
     setContainerPalletLoad(null)
     setContainerPalletSource('single')
     setContainerShowTechnical(true)
-    setLastContainerCalculatedAt(new Date())
-    setShareStatus(null)
-  }
+    setLastContainerCalculatedAt(new Date())  }
 
   const openSingleLabelEditor = () => {
     setLabelEditorMode('single')
@@ -2451,6 +2421,64 @@ function App() {
     }
   }
 
+  const useEnvaseBoxInSingle = (payload: EnvaseBoxPushPayload) => {
+    const nextInput = cloneInput(draftInput)
+    nextInput.box = { ...payload.box }
+    nextInput.boxUnitWeightKg = payload.contenidoKg ?? undefined
+
+    const nextPackingMode = resolveStandardSinglePackingMode(nextInput)
+    setActiveTab('single')
+    setSingleBoxPreset(detectBoxPreset(nextInput.box))
+    setSinglePackingModeDraft(nextPackingMode)
+    setSinglePackingModeApplied(nextPackingMode)
+    setDraftInput(nextInput)
+    setAppliedInput(cloneInput(nextInput))
+    setSingleFieldValues(buildSingleFieldValues(nextInput))
+    setSingleFieldErrors({})
+    setLastCalculatedAt(new Date())
+    setScenarioNotice(null)
+    void trackDataTradeEvent('palletizer_calculation_created', {
+      mode: 'single',
+      packingMode: nextPackingMode,
+      source: 'envase-packing',
+      hasBoxWeight: nextInput.boxUnitWeightKg !== undefined,
+      hasPalletWeight: nextInput.palletWeightKg !== undefined,
+    })
+  }
+
+  const addEnvaseBoxToMulti = (payload: EnvaseBoxPushPayload) => {
+    if (multiDraft.skus.length >= 20) {
+      setScenarioNotice('Limite de 20 SKUs alcanzado para la vista previa multicaja.')
+      setActiveTab('multi')
+      return
+    }
+
+    const nextId =
+      multiDraft.skus.reduce((maxId, sku) => Math.max(maxId, sku.id), 0) + 1
+    const nextSku = createDefaultMultiSku(nextId, {
+      name: `Caja ${payload.envaseNombre}`,
+      length: payload.box.length,
+      width: payload.box.width,
+      height: payload.box.height,
+      quantity: 1,
+      unitWeightKg: payload.contenidoKg ?? undefined,
+    })
+
+    const nextDraft: MultiDraftState = {
+      ...multiDraft,
+      skus: [...multiDraft.skus, nextSku],
+    }
+    setMultiDraft(nextDraft)
+    setMultiFieldValues(buildMultiFieldValues(nextDraft))
+    setMultiFieldErrors((current) => {
+      const next = { ...current }
+      delete next['multi-skus-empty']
+      return next
+    })
+    setScenarioNotice(null)
+    setActiveTab('multi')
+  }
+
   const addMultiSku = () => {
     if (multiDraft.skus.length >= 20) {
       setScenarioNotice('Limite de 20 SKUs alcanzado para la vista previa multicaja.')
@@ -2545,7 +2573,6 @@ function App() {
       setMultiAlgorithm('heuristic')
       setMultiHeuristicResult(result)
       setLastGeneratedAt(new Date())
-      setShareStatus(null)
       setScenarioNotice(
         result.errors.length > 0
           ? 'La heuristica no-mix encontro errores. No se aplico vista previa.'
@@ -2564,7 +2591,6 @@ function App() {
     setMultiAlgorithm('preview')
     setMultiHeuristicResult(null)
     setLastGeneratedAt(new Date())
-    setShareStatus(null)
     void trackDataTradeEvent('palletizer_calculation_created', {
       mode: 'multi',
       algorithm: 'preview',
@@ -2592,7 +2618,6 @@ function App() {
         setMultiAlgorithm('heuristic')
         setMultiHeuristicResult(result)
         setLastGeneratedAt(new Date())
-        setShareStatus(null)
         setScenarioNotice(
           result.errors.length > 0
             ? 'La heuristica no-mix encontro errores. Se mantiene el resultado no-mix para revision.'
@@ -2618,7 +2643,6 @@ function App() {
       setMultiHeuristicResult(result)
       setScenarioNotice(null)
       setLastGeneratedAt(new Date())
-      setShareStatus(null)
       void trackDataTradeEvent('palletizer_calculation_created', {
         mode: 'multi',
         algorithm: 'heuristic',
@@ -2660,9 +2684,7 @@ function App() {
       setMultiHeuristicResult(null)
     }
     setLastGeneratedAt(new Date())
-    setScenarioNotice(null)
-    setShareStatus(null)
-  }
+    setScenarioNotice(null)  }
 
   const persistScenarios = (nextScenarios: StoredScenario[]) => {
     setScenarios(nextScenarios)
@@ -2673,6 +2695,13 @@ function App() {
     if (scenarios.length >= SCENARIO_LIMIT) {
       setScenarioNotice(
         `Limite de ${SCENARIO_LIMIT} escenarios alcanzado. Elimina uno para continuar.`,
+      )
+      return
+    }
+
+    if (activeTab === 'packing') {
+      setScenarioNotice(
+        'Los escenarios se guardan desde Caja unica, Multiples cajas o Contenedores. Usa "Usar esta caja" para llevar el calculo de envases a esas pestañas.',
       )
       return
     }
@@ -2811,75 +2840,17 @@ function App() {
   const areaUtilizationText = formatPercent(singleAreaUtilization)
   const volumeUtilizationText = formatPercent(singleVolumeUtilization)
 
-  const shareCurrentSingle = async () => {
-    const query = buildShareQuery(appliedInput, 'single', {
-      boxPresetId: singleBoxPreset,
-      packingMode: singlePackingModeApplied,
-      boxSkinMode,
-    })
-    const relativeUrl = `${window.location.pathname}${query}`
-    const absoluteUrl = `${window.location.origin}${relativeUrl}`
-    window.history.replaceState(window.history.state, '', relativeUrl)
-
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(absoluteUrl)
-        setShareStatus('Enlace copiado al portapapeles.')
-        return
-      } catch {
-        // Si falla el portapapeles, dejamos el enlace en pantalla.
-      }
-    }
-
-    setShareStatus(`Enlace listo: ${absoluteUrl}`)
+  const openVisitorGate = (feature: string) => {
+    setVisitorGateFeature(feature)
+    setVisitorGateOpen(true)
   }
 
-  const shareCurrentMulti = async () => {
-    const query = buildShareQuery(appliedInput, 'multi', {
-      noMixedSkuStacking: multiDraft.noMixedSkuStacking,
-      boxSkinMode,
-    })
-    const relativeUrl = `${window.location.pathname}${query}`
-    const absoluteUrl = `${window.location.origin}${relativeUrl}`
-    window.history.replaceState(window.history.state, '', relativeUrl)
-
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(absoluteUrl)
-        setShareStatus('Enlace copiado al portapapeles.')
-        return
-      } catch {
-        // Si falla el portapapeles, dejamos el enlace en pantalla.
-      }
-    }
-
-    setShareStatus(`Enlace listo: ${absoluteUrl}`)
-  }
-
-  const shareCurrentContainer = async () => {
-    if ((containerApplied.pallets?.length ?? 0) > 0) {
-      setShareStatus(
-        'El modo consolidado no se serializa en enlace. Guarda un escenario para compartir el catalogo.',
-      )
+  const handleSaveScenario = () => {
+    if (authUser?.role === 'visitor') {
+      openVisitorGate('Guardado de escenarios')
       return
     }
-
-    const query = buildShareQuery(containerApplied, 'container', { boxSkinMode })
-    const relativeUrl = `${window.location.pathname}${query}`
-    const absoluteUrl = `${window.location.origin}${relativeUrl}`
-    window.history.replaceState(window.history.state, '', relativeUrl)
-
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(absoluteUrl)
-        setShareStatus('Enlace copiado al portapapeles.')
-        return
-      } catch {
-        // Si falla el portapapeles, dejamos el enlace en pantalla.
-      }
-    }
-
-    setShareStatus(`Enlace listo: ${absoluteUrl}`)
+    saveCurrentScenario()
   }
 
   const exportContainerJsonPlan = () => {
@@ -3001,13 +2972,14 @@ function App() {
           onOpenAdminDashboard={openAdminDashboard}
         />
 
-      {shareWarning && (
-        <div className="notice-box" role="alert">
-          <p>{shareWarning}</p>
-        </div>
-      )}
-
       <nav className="tab-row" aria-label="Modos de palletizado">
+        <button
+          type="button"
+          className={`tab-button ${activeTab === 'packing' ? 'active' : ''}`}
+          onClick={() => setActiveTab('packing')}
+        >
+          Envases → Caja
+        </button>
         <button
           type="button"
           className={`tab-button ${activeTab === 'single' ? 'active' : ''}`}
@@ -3031,7 +3003,13 @@ function App() {
         </button>
       </nav>
 
-      {activeTab === 'single' ? (
+      {activeTab === 'packing' ? (
+        <EnvasePackingView
+          initialCaja={envaseInitialCaja}
+          onUseInSingle={useEnvaseBoxInSingle}
+          onAddToMulti={addEnvaseBoxToMulti}
+        />
+      ) : activeTab === 'single' ? (
         <>
           <section className="top-grid">
             <form
@@ -3172,6 +3150,16 @@ function App() {
                   error={singleFieldErrors['box-unit-weight']}
                   onChange={updateSingleBoxUnitWeight}
                 />
+                <button
+                  type="button"
+                  className="auth-inline-link"
+                  onClick={() => {
+                    setEnvaseInitialCaja({ ...draftInput.box })
+                    setActiveTab('packing')
+                  }}
+                >
+                  Editar interior de caja →
+                </button>
               </div>
 
               <div className="field-group">
@@ -3279,18 +3267,16 @@ function App() {
                     <button
                       type="button"
                       className="btn-secondary"
-                      onClick={() => {
-                        void shareCurrentSingle()
-                      }}
+                      onClick={handleSaveScenario}
                     >
-                      Compartir enlace
+                      Guardar
                     </button>
                     <button
                       type="button"
                       className="btn-secondary"
                       onClick={() => {
                         if (isVisitor) {
-                          setVisitorGateOpen(true)
+                          openVisitorGate('Exportación detallada')
                           return
                         }
                         exportJson({
@@ -3314,8 +3300,6 @@ function App() {
                     </button>
                   </div>
                 </div>
-
-                {shareStatus && <p className="meta-text">{shareStatus}</p>}
 
                 <div className="kpi-grid summary-kpi-grid">
                   <article className="kpi">
@@ -3845,11 +3829,9 @@ function App() {
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => {
-                    void shareCurrentMulti()
-                  }}
+                  onClick={handleSaveScenario}
                 >
-                  Compartir enlace
+                  Guardar
                 </button>
                 <span className={multiResult.unplacedTotal > 0 ? 'chip pending' : 'chip ready'}>
                   {multiResult.algorithm === 'heuristic'
@@ -3860,8 +3842,6 @@ function App() {
                 </span>
               </div>
             </div>
-
-            {shareStatus && <p className="meta-text">{shareStatus}</p>}
 
             <div className="kpi-grid">
               <article className="kpi">
@@ -4303,18 +4283,16 @@ function App() {
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => {
-                    void shareCurrentContainer()
-                  }}
+                  onClick={handleSaveScenario}
                 >
-                  Compartir enlace
+                  Guardar
                 </button>
                 <button
                   type="button"
                   className="btn-secondary"
                   onClick={() => {
                     if (isVisitor) {
-                      setVisitorGateOpen(true)
+                      openVisitorGate('Exportación detallada')
                       return
                     }
                     exportContainerJsonPlan()
@@ -4332,8 +4310,6 @@ function App() {
                 </button>
               </div>
             </div>
-
-            {shareStatus && <p className="meta-text">{shareStatus}</p>}
 
             <div className="kpi-grid">
               <article className="kpi">
@@ -4590,7 +4566,7 @@ function App() {
       <section className="panel outputs-panel">
         <div className="outputs-header">
           <h2>Escenarios guardados</h2>
-          <button type="button" className="btn-secondary" onClick={saveCurrentScenario}>
+          <button type="button" className="btn-secondary" onClick={handleSaveScenario}>
             Guardar escenario
           </button>
         </div>
@@ -4718,7 +4694,7 @@ function App() {
       />
       {visitorGateOpen ? (
         <VisitorGateModal
-          feature="Exportación detallada"
+          feature={visitorGateFeature}
           onClose={() => setVisitorGateOpen(false)}
           onRegister={() => {
             setVisitorGateOpen(false)

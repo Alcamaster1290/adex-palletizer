@@ -971,3 +971,41 @@ describe('App input validation', () => {
     expect(screen.getByText(/heuristica por columnas sku/i)).toBeInTheDocument()
   })
 })
+
+describe('Guardar con gate de visitante', () => {
+  it('visitante: Guardar abre el popup de registro y no guarda escenarios', async () => {
+    ;(window as Window & { __ADEX_FORCE_LOGIN__?: boolean }).__ADEX_FORCE_LOGIN__ = true
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED' } }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    const visitorButton = await screen.findByRole('button', {
+      name: /entrar sin cuenta/i,
+    })
+    fireEvent.click(visitorButton)
+
+    const guardarButton = await screen.findByRole('button', { name: /^guardar$/i })
+    fireEvent.click(guardarButton)
+
+    expect(
+      await screen.findByText(/solo para cuentas registradas/i),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/guardado de escenarios/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /seguir explorando/i }))
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/solo para cuentas registradas/i),
+      ).not.toBeInTheDocument()
+    })
+    expect(screen.getByText(/no hay escenarios guardados/i)).toBeInTheDocument()
+  })
+})

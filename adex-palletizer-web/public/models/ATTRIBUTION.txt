@@ -7,3 +7,9 @@ Model: Bag
 Author: Quaternius
 Source: Poly Pizza (https://poly.pizza/m/VRfAODZ0Xk)
 License: Public Domain (CC0 1.0)
+
+Model: Coffee (1 Kg) — usado como placeholder del envase Cafe Romerito 1kg
+(cafe-romerito-1kg.glb: version simplificada + Draco, textura re-marcada)
+Author: matousekfoto
+Source: Sketchfab (https://sketchfab.com/3d-models/coffee-1-kg-cca01dbe14e64777912cb95326df1b25)
+License: Creative Commons Attribution 4.0 (CC BY 4.0)
